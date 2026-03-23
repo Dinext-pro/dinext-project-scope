@@ -1,0 +1,42 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Project Scope Type",
+  "enabled": 1,
+  "modified": "2026-03-21 23:07:39.425933",
+  "name": "Географический",
+  "object_doctype": "Territory"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scope Type",
+  "enabled": 1,
+  "modified": "2026-03-21 23:07:39.434892",
+  "name": "Процессный",
+  "object_doctype": null
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scope Type",
+  "enabled": 1,
+  "modified": "2026-03-21 23:07:39.440367",
+  "name": "Интеграционный",
+  "object_doctype": null
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scope Type",
+  "enabled": 1,
+  "modified": "2026-03-21 23:07:39.486485",
+  "name": "Организационный",
+  "object_doctype": null
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Scope Type",
+  "enabled": 1,
+  "modified": "2026-03-21 23:07:39.604178",
+  "name": "Функциональный",
+  "object_doctype": null
+ }
+]

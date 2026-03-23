@@ -1,0 +1,179 @@
+[
+ {
+  "color": "#5C6BC0",
+  "description": "Результаты в виде документов: спецификации, сценарии, программы.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Type",
+  "elements": [
+   {
+    "element_name": "Разработка",
+    "element_type": "Task",
+    "filter_type": null,
+    "is_optional": 0,
+    "parent": "Документ",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   },
+   {
+    "element_name": "Согласование / Приемка",
+    "element_type": "Task",
+    "filter_type": null,
+    "is_optional": 0,
+    "parent": "Документ",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   },
+   {
+    "element_name": "Отработка замечаний",
+    "element_type": "Task",
+    "filter_type": null,
+    "is_optional": 1,
+    "parent": "Документ",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   }
+  ],
+  "enabled": 1,
+  "icon": null,
+  "modified": "2026-03-23 03:03:13.806884",
+  "name": "Документ"
+ },
+ {
+  "color": "#43A047",
+  "description": "Выполнение работ: задачи выполнения, согласования и отработки замечаний.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Type",
+  "elements": [
+   {
+    "element_name": "Выполнение",
+    "element_type": "Task",
+    "filter_type": null,
+    "is_optional": 0,
+    "parent": "Работа",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   },
+   {
+    "element_name": "Согласование / Приемка",
+    "element_type": "Task",
+    "filter_type": null,
+    "is_optional": 0,
+    "parent": "Работа",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   },
+   {
+    "element_name": "Отработка замечаний (опционально)",
+    "element_type": "Task",
+    "filter_type": null,
+    "is_optional": 1,
+    "parent": "Работа",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   }
+  ],
+  "enabled": 1,
+  "icon": null,
+  "modified": "2026-03-23 02:56:12.709446",
+  "name": "Работа"
+ },
+ {
+  "color": "#1E88E5",
+  "description": "Спецификация и реализация функциональности проекта.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Type",
+  "elements": [
+   {
+    "element_name": "Спецификация",
+    "element_type": "Project Deliverable",
+    "filter_type": "Документ",
+    "is_optional": 0,
+    "parent": "Разработка",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   },
+   {
+    "element_name": "Реализация",
+    "element_type": "Task",
+    "filter_type": null,
+    "is_optional": 0,
+    "parent": "Разработка",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   }
+  ],
+  "enabled": 1,
+  "icon": null,
+  "modified": "2026-03-23 02:56:20.322042",
+  "name": "Разработка"
+ },
+ {
+  "color": "#FB8C00",
+  "description": "Подготовка сценариев и проведение тестов.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Type",
+  "elements": [
+   {
+    "element_name": "Сценарий / программа",
+    "element_type": "Project Deliverable",
+    "filter_type": "Документ",
+    "is_optional": 0,
+    "parent": "Тестирование",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   },
+   {
+    "element_name": "Проведение",
+    "element_type": "Project Deliverable",
+    "filter_type": "Работа",
+    "is_optional": 0,
+    "parent": "Тестирование",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   }
+  ],
+  "enabled": 1,
+  "icon": null,
+  "modified": "2026-03-23 02:56:20.807044",
+  "name": "Тестирование"
+ },
+ {
+  "color": "#6D4C41",
+  "description": "ExampleCustomer08 загрузки и миграции данных в тест и продуктив.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Type",
+  "elements": [
+   {
+    "element_name": "Шаблон загрузки",
+    "element_type": "Task",
+    "filter_type": null,
+    "is_optional": 0,
+    "parent": "Миграция данных",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   },
+   {
+    "element_name": "Тестовый прогон",
+    "element_type": "Project Deliverable",
+    "filter_type": "Работа",
+    "is_optional": 0,
+    "parent": "Миграция данных",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   },
+   {
+    "element_name": "Продуктивная миграция",
+    "element_type": "Project Deliverable",
+    "filter_type": "Работа",
+    "is_optional": 0,
+    "parent": "Миграция данных",
+    "parentfield": "elements",
+    "parenttype": "Project Deliverable Type"
+   }
+  ],
+  "enabled": 1,
+  "icon": null,
+  "modified": "2026-03-23 02:56:21.415907",
+  "name": "Миграция данных"
+ }
+]
