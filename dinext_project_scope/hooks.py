@@ -8,7 +8,34 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext"]
+
+fixtures = [
+    "Project Scope Type",
+    "Requirement Kind",
+    "Project Deliverable Responsibility",
+    "Project Deliverable Category",
+    "Project Change Relation Type",
+    "Project Deliverable Type",
+    {
+        "doctype": "Custom Field",
+        "filters": [
+            ["module", "in", ["Dinext Project Scope"]]
+        ]
+    },
+    {
+        "doctype": "Client Script",
+        "filters": [
+            ["module", "in", ["Dinext Project Scope"]],
+        ]
+    },
+    {
+        "doctype": "Server Script",
+        "filters": [
+            ["module", "in", ["Dinext Project Scope"]],
+        ]
+    }
+]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
