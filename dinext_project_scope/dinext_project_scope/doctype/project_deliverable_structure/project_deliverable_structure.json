@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-19 02:45:45.477905",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "element_name",
+  "weight",
+  "element_type",
+  "element"
+ ],
+ "fields": [
+  {
+   "fieldname": "element_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Element Name",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Weight",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "element_type",
+   "fieldtype": "Select",
+   "label": "Element Type",
+   "options": "Task\nProject Deliverable",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "element",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Element",
+   "options": "element_type"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-20 23:55:35.847146",
+ "modified_by": "Administrator",
+ "module": "Dinext Project Scope",
+ "name": "Project Deliverable Structure",
+ "owner": "ikhmel@dinord.ru",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
