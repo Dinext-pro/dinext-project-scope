@@ -1,0 +1,74 @@
+[
+ {
+  "color": "#5C6BC0",
+  "description": "Тот, кто непосредственно выполняет работу.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Responsibility",
+  "enabled": 1,
+  "modified": "2026-03-22 00:22:03.775330",
+  "name": "И",
+  "required": 1,
+  "responsibility": "Исполнитель",
+  "single": 0
+ },
+ {
+  "color": "#C62828",
+  "description": "Лицо, которое несёт полную ответственность за успешное получение результата.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Responsibility",
+  "enabled": 1,
+  "modified": "2026-03-22 00:22:03.777977",
+  "name": "О",
+  "required": 1,
+  "responsibility": "Ответственный",
+  "single": 1
+ },
+ {
+  "color": "#F9A825",
+  "description": "Лицо, участвующее в согласовании результата.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Responsibility",
+  "enabled": 1,
+  "modified": "2026-03-22 00:22:04.839195",
+  "name": "С",
+  "required": 0,
+  "responsibility": "Согласующий",
+  "single": 0
+ },
+ {
+  "color": "#6A1B9A",
+  "description": "Эксперты или заинтересованные стороны, чьё мнение и информация важны перед принятием решения.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Responsibility",
+  "enabled": 1,
+  "modified": "2026-03-22 00:22:04.843597",
+  "name": "К",
+  "required": 0,
+  "responsibility": "Консультирует до исполнения",
+  "single": 0
+ },
+ {
+  "color": "#2E7D32",
+  "description": "Лицо, которое несёт полную ответственность за финальное утверждение полученного результата.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Responsibility",
+  "enabled": 1,
+  "modified": "2026-03-22 00:22:04.846803",
+  "name": "У",
+  "required": 1,
+  "responsibility": "Утверждающий",
+  "single": 1
+ },
+ {
+  "color": "#0277BD",
+  "description": "Те, кого необходимо держать в курсе хода и результатов.",
+  "docstatus": 0,
+  "doctype": "Project Deliverable Responsibility",
+  "enabled": 1,
+  "modified": "2026-03-22 00:22:04.994249",
+  "name": "Д",
+  "required": 0,
+  "responsibility": "Доводится до сведения",
+  "single": 0
+ }
+]

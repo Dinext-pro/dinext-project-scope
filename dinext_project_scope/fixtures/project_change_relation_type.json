@@ -1,0 +1,62 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Project Change Relation Type",
+  "enabled": 1,
+  "link_doctype": null,
+  "modified": "2026-03-22 02:03:26.729353",
+  "name": "Сроки",
+  "reqd_estimation": 1,
+  "reqd_explanation": 1,
+  "reqd_link": 0,
+  "uom": "День"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Change Relation Type",
+  "enabled": 1,
+  "link_doctype": null,
+  "modified": "2026-03-22 02:03:26.962156",
+  "name": "Трудозатраты",
+  "reqd_estimation": 1,
+  "reqd_explanation": 1,
+  "reqd_link": 0,
+  "uom": "Час"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Change Relation Type",
+  "enabled": 1,
+  "link_doctype": null,
+  "modified": "2026-03-22 02:03:27.646600",
+  "name": "Фин. результат",
+  "reqd_estimation": 1,
+  "reqd_explanation": 1,
+  "reqd_link": 0,
+  "uom": "Единица"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Change Relation Type",
+  "enabled": 1,
+  "link_doctype": null,
+  "modified": "2026-03-22 02:03:28.518532",
+  "name": "Качество",
+  "reqd_estimation": 0,
+  "reqd_explanation": 1,
+  "reqd_link": 0,
+  "uom": "Единица"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Change Relation Type",
+  "enabled": 1,
+  "link_doctype": null,
+  "modified": "2026-03-22 02:03:29.132505",
+  "name": "Объем",
+  "reqd_estimation": 1,
+  "reqd_explanation": 1,
+  "reqd_link": 0,
+  "uom": "Единица"
+ }
+]
