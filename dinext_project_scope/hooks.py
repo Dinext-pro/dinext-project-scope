@@ -9,7 +9,7 @@ app_license = "mit"
 # ------------------
 
 required_apps = ["erpnext"]
-
+'''
 fixtures = [
     "Project Scope Type",
     "Requirement Kind",
@@ -35,7 +35,7 @@ fixtures = [
             ["module", "in", ["Dinext Project Scope"]],
         ]
     }
-]
+]'''
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -110,7 +110,8 @@ fixtures = [
 # ------------
 
 # before_install = "dinext_project_scope.install.before_install"
-# after_install = "dinext_project_scope.install.after_install"
+after_install = "dinext_project_scope.install.after_install"
+after_migrate = "dinext_project_scope.install.after_migrate"
 
 # Uninstallation
 # ------------
