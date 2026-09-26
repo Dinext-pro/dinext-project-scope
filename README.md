@@ -130,7 +130,7 @@ bench --site <site_name> migrate
 dinext_project_scope/
 ├── README.md                 # Документация проекта
 ├── AGENTS.md                 # Контекст для разработки и агентов
-├── license.txt               # Лицензия MIT
+├── license.txt               # Лицензия GPL-3
 ├── pyproject.toml            # Метаданные пакета, Ruff, зависимости bench
 ├── .pre-commit-config.yaml   # Хуки качества кода
 ├── .gitignore
