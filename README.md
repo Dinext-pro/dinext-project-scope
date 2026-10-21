@@ -1,5 +1,25 @@
 [Русский](README.ru.md)
 
+<!-- dinext-presentation:start -->
+<p align="center">
+  <a href="https://dinext.ru"><img src="docs/assets/readme/dinext-logo.png" alt="Dinext" width="128"></a>
+</p>
+<h1 align="center">Dinext Project Scope</h1>
+
+<hr>
+
+<p align="center">Manage project scope, requirements, constraints, deliverables and change requests in Dinext.</p>
+
+<p align="center">
+  <img src="docs/assets/readme/overview.png" alt="The shared Dinext project workspace, including its Scope and Results sections (demonstration project)." width="960">
+</p>
+<p align="center"><sub>The shared Dinext project workspace, including its Scope and Results sections (demonstration project).</sub></p>
+
+<p align="center">
+  <a href="https://dinext.ru">Website</a> · <a href="https://docs.dinext.ru">Documentation</a>
+</p>
+<!-- dinext-presentation:end -->
+
 # Dinext Project Scope
 
 ## 📖 Overview
