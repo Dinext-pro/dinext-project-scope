@@ -9,32 +9,7 @@ import frappe
 
 APP_NAME = 'dinext_project_scope'
 
-HUB_ITEMS = (
-	{
-		"section": 'Scope & Governance',
-		"element_type": 'DocType',
-		"target": 'Project Scope',
-		"label": 'Project Scope',
-		"description": 'Defines project boundaries through scope items, types, descriptions, and linked records.',
-		"icon": 'list',
-	},
-	{
-		"section": 'Scope & Governance',
-		"element_type": 'DocType',
-		"target": 'Project Deliverable',
-		"label": 'Project Deliverable',
-		"description": 'Tracks deliverables by type, category, status, progress, related scope, requirements, and responsible parties.',
-		"icon": 'file',
-	},
-	{
-		"section": 'Scope & Governance',
-		"element_type": 'DocType',
-		"target": 'Project Change Request',
-		"label": 'Project Change Request',
-		"description": 'Manages submittable change requests with initiator, justification, alternatives, and linked project objects.',
-		"icon": 'change',
-	},
-)
+HUB_ITEMS = ()  # Existing saved rows are retained; no new default contribution.
 
 
 def register_dinext_hub_items() -> None:
