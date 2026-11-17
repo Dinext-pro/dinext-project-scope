@@ -404,6 +404,8 @@ Verification Status,Состояние проверки
 Verified At,Проверено в
 Verified By,Проверил
 Withdraw Review,Отозвать согласование
+The amended request cannot be changed after the first save.,Исходный запрос нельзя изменить после первого сохранения.
+Amend a cancelled change request from this project.,Исправленную версию можно создать из отменённого запроса этого проекта.
 Return to Draft,Вернуть в черновик
 Mark Implemented,Подтвердить выполнение
 Select a record from the same project.,Выберите запись этого проекта.

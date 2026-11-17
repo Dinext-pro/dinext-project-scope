@@ -46,6 +46,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
+   "no_copy": 1,
    "options": "Draft\nIn Review\nApproved\nRejected\nImplemented\nCancelled",
    "read_only": 1,
    "reqd": 1
@@ -136,19 +137,22 @@
    "allow_on_submit": 1,
    "fieldname": "implementation_date",
    "fieldtype": "Date",
-   "label": "Implementation Date"
+   "label": "Implementation Date",
+   "no_copy": 1
   },
   {
    "allow_on_submit": 1,
    "fieldname": "implementation_note",
    "fieldtype": "Text",
-   "label": "Implementation Note"
+   "label": "Implementation Note",
+   "no_copy": 1
   },
   {
    "allow_on_submit": 1,
    "fieldname": "implementation_items",
    "fieldtype": "Table",
    "label": "Implementation Items",
+   "no_copy": 1,
    "options": "Project Change Request Implementation Item"
   },
   {
@@ -198,7 +202,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-11-18 00:57:23.784700",
+ "modified": "2026-11-18 02:35:10.974391",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Change Request",

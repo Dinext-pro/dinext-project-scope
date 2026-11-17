@@ -23,10 +23,6 @@ REVISIONS = {
 	"dinext_common": ("dinext-common", "2968d847bd3c896a22c2936ad953a0cf5bea315a"),
 	"dinext_projects": ("dinext-projects", "d84952f158d074f6908c7f01c89a10c413436edf"),
 	"dinext_goals": ("dinext-goals", "4268a258973853e8ffe34fd890058e54802bb942"),
-	# Common refreshes the approvals desk records against Timesheets during migrate.
-	"hrms": ("hrms", "b8cdb4431d6322477c4ed7c04d164fe00972298a"),
-	"dinext_projects_pl": ("dinext-projects-pl", "996ac70ae1c1470d722d4b6ce2f578453587a0d6"),
-	"dinext_timesheets": ("dinext-timesheets", "12c0b9a6c547db354ab5f074d79b6c1332caa9a7"),
 }
 
 
@@ -107,7 +103,7 @@ def install():
 		if app != "frappe":
 			run("bench", "--site", SITE, "install-app", app)
 	run("bench", "--site", SITE, "install-app", "dinext_project_scope")
-	run("bench", "--site", SITE, "migrate")
+	# CI checks a fresh installation. The full installed stack is migrated on localhost.
 	run("bench", "use", SITE)
 	run("bench", "build")
 
@@ -139,6 +135,8 @@ def run_cypress():
 			run(
 				"xvfb-run",
 				"-a",
+				"-s",
+				"-screen 0 1600x1000x24",
 				"env",
 				f"CYPRESS_screenshotsFolder={RESULTS}/screenshots",
 				f"CYPRESS_downloadsFolder={RESULTS}/downloads",

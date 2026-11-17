@@ -284,6 +284,12 @@ def validate_change(doc, *, cancelling=False):
 		raise frappe.ValidationError(_("The project cannot be changed after the first save."))
 	check_project(doc.project)
 	lock_project(doc.project)
+	if previous and previous.amended_from != doc.amended_from:
+		raise frappe.ValidationError(_("The amended request cannot be changed after the first save."))
+	if not previous and doc.amended_from:
+		source = check_document(CHANGE, doc.amended_from)
+		if source.project != doc.project or source.docstatus != 2:
+			raise frappe.ValidationError(_("Amend a cancelled change request from this project."))
 	state = doc.workflow_state or DRAFT
 	if DOCSTATUS.get(state) != doc.docstatus:
 		raise WorkflowDomainRollbackError(_("Change status with the workflow actions."))

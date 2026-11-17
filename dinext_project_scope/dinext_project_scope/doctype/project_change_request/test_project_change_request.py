@@ -89,6 +89,19 @@ class TestProjectChangeRequest(FrappeTestCase):
 		self.assertEqual(change.status, "Implemented")
 		self.assertEqual(change.implemented_by, "Administrator")
 		self.assertEqual(change.implementation_items[0].reference_name, task.name)
+		self.vote(change, "Cancel", comment="Replaced by a revised request.")
+		self.assertEqual(change.docstatus, 2)
+		self.assertEqual(change.implemented_by, "Administrator")
+
+		amendment = frappe.copy_doc(change, ignore_no_copy=False)
+		amendment.amended_from = change.name
+		amendment.docstatus = 0
+		amendment.insert()
+		self.assertEqual(amendment.status, "Draft")
+		self.assertEqual(amendment.change_relations[0].estimation, "2\u20134 days")
+		self.assertFalse(amendment.implementation_items)
+		self.assertFalse(amendment.implementation_date)
+		self.assertEqual([row.decision for row in approval_history(change.name)], ["Approved"])
 
 	def test_rejected_request_has_separate_history_when_resubmitted(self):
 		change = self.change()

@@ -513,7 +513,6 @@
 				headerHeight: 32,
 				groupHeaderHeight: 29,
 				suppressCellFocus: false,
-				suppressBrowserResizeObserver: true,
 				getRowClass: ({ data }) =>
 					data?.is_group
 						? "dinext-scope-group-row"

@@ -142,6 +142,10 @@ button.dinext-scope-link:hover {
 	min-width: 0;
 }
 
+.dinext-scope-grid-target .dinext-table-hscroll-top {
+	display: none;
+}
+
 .dinext-scope-label,
 .dinext-scope-state,
 .dinext-scope-badges {

@@ -70,4 +70,33 @@ describe("Requirement specification composition", () => {
 		});
 		cy.screenshot("specification-narrow-dark", { capture: "viewport" });
 	});
+
+	it("approves the submitted specification and updates the included requirement", () => {
+		cy.viewport(1200, 800);
+		cy.visit(`/app/project-requirement-specification/${fixture.ordinary}`);
+		cy.get('[data-action="manage-composition"]').should("be.visible");
+		const state = (value) =>
+			cy.window().should((window) => {
+				expect(window.cur_frm?.doc?.workflow_state).to.eq(value);
+			});
+		const action = (label) => {
+			cy.get('.actions-btn-group:visible button[data-toggle="dropdown"]').click({
+				scrollBehavior: "nearest",
+			});
+			cy.contains(".actions-btn-group .dropdown-menu:visible a", label).click();
+		};
+		state("Draft");
+		cy.screenshot("approval-draft", { capture: "viewport" });
+		action("Submit for Review");
+		state("In Review");
+		cy.screenshot("approval-in-review", { capture: "viewport" });
+		action("Approve");
+		state("Approved");
+		cy.screenshot("approval-approved", { capture: "viewport" });
+		cy.visit(`/app/project-requirement/${fixture.working}`);
+		cy.window().should((window) => {
+			expect(window.cur_frm?.doc?.status).to.eq("Approved");
+		});
+		cy.screenshot("approval-included-requirement", { capture: "viewport" });
+	});
 });
