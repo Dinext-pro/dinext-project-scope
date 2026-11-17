@@ -103,6 +103,30 @@ def install():
 		if app != "frappe":
 			run("bench", "--site", SITE, "install-app", app)
 	run("bench", "--site", SITE, "install-app", "dinext_project_scope")
+	setup = {
+		"language": "English",
+		"email": "scope-test@example.com",
+		"full_name": "Scope Test User",
+		"password": "ci-admin",
+		"country": "United States",
+		"timezone": "America/New_York",
+		"currency": "USD",
+		"company_name": "Dinext Scope Test",
+		"company_abbr": "DST",
+		"chart_of_accounts": "Standard",
+		"fy_start_date": "2026-01-01",
+		"fy_end_date": "2026-12-31",
+		"setup_demo": 0,
+	}
+	run(
+		"bench",
+		"--site",
+		SITE,
+		"execute",
+		"frappe.desk.page.setup_wizard.setup_wizard.setup_complete",
+		"--kwargs",
+		json.dumps({"args": setup}),
+	)
 	# CI checks a fresh installation. The full installed stack is migrated on localhost.
 	run("bench", "use", SITE)
 	run("bench", "build")

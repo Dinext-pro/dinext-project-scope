@@ -81,7 +81,11 @@ def _snapshot(doc: Document, *, check_permission: bool, for_update=False) -> dic
 
 
 def _approval_filters(doc: Document) -> dict:
-	return {"reference_doctype": doc.doctype, "reference_name": doc.name}
+	return {
+		"reference_doctype": doc.doctype,
+		"reference_name": doc.name,
+		"reference_created_at": doc.creation,
+	}
 
 
 def _latest_round(doc: Document, *, decision=None, for_update=False) -> str | None:
@@ -92,8 +96,12 @@ def _latest_round(doc: Document, *, decision=None, for_update=False) -> str | No
 
 
 def _decision_task(doc: Document, *, round_id=None, next_state=None):
-	filters = _approval_filters(doc)
-	filters["workflow_state"] = REVIEW
+	filters = {
+		"reference_doctype": doc.doctype,
+		"reference_name": doc.name,
+		"source_created_at": doc.creation,
+		"workflow_state": REVIEW,
+	}
 	if round_id:
 		filters["approval_round_id"] = round_id
 	if next_state:
@@ -233,6 +241,7 @@ def _cover_requirements(approval: Document, source: Document, snapshot: dict) ->
 			"requirements",
 			{
 				"requirement": name,
+				"requirement_created_at": entry["creation"],
 				"requirement_content_revision": entry["revision"],
 				"requirement_digest": entry["digest"],
 			},
@@ -324,7 +333,15 @@ def _state(approval, cache: dict) -> str:
 	return "Draft"
 
 
-ROUND_FIELDS = ["name", "reference_doctype", "reference_name", "decision", "content_digest", "round_number"]
+ROUND_FIELDS = [
+	"name",
+	"reference_doctype",
+	"reference_name",
+	"reference_created_at",
+	"decision",
+	"content_digest",
+	"round_number",
+]
 
 
 def requirement_states(documents: dict[str, Document]) -> dict[str, str]:
@@ -336,6 +353,7 @@ def requirement_states(documents: dict[str, Document]) -> dict[str, str]:
 		fields=[
 			"parent",
 			"requirement",
+			"requirement_created_at",
 			"requirement_content_revision",
 			"requirement_digest",
 		],
@@ -357,10 +375,13 @@ def requirement_states(documents: dict[str, Document]) -> dict[str, str]:
 		fields=ROUND_FIELDS,
 		order_by="round_number desc",
 	):
-		own_rounds.setdefault(row.reference_name, row)
+		if str(row.reference_created_at) == str(documents[row.reference_name].creation):
+			own_rounds.setdefault(row.reference_name, row)
 	by_requirement = defaultdict(list)
 	for row in coverage:
-		if row.parent in approvals:
+		if row.parent in approvals and str(row.requirement_created_at) == str(
+			documents[row.requirement].creation
+		):
 			by_requirement[row.requirement].append(row)
 	states = {}
 	digests = {}
@@ -388,10 +409,14 @@ def _visible_snapshot(row: Document, readable) -> dict:
 	snapshot = json.loads(row.snapshot)
 	doctype = row.reference_doctype
 	requirements = {
-		name: entry for name, entry in snapshot["requirements"].items() if readable(req.REQUIREMENT, name)
+		name: entry
+		for name, entry in snapshot["requirements"].items()
+		if _same_document(req.REQUIREMENT, name, entry["creation"]) and readable(req.REQUIREMENT, name)
 	}
 	specifications = {
-		name: entry for name, entry in snapshot["specifications"].items() if readable(doctype, name)
+		name: entry
+		for name, entry in snapshot["specifications"].items()
+		if _same_document(doctype, name, entry["creation"]) and readable(doctype, name)
 	}
 	for entry in requirements.values():
 		if entry["parent"] not in requirements:
@@ -405,6 +430,10 @@ def _visible_snapshot(row: Document, readable) -> dict:
 			if name in (requirements if target_type == req.REQUIREMENT else specifications)
 		]
 	return {"requirements": requirements, "specifications": specifications}
+
+
+def _same_document(doctype, name, created_at):
+	return bool(created_at and str(frappe.db.get_value(doctype, name, "creation")) == str(created_at))
 
 
 HISTORY_FIELDS = [
@@ -424,12 +453,21 @@ def _history_rows(doc: Document, readable) -> list:
 	own = frappe.get_all(APPROVAL, filters=_approval_filters(doc), fields=HISTORY_FIELDS)
 	if doc.doctype != req.REQUIREMENT:
 		return sorted(own, key=lambda row: (row.submitted_at, row.name), reverse=True)
-	parents = set(frappe.get_all(COVERAGE, filters={"requirement": doc.name}, pluck="parent")) - {
-		row.name for row in own
-	}
+	parents = set(
+		frappe.get_all(
+			COVERAGE,
+			filters={"requirement": doc.name, "requirement_created_at": doc.creation},
+			pluck="parent",
+		)
+	) - {row.name for row in own}
 	if parents:
 		rows = frappe.get_all(APPROVAL, filters={"name": ("in", sorted(parents))}, fields=HISTORY_FIELDS)
-		own.extend(row for row in rows if readable(row.reference_doctype, row.reference_name))
+		own.extend(
+			row
+			for row in rows
+			if _same_document(row.reference_doctype, row.reference_name, row.reference_created_at)
+			and readable(row.reference_doctype, row.reference_name)
+		)
 	return sorted(own, key=lambda row: (row.submitted_at, row.name), reverse=True)
 
 

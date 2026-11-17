@@ -73,14 +73,15 @@ describe("Requirement specification composition", () => {
 
 	it("approves the submitted specification and updates the included requirement", () => {
 		cy.viewport(1200, 800);
-		cy.visit(`/app/project-requirement-specification/${fixture.ordinary}`);
+		const form = `/app/project-requirement-specification/${fixture.ordinary}`;
+		cy.visit(form);
 		cy.get('[data-action="manage-composition"]').should("be.visible");
 		const state = (value) =>
 			cy.window().should((window) => {
 				expect(window.cur_frm?.doc?.workflow_state).to.eq(value);
 			});
 		const action = (label) => {
-			cy.get('.actions-btn-group:visible button[data-toggle="dropdown"]').click({
+			cy.get(".page-container:visible .actions-btn-group > button").click({
 				scrollBehavior: "nearest",
 			});
 			cy.contains(".actions-btn-group .dropdown-menu:visible a", label).click();
@@ -90,6 +91,8 @@ describe("Requirement specification composition", () => {
 		action("Submit for Review");
 		state("In Review");
 		cy.screenshot("approval-in-review", { capture: "viewport" });
+		cy.visit(form);
+		cy.get('[data-action="manage-composition"]').should("be.visible");
 		action("Approve");
 		state("Approved");
 		cy.screenshot("approval-approved", { capture: "viewport" });

@@ -217,6 +217,26 @@ class TestProjectRequirement(FrappeTestCase):
 		self.assertEqual(done.reload().status, "Done")
 		self.assertEqual(inner.reload().workflow_state, "Draft")
 
+	def test_reused_specification_name_does_not_inherit_the_previous_review(self):
+		previous = self.make_specification([])
+		self.vote(previous, "Submit for Review")
+		old_round = frappe.db.get_value(
+			"Project Scope Approval", {"reference_name": previous.name, "decision": "In Review"}, "name"
+		)
+		requirement = self.make_requirement()
+		fresh = self.make_specification([(requirement.doctype, requirement.name)])
+		frappe.db.set_value("Project Scope Approval", old_round, "reference_name", fresh.name)
+
+		self.vote(fresh, "Submit for Review")
+		self.assertEqual(
+			requirement_approval.approval_summary(fresh.doctype, fresh.name)["status"], "In Review"
+		)
+		self.vote(fresh, "Approve")
+		self.assertEqual(requirement.reload().status, "Approved")
+		self.assertEqual(frappe.db.get_value("Project Scope Approval", old_round, "decision"), "In Review")
+		history = requirement_approval.approval_history(fresh.doctype, fresh.name)["rounds"]
+		self.assertEqual([row["decision"] for row in history], ["Approved"])
+
 	def test_nested_change_requires_a_new_submission_and_preserves_independent_approval(self):
 		requirement = self.make_requirement()
 		self.vote(requirement, "Submit for Review")

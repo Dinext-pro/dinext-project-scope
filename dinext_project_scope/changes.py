@@ -139,11 +139,20 @@ def _validate_implementation(doc, previous):
 
 
 def _approval_filters(doc):
-	return {"reference_doctype": CHANGE, "reference_name": doc.name}
+	return {
+		"reference_doctype": CHANGE,
+		"reference_name": doc.name,
+		"reference_created_at": doc.creation,
+	}
 
 
 def _review_task(doc, round_id=None, next_state=None):
-	filters = {**_approval_filters(doc), "workflow_state": REVIEW}
+	filters = {
+		"reference_doctype": CHANGE,
+		"reference_name": doc.name,
+		"source_created_at": doc.creation,
+		"workflow_state": REVIEW,
+	}
 	if round_id:
 		filters["approval_round_id"] = round_id
 	if next_state:

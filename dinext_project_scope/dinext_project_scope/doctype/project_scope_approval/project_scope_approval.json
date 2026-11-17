@@ -23,7 +23,8 @@
   "decided_at",
   "decided_by",
   "decision_reason",
-  "requirements"
+  "requirements",
+  "reference_created_at"
  ],
  "fields": [
   {
@@ -130,12 +131,20 @@
    "fieldtype": "Table",
    "label": "Requirements",
    "options": "Project Scope Approval Requirement"
+  },
+  {
+   "fieldname": "reference_created_at",
+   "fieldtype": "Datetime",
+   "hidden": 1,
+   "label": "Reference Created At",
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-18 00:55:50.851327",
+ "modified": "2026-11-18 02:51:39.073353",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Scope Approval",
