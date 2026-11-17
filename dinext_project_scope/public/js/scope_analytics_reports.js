@@ -13,6 +13,7 @@
 	]);
 	const grids = new WeakMap();
 	const controllers = new WeakSet();
+	const linkFilters = new WeakSet();
 	const targetQuery = "dinext_project_scope.access.project_target_query";
 	const downloadMethod = "dinext_project_scope.analytics.export.download";
 
@@ -30,6 +31,20 @@
 			report.report_doc?.ref_doctype &&
 				frappe.model.can_export(report.report_doc.ref_doctype)
 		);
+	}
+
+	function keepLinkValuesDuringTitleLookup(report) {
+		for (const field of report.filters) {
+			if (!["Link", "Dynamic Link"].includes(field.df.fieldtype) || linkFilters.has(field))
+				continue;
+			linkFilters.add(field);
+			const format = field.set_formatted_input;
+			field.set_formatted_input = function (value) {
+				format.call(this, value);
+				if (value && !this.get_input_value()) this.set_input_value(value);
+			};
+			if (field.value && !field.get_input_value()) field.set_input_value(field.value);
+		}
 	}
 
 	async function download(report) {
@@ -219,12 +234,27 @@
 		if (controllers.has(report)) return;
 		controllers.add(report);
 		const render = report.render_datatable;
+		const refresh = report.refresh;
 		const toggle = report.toggle_report;
 		const menu = report.get_menu_items;
 		const footer = report.show_footer_message;
 		const addChartButtons = report.add_chart_buttons_to_toolbar;
 		const addCardButton = report.add_card_button_to_toolbar;
 
+		report.refresh = function (...args) {
+			if (
+				isActive(this) &&
+				this.filters.some(
+					(field) => (field.df.reqd || field.df.mandatory) && !field.get_value()
+				)
+			) {
+				this.hide_loading_screen();
+				this.toggle_report(false);
+				this.toggle_message(true, __("Please set filters"));
+				return;
+			}
+			return refresh.apply(this, args);
+		};
 		report.render_datatable = function (...args) {
 			const source = this.raw_data?.columns?.[0]?.scope_report;
 			if (!isActive(this) && !source) return render.apply(this, args);
@@ -276,6 +306,7 @@
 			const expectedReport = report.report_name;
 			await window.DinextScopeAnalytics.libraries();
 			if (expectedReport !== report.report_name || !isActive(report)) return;
+			keepLinkValuesDuringTitleLookup(report);
 			install(report);
 			report.page.clear_menu();
 			report.menu_items = report.get_menu_items();

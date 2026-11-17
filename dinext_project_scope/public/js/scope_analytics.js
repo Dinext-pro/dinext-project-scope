@@ -105,6 +105,8 @@
 		const root = node("section", "dinext-scope-analytics");
 		host.replaceChildren(root);
 		const charts = new Map();
+		const pendingResize = new Set();
+		let resizeFrame = null;
 		const surface = {
 			root,
 			table: null,
@@ -115,12 +117,14 @@
 			},
 			unregisterChart(element) {
 				resize?.unobserve(element);
+				pendingResize.delete(element);
 				window.DinextCharts?.dispose(element);
 				charts.delete(element);
 			},
 			dispose() {
 				this.clearCharts();
 				resize?.disconnect();
+				if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
 				theme.disconnect();
 				this.table?.destroy();
 				this.table = null;
@@ -154,7 +158,13 @@
 
 		const resize = window.ResizeObserver
 			? new ResizeObserver((entries) => {
-					for (const entry of entries) mount(entry.target);
+					for (const entry of entries) pendingResize.add(entry.target);
+					if (resizeFrame !== null) return;
+					resizeFrame = requestAnimationFrame(() => {
+						resizeFrame = null;
+						for (const element of pendingResize) mount(element);
+						pendingResize.clear();
+					});
 			  })
 			: null;
 		const theme = new MutationObserver(() => {
@@ -503,6 +513,7 @@
 				headerHeight: 32,
 				groupHeaderHeight: 29,
 				suppressCellFocus: false,
+				suppressBrowserResizeObserver: true,
 				getRowClass: ({ data }) =>
 					data?.is_group
 						? "dinext-scope-group-row"

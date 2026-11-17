@@ -68,6 +68,6 @@ describe("Requirement specification composition", () => {
 			);
 			cy.get('[data-fieldname="target"] input').should("be.visible");
 		});
-		cy.screenshot("specification-narrow-dark");
+		cy.screenshot("specification-narrow-dark", { capture: "viewport" });
 	});
 });

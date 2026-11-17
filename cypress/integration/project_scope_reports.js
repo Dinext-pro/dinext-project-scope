@@ -23,8 +23,7 @@ function downloadExcel(report) {
 	cy.intercept("GET", "**/api/method/dinext_project_scope.analytics.export.download?*").as(
 		"workbook"
 	);
-	cy.get(".page-actions .menu-btn-group:visible .dropdown-toggle").click();
-	cy.contains(".dropdown-menu:visible a", "Download Excel").click();
+	cy.contains("button", "Download Excel").click();
 	cy.wait("@workbook").its("response.statusCode").should("eq", 200);
 	cy.readFile(`${Cypress.config("downloadsFolder")}/${report}.xlsx`, null, {
 		timeout: 30000,
@@ -55,6 +54,10 @@ describe("Project scope", () => {
 			"have.length",
 			1
 		);
+		cy.contains(
+			'[data-fieldname="custom_scope_changes_html"]',
+			`${fixture.title} change`
+		).should("be.visible");
 		cy.get("body").should(($body) =>
 			expect(
 				$body.find(

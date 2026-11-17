@@ -16,17 +16,17 @@ RESULTS = WORK / "scope-acceptance"
 SITE = "localhost"
 URL = "http://127.0.0.1:8000"
 REVISIONS = {
-	"frappe": ("dinext_platform", "8c05aa33a2aa988ab7088809a1969e8ed84f5cb7"),
-	"erpnext": ("dinext_erp", "bf4e2cac9fc015965b32bf49ad9e607da41d2229"),
-	"doctype_permission": ("doctype_permission", "27d443d913b05ce029ce00fba0bf0951bf8fb3f1"),
+	"frappe": ("dinext_platform", "de9b663eb808e8ffbe7d38a0a3233a45745831a6"),
+	"erpnext": ("dinext_erp", "548e80297397ba5d3ca4fb111a923fe784a37f4e"),
+	"doctype_permission": ("doctype_permission", "43a18b9611d9a1fdf69a3c8d25bf953f468a146a"),
 	"frappe_comment_xt": ("frappe_comment_xt", "9b2e6b44a291f1cbdcf0808ffa34f250dbd0dfc6"),
 	"dinext_common": ("dinext-common", "2968d847bd3c896a22c2936ad953a0cf5bea315a"),
-	"dinext_projects": ("dinext-projects", "4fe48152b40bd91c87599ccbde02719bf76cbdbb"),
+	"dinext_projects": ("dinext-projects", "d84952f158d074f6908c7f01c89a10c413436edf"),
 	"dinext_goals": ("dinext-goals", "4268a258973853e8ffe34fd890058e54802bb942"),
 	# Common refreshes the approvals desk records against Timesheets during migrate.
-	"hrms": ("hrms", "1b2060cc91bce2edb20be3f4e3fb08f4188f84a3"),
+	"hrms": ("hrms", "b8cdb4431d6322477c4ed7c04d164fe00972298a"),
 	"dinext_projects_pl": ("dinext-projects-pl", "996ac70ae1c1470d722d4b6ce2f578453587a0d6"),
-	"dinext_timesheets": ("dinext-timesheets", "d1d5e22c2514aa68eb1ea378413cb935b7c98383"),
+	"dinext_timesheets": ("dinext-timesheets", "12c0b9a6c547db354ab5f074d79b6c1332caa9a7"),
 }
 
 
