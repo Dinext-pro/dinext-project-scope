@@ -9,6 +9,7 @@ from dinext_project_scope.requirements import (
 	SPEC_TEMPLATE,
 	SPECIFICATION,
 )
+from dinext_project_scope.tests.project_fixture import make_project
 
 
 def _prefix(run_id):
@@ -26,10 +27,7 @@ def _prefix(run_id):
 @whitelist_for_tests(methods=["POST"])
 def create_fixture(run_id: str) -> dict:
 	prefix = _prefix(run_id)
-	project_type = frappe.get_doc(doctype="Project Type", project_type=prefix).insert()
-	project = frappe.get_doc(doctype="Project", project_name=prefix, project_type=project_type.name).insert(
-		set_name=f"CYPRESS-SCOPE-REQ-{run_id}"
-	)
+	project = make_project(prefix, f"CYPRESS-SCOPE-REQ-{run_id}")
 	contact = frappe.get_doc(doctype="Contact", first_name=prefix).insert()
 	kind = frappe.get_doc(doctype="Requirement Kind", enabled=1).insert(set_name=prefix)
 

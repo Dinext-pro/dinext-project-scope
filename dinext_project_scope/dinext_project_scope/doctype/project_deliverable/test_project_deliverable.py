@@ -6,6 +6,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from dinext_project_scope import deliverable_structure as structure
 from dinext_project_scope import deliverables
+from dinext_project_scope.tests.project_fixture import make_project
 
 
 class TestProjectDeliverable(FrappeTestCase):
@@ -19,9 +20,7 @@ class TestProjectDeliverable(FrappeTestCase):
 
 	def new_project(self):
 		name = f"SCOPE-TEST-{frappe.generate_hash(length=8)}"
-		return frappe.get_doc(doctype="Project", project_name=name, project_type=self.project_type).insert(
-			set_name=name
-		)
+		return make_project(name, name, self.project_type)
 
 	def kind(self, *elements):
 		return frappe.get_doc(

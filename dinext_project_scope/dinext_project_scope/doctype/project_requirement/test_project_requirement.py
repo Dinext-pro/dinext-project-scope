@@ -8,6 +8,7 @@ from dinext_common.workflow_approval.scenarios.service import workflow_context
 from frappe.tests.utils import FrappeTestCase
 
 from dinext_project_scope import requirement_approval, requirements
+from dinext_project_scope.tests.project_fixture import make_project
 
 
 class TestProjectRequirement(FrappeTestCase):
@@ -29,10 +30,7 @@ class TestProjectRequirement(FrappeTestCase):
 
 	def make_project(self):
 		suffix = frappe.generate_hash(length=10)
-		project_type = frappe.get_doc(doctype="Project Type", project_type=f"Requirements {suffix}").insert()
-		return frappe.get_doc(
-			doctype="Project", project_name=f"Requirements {suffix}", project_type=project_type.name
-		).insert(set_name=f"TEST-SCOPE-REQ-{suffix}")
+		return make_project(f"Requirements {suffix}", f"TEST-SCOPE-REQ-{suffix}")
 
 	def make_requirement(self, **values):
 		defaults = {

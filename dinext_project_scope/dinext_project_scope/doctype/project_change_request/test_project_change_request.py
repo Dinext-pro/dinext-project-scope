@@ -7,16 +7,14 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import today
 
 from dinext_project_scope.changes import approval_history
+from dinext_project_scope.tests.project_fixture import make_project
 
 
 class TestProjectChangeRequest(FrappeTestCase):
 	def setUp(self):
 		frappe.set_user("Administrator")
 		tag = f"SCOPE-TEST-{frappe.generate_hash(length=10)}"
-		project_type = frappe.get_doc(doctype="Project Type", project_type=tag).insert().name
-		self.project = frappe.get_doc(doctype="Project", project_name=tag, project_type=project_type).insert(
-			set_name=tag
-		)
+		self.project = make_project(tag, tag)
 		role = (
 			frappe.db.get_single_value("Project Scope Settings", "project_manager_role") or "Project Manager"
 		)

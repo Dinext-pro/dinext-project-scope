@@ -5,15 +5,13 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from dinext_project_scope import deliverable_templates
+from dinext_project_scope.tests.project_fixture import make_project
 
 
 class TestProjectDeliverablesTemplate(FrappeTestCase):
 	def test_apply_recopies_local_links_in_child_first_order_and_replays_same_request(self):
 		project_name = f"SCOPE-TEST-{frappe.generate_hash(length=8)}"
-		project_type = frappe.get_doc(doctype="Project Type", project_type=project_name).insert().name
-		project = frappe.get_doc(
-			doctype="Project", project_name=project_name, project_type=project_type
-		).insert(set_name=project_name)
+		project = make_project(project_name, project_name)
 		category = frappe.get_doc(
 			doctype="Project Deliverable Category", name=frappe.generate_hash(length=8), enabled=1
 		).insert()

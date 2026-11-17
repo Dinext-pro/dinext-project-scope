@@ -5,15 +5,13 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from dinext_project_scope.project_scope import apply_constraints_template, preview_constraints_template
+from dinext_project_scope.tests.project_fixture import make_project
 
 
 class TestProjectConstraintsTemplate(FrappeTestCase):
 	def test_apply_keeps_distinct_assumptions_and_is_idempotent(self):
 		tag = f"SCOPE-TEST-{frappe.generate_hash(length=10)}"
-		project_type = frappe.get_doc(doctype="Project Type", project_type=tag).insert().name
-		project = frappe.get_doc(doctype="Project", project_name=tag, project_type=project_type).insert(
-			set_name=tag
-		)
+		project = make_project(tag, tag)
 		category = frappe.get_doc(doctype="Project Deliverable Category", enabled=1).insert(
 			set_name=frappe.generate_hash(length=10)
 		)
