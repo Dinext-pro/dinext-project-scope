@@ -61,7 +61,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq mariadb-client libmariadb-dev libmariadb-dev-compat libxml2-dev libxslt1-dev libffi-dev libjpeg-dev zlib1g-dev redis-tools xvfb libgtk-3-0t64 libnss3 libasound2t64 libgbm1
-          python -m pip install frappe-bench==5.31.0
+          python -m pip install frappe-bench==5.29.0
           npm install --global yarn@1.22.22
           sudo install -d -o "$(id -un)" -g "$(id -gn)" /home/frappe
           ln -s "$RUNNER_TEMP/dinext-test-bench" /home/frappe/frappe-bench
