@@ -1,0 +1,63 @@
+.requirement-form-toolbar,
+.requirement-form-editor-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--margin-sm, 8px);
+}
+
+.requirement-form-toolbar {
+	margin-bottom: var(--margin-sm, 8px);
+}
+
+.requirement-form-toolbar h5 {
+	margin: 0;
+	margin-inline-end: auto;
+}
+
+.requirement-form-status {
+	color: var(--text-muted);
+}
+
+.requirement-form-table {
+	overflow-x: auto;
+}
+
+.requirement-form-table .table {
+	margin-bottom: var(--margin-sm, 8px);
+}
+
+.requirement-form-tree-label {
+	padding-inline-start: calc(min(12, var(--requirement-depth, 0)) * 14px);
+	display: flex;
+	align-items: baseline;
+	gap: var(--margin-xs, 4px);
+}
+
+.requirement-form details > summary {
+	cursor: pointer;
+}
+
+.requirement-form-links {
+	margin-bottom: var(--margin-sm, 8px);
+	padding-inline-start: var(--padding-md, 15px);
+}
+
+.requirement-form-editor-row {
+	margin-bottom: var(--margin-xs, 4px);
+}
+
+.requirement-form-editor-row a {
+	flex: 1 1 16rem;
+}
+
+.requirement-form-snapshot-text {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.requirement-form-related {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	gap: var(--margin-md, 15px);
+}

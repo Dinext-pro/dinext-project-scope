@@ -1,0 +1,55 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-11-18 00:55:21.162737",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "reference_doctype",
+  "reference_name",
+  "change_note"
+ ],
+ "fields": [
+  {
+   "allow_on_submit": 1,
+   "fieldname": "reference_doctype",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Reference Doctype",
+   "options": "Project Scope\nProject Deliverable\nProject Risk\nProject Requirement\nProject Constraint\nAccount\nProject Role\nTask",
+   "reqd": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Reference Name",
+   "options": "reference_doctype",
+   "reqd": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "change_note",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Change Note"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-18 01:43:16.663617",
+ "modified_by": "Administrator",
+ "module": "Dinext Project Scope",
+ "name": "Project Change Request Implementation Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

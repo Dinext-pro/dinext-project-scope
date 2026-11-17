@@ -1,0 +1,88 @@
+.dinext-project-scope {
+	margin: var(--margin-md) 0;
+}
+.dinext-project-scope .scope-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--margin-xs);
+	margin-bottom: var(--margin-xs);
+}
+.dinext-project-scope .scope-table-scroll {
+	overflow: auto;
+}
+.dinext-project-scope .scope-table {
+	margin: 0;
+	table-layout: auto;
+}
+.dinext-project-scope .scope-table th,
+.dinext-project-scope .scope-table td {
+	vertical-align: top;
+}
+.dinext-project-scope .scope-link,
+.scope-connection-list .scope-link {
+	padding: 0;
+	text-align: start;
+	white-space: normal;
+}
+.dinext-project-scope .scope-fold {
+	display: inline-block;
+	flex: 0 0 1rem;
+	padding: 0;
+	text-align: start;
+}
+.dinext-project-scope .scope-tree-label {
+	display: flex;
+	padding-inline-start: calc(12px * var(--scope-depth));
+}
+.dinext-project-scope .scope-tree-label small,
+.dinext-project-scope td > small {
+	display: block;
+}
+.dinext-project-scope summary {
+	cursor: pointer;
+}
+.dinext-project-scope .scope-source-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--margin-xs);
+}
+.dinext-project-scope .scope-compact-filter {
+	min-width: min(100%, 180px);
+}
+.dinext-project-scope .scope-compact-filter .frappe-control {
+	margin: 0;
+}
+.dinext-project-scope .scope-compact-filter .control-label {
+	font-size: var(--text-xs);
+}
+.dinext-project-scope .scope-row-details {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--margin-sm);
+	margin: var(--margin-xs) 0;
+}
+.dinext-project-scope .scope-row-details dt {
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+}
+.dinext-project-scope .scope-row-details dd {
+	margin: 0;
+}
+.dinext-project-scope .scope-actions-menu {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--margin-xs);
+	margin: var(--margin-xs) 0;
+}
+.scope-connection-list .scope-connection-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: var(--padding-xs) 0;
+}
+.scope-branch-option {
+	display: flex;
+	align-items: center;
+	gap: var(--margin-xs);
+}

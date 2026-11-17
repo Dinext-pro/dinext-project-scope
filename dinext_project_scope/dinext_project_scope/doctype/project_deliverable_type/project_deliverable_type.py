@@ -1,9 +1,11 @@
-# Copyright (c) 2026, Dinext and contributors
-# For license information, please see license.txt
+# Copyright (c) 2026, Dinext and Contributors
+# See license.txt
 
-# import frappe
 from frappe.model.document import Document
+
+from dinext_project_scope.deliverable_structure import validate_type_definition
 
 
 class ProjectDeliverableType(Document):
-	pass
+	def validate(self):
+		validate_type_definition(self)

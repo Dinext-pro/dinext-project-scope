@@ -1,0 +1,335 @@
+.dinext-scope-analytics {
+	--scope-red: #fbd7d7;
+	--scope-red-text: #841e28;
+	--scope-yellow: #ffedb1;
+	--scope-yellow-text: #6a440a;
+	--scope-green: #cbeed9;
+	--scope-green-text: #155538;
+	--scope-light-green: #e4f1cc;
+	--scope-light-green-text: #315313;
+	--scope-cyan: #d6edf7;
+	--scope-cyan-text: #14536d;
+	--scope-blue: #d8e6fc;
+	--scope-blue-text: #174385;
+	--scope-gray: #425162;
+	--scope-gray-text: #fff;
+	color: var(--text-color);
+	padding-block: 0.5rem;
+	min-width: 0;
+}
+
+[data-theme="dark"] .dinext-scope-analytics {
+	--scope-red: #692931;
+	--scope-red-text: #ffdfe3;
+	--scope-yellow: #594005;
+	--scope-yellow-text: #fce8af;
+	--scope-green: #164d36;
+	--scope-green-text: #d6f4df;
+	--scope-light-green: #344721;
+	--scope-light-green-text: #e3f3ce;
+	--scope-cyan: #19485b;
+	--scope-cyan-text: #d7eff7;
+	--scope-blue: #233e69;
+	--scope-blue-text: #e0ecff;
+	--scope-gray: #424a55;
+	--scope-gray-text: #f1f5f9;
+}
+
+.dinext-scope-analytics:fullscreen,
+.dinext-scope-report-page:fullscreen {
+	overflow: auto;
+	background: var(--card-bg, var(--bg-color));
+	padding: 1rem;
+}
+
+.dinext-scope-filter-strip {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	gap: 0.5rem 0.75rem;
+	margin-block-end: 0.8rem;
+}
+
+.dinext-scope-control {
+	display: grid;
+	gap: 0.25rem;
+	margin: 0;
+	font-weight: 500;
+	font-size: var(--text-sm);
+	min-width: 8rem;
+}
+
+.dinext-scope-charts {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+	gap: 0.75rem;
+	margin-block: 0.75rem;
+}
+
+.dinext-scope-chart-card {
+	min-width: 0;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	padding: 0.75rem;
+}
+
+.dinext-scope-heading {
+	font-size: var(--text-md);
+	font-weight: 600;
+	margin: 0 0 0.45rem;
+	color: var(--text-color);
+}
+
+.dinext-scope-chart {
+	width: 100%;
+}
+
+.dinext-scope-chart--donut {
+	height: 8.6rem;
+}
+
+.dinext-scope-chart--timeline {
+	height: 9.5rem;
+}
+
+.dinext-scope-chart--progress {
+	height: 15.5rem;
+}
+
+.dinext-scope-chart-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 0.55rem;
+	max-height: 5rem;
+	overflow: auto;
+}
+
+.dinext-scope-legend-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	border: 0;
+	background: transparent;
+	color: var(--text-color);
+	line-height: 1.35;
+	padding: 0.18rem 0.12rem;
+	text-align: start;
+	font-size: var(--text-xs);
+}
+
+button.dinext-scope-legend-item:hover,
+button.dinext-scope-link:hover {
+	text-decoration: underline;
+}
+
+.dinext-scope-legend-dot {
+	display: inline-block;
+	width: 0.57em;
+	height: 0.57em;
+	flex: 0 0 0.57em;
+	border-radius: 100%;
+	background: var(--scope-legend-color);
+}
+
+.dinext-scope-empty {
+	margin: 0.75rem 0 0.25rem;
+	color: var(--text-muted);
+	font-size: var(--text-sm);
+}
+
+.dinext-scope-table,
+.dinext-scope-grid-target {
+	min-width: 0;
+}
+
+.dinext-scope-label,
+.dinext-scope-state,
+.dinext-scope-badges {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	max-width: 100%;
+	overflow: hidden;
+}
+
+.dinext-scope-state,
+.dinext-scope-badges {
+	vertical-align: middle;
+}
+
+.dinext-scope-note {
+	color: var(--text-muted);
+	font-size: var(--text-xs);
+}
+
+.dinext-scope-label .dinext-scope-note {
+	flex-shrink: 0;
+}
+
+.dinext-scope-link {
+	color: var(--text-color);
+	font-weight: 500;
+}
+
+.dinext-scope-label .dinext-scope-link {
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+	min-width: 0;
+}
+
+.dinext-scope-link-button,
+.dinext-scope-impact-button {
+	border: 0;
+	background: transparent;
+	padding: 0;
+	text-align: start;
+	color: var(--text-color);
+}
+
+.dinext-scope-impact-button {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dinext-scope-impact-button:hover {
+	text-decoration: underline;
+}
+
+.dinext-scope-badge {
+	line-height: 1.45;
+	padding: 0.12rem 0.4rem;
+	border-radius: var(--border-radius-sm);
+	white-space: nowrap;
+	background: var(--scope-badge-bg, transparent);
+	color: var(--scope-badge-fg, var(--text-color));
+}
+
+.dinext-scope-badge--red {
+	--scope-badge-bg: var(--scope-red);
+	--scope-badge-fg: var(--scope-red-text);
+}
+.dinext-scope-badge--yellow {
+	--scope-badge-bg: var(--scope-yellow);
+	--scope-badge-fg: var(--scope-yellow-text);
+}
+.dinext-scope-badge--green {
+	--scope-badge-bg: var(--scope-green);
+	--scope-badge-fg: var(--scope-green-text);
+}
+.dinext-scope-badge--light-green {
+	--scope-badge-bg: var(--scope-light-green);
+	--scope-badge-fg: var(--scope-light-green-text);
+}
+.dinext-scope-badge--cyan {
+	--scope-badge-bg: var(--scope-cyan);
+	--scope-badge-fg: var(--scope-cyan-text);
+}
+.dinext-scope-badge--blue {
+	--scope-badge-bg: var(--scope-blue);
+	--scope-badge-fg: var(--scope-blue-text);
+}
+.dinext-scope-badge--gray {
+	--scope-badge-bg: var(--scope-gray);
+	--scope-badge-fg: var(--scope-gray-text);
+}
+
+.dinext-scope-state-cell--red {
+	--scope-cell-bg: var(--scope-red);
+	--scope-cell-fg: var(--scope-red-text);
+}
+.dinext-scope-state-cell--yellow {
+	--scope-cell-bg: var(--scope-yellow);
+	--scope-cell-fg: var(--scope-yellow-text);
+}
+.dinext-scope-state-cell--green {
+	--scope-cell-bg: var(--scope-green);
+	--scope-cell-fg: var(--scope-green-text);
+}
+.dinext-scope-state-cell--light-green {
+	--scope-cell-bg: var(--scope-light-green);
+	--scope-cell-fg: var(--scope-light-green-text);
+}
+.dinext-scope-state-cell--cyan {
+	--scope-cell-bg: var(--scope-cyan);
+	--scope-cell-fg: var(--scope-cyan-text);
+}
+.dinext-scope-state-cell--blue {
+	--scope-cell-bg: var(--scope-blue);
+	--scope-cell-fg: var(--scope-blue-text);
+}
+.dinext-scope-state-cell--gray {
+	--scope-cell-bg: var(--scope-gray);
+	--scope-cell-fg: var(--scope-gray-text);
+}
+
+.dinext-scope-analytics [class*="dinext-scope-state-cell--"] {
+	background-color: var(--scope-cell-bg);
+	color: var(--scope-cell-fg);
+}
+
+.dinext-scope-analytics
+	[class*="dinext-scope-state-cell--"]
+	:is(.dinext-scope-badge, .dinext-scope-note) {
+	color: inherit;
+}
+
+.dinext-scope-impact-details {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.dinext-scope-impact-detail {
+	display: grid;
+	gap: 0.35rem;
+	padding: 0.75rem;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+}
+
+.dinext-scope-impact-detail-heading {
+	display: flex;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.dinext-scope-impact-detail p,
+.dinext-scope-chart-notes p {
+	margin: 0;
+}
+
+.dinext-scope-impact-detail-note {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.dinext-scope-chart-notes {
+	display: grid;
+	gap: 0.35rem;
+	font-size: var(--text-sm);
+}
+
+.dinext-scope-project-progress {
+	display: flex;
+	align-items: center;
+	gap: 0.8rem;
+}
+
+.dinext-scope-project-progress progress {
+	width: min(17rem, 70%);
+	accent-color: var(--green-600, #22877c);
+}
+
+.dinext-scope-progress-picker {
+	max-width: 23rem;
+}
+
+.dinext-scope-context-row .dinext-scope-label,
+.dinext-scope-context-row .dinext-scope-link {
+	color: var(--text-muted);
+}
+
+.dinext-scope-group-row .dinext-scope-label {
+	font-weight: 600;
+}

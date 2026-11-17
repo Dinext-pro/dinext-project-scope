@@ -4,11 +4,14 @@
 """Install / migrate hooks for Dinext Project Scope."""
 
 from dinext_project_scope.setup.dinext_hub import register_dinext_hub_items
+from dinext_project_scope.setup.workflows import ensure_default_workflows
 
 
 def after_install() -> None:
 	register_dinext_hub_items()
+	ensure_default_workflows()
 
 
 def after_migrate() -> None:
 	register_dinext_hub_items()
+	ensure_default_workflows()
