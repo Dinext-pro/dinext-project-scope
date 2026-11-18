@@ -274,7 +274,12 @@ class TestScopeAnalytics(TestCase):
 	def test_download_rechecks_project_through_report_selection(self, _, get_report, dataset):
 		get_report.return_value = frappe._dict(ref_doctype="Project Deliverable")
 		with (
-			patch.object(frappe.local, "flags", frappe._dict(in_test=True), create=True),
+			patch.object(
+				frappe.local,
+				"flags",
+				frappe._dict(in_test=True),
+				create=not hasattr(frappe.local, "flags"),
+			),
 			self.assertRaises(frappe.PermissionError),
 		):
 			export.download("Project Responsibility Matrix", {"project": "formerly-visible"})
