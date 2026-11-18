@@ -39,6 +39,8 @@ Dinext Project Scope adds scope, requirements, constraints, deliverables and cha
 
 In a Frappe and ERPNext 15 bench with Dinext Common, Dinext Projects and Dinext Goals installed on the site, install the app from the approved branch or release. Set `<ref>` and `<site>` for your environment.
 
+Use Dinext Common with the `Workflow Process` DocType and Dinext Goals with the `Goal` DocType. The app checks these prerequisites when it is installed.
+
 ```bash
 bench get-app --branch <ref> https://github.com/Dinext-pro/dinext-project-scope.git
 bench --site <site> install-app dinext_project_scope

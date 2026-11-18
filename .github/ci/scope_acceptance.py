@@ -22,7 +22,7 @@ REVISIONS = {
 	"frappe_comment_xt": ("frappe_comment_xt", "9b2e6b44a291f1cbdcf0808ffa34f250dbd0dfc6"),
 	"dinext_common": ("dinext-common", "2968d847bd3c896a22c2936ad953a0cf5bea315a"),
 	"dinext_projects": ("dinext-projects", "d84952f158d074f6908c7f01c89a10c413436edf"),
-	"dinext_goals": ("dinext-goals", "4268a258973853e8ffe34fd890058e54802bb942"),
+	"dinext_goals": ("dinext-goals", "aa99d47783f80ad5e64e71008b913a8cc2af5724"),
 }
 
 

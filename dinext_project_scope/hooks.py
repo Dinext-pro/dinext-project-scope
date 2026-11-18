@@ -86,7 +86,7 @@ fixtures = [
 # Installation
 # ------------
 
-# before_install = "dinext_project_scope.install.before_install"
+before_install = "dinext_project_scope.install.before_install"
 after_install = "dinext_project_scope.install.after_install"
 after_migrate = "dinext_project_scope.install.after_migrate"
 
