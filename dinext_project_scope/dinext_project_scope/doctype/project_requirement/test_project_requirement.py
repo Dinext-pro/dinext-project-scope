@@ -6,6 +6,7 @@ from dinext_common.workflow_approval.api import apply_workflow
 from dinext_common.workflow_approval.engine import WorkflowDomainRollbackError
 from dinext_common.workflow_approval.scenarios.service import workflow_context
 from frappe.tests.utils import FrappeTestCase
+from frappe.utils import add_days, today
 
 from dinext_project_scope import requirement_approval, requirements
 from dinext_project_scope.tests.project_fixture import make_project
@@ -108,9 +109,119 @@ class TestProjectRequirement(FrappeTestCase):
 
 	def test_project_change_is_rejected_even_without_membership(self):
 		requirement = self.make_requirement()
-		requirement.project = self.make_project().name
+		specification = self.make_specification([])
+		other = self.make_project().name
+		for doc in (requirement, specification):
+			with self.subTest(doctype=doc.doctype):
+				doc.project = other
+				with self.assertRaises(frappe.ValidationError):
+					doc.save()
+				self.assertEqual(doc.reload().project, self.project.name)
+
+	def test_scope_version_contains_previous_value_new_value_and_editor(self):
+		from frappe.core.doctype.version.version import Version
+
+		scope_type = frappe.get_doc(doctype="Project Scope Type", enabled=1).insert(
+			set_name=f"Scope version {frappe.generate_hash(length=10)}"
+		)
+		row = self.project.append(
+			"project_scopes", {"scope_title": "Initial service boundary", "scope_type": scope_type.name}
+		)
+		self.project.save()
+		user = frappe.get_doc(
+			doctype="User",
+			email=f"scope-editor-{frappe.generate_hash(length=10)}@example.test",
+			first_name="Scope Editor",
+			send_welcome_email=0,
+			roles=[{"role": "Projects User"}],
+		).insert()
+		frappe.share.add("Project", self.project.name, user=user.name, read=1, write=1)
+		try:
+			frappe.set_user(user.name)
+			row.scope_title = "Expanded service boundary"
+			self.project.save(ignore_version=False)
+		finally:
+			frappe.set_user("Administrator")
+		name = frappe.db.get_value(
+			"Version", {"ref_doctype": "Project", "docname": self.project.name, "owner": user.name}, "name"
+		)
+		self.assertTrue(name)
+		version: Version = frappe.get_doc("Version", name)
+		changes = version.get_data()["row_changed"]
+		self.assertTrue(
+			any(
+				change[0] == "project_scopes"
+				and row.name in change[1:3]
+				and ["scope_title", "Initial service boundary", "Expanded service boundary"] in change[3]
+				for change in changes
+			),
+			changes,
+		)
+		self.assertTrue(version.creation)
+
+	def test_rename_title_preserves_distinct_requirement_ids_and_specification_links(self):
+		other_project = self.make_project()
+		first = self.make_requirement()
+		second = self.make_requirement(project=other_project.name)
+		self.assertEqual(first.requirement_title, second.requirement_title)
+		self.assertNotEqual(first.name, second.name)
+		specification = self.make_specification([(first.doctype, first.name)])
+		self.project.append(requirements.PROJECT_SPECIFICATIONS, {"specification": specification.name})
+		self.project.save()
+		first.requirement_title = "Revised service requirement"
+		first.save()
+		self.assertEqual(specification.reload().items[0].reference_name, first.name)
+		self.assertIn(first.name, requirements.project_membership(self.project.name))
+		self.assertEqual(second.reload().requirement_title, "Shared requirement title")
+
+	def test_shared_goal_keeps_one_document_for_requirements_in_two_projects(self):
+		other = self.make_project()
+		kind = frappe.get_doc(
+			doctype="Goal Type", goal_type_name=f"Service goal {frappe.generate_hash(length=10)}"
+		).insert()
+		goal = frappe.get_doc(
+			doctype="Goal",
+			goal_type=kind.name,
+			subject="Reduce first response time",
+			goal_owner="Administrator",
+			priority="Medium",
+			exp_start_date=today(),
+			exp_end_date=add_days(today(), 30),
+			progress_method="Manual",
+			is_group=1,
+			goal_projects=[{"project": project.name} for project in (self.project, other)],
+		).insert()
+		for project in (self.project, other):
+			doc = self.make_requirement(project=project.name, goals=[{"goal": goal.name}])
+			self.assertEqual(doc.reload().goals[0].goal, goal.name)
+			self.assertEqual(requirements.related_documents(doc.name)["goals"][0]["name"], goal.name)
+
+	def test_existing_deliverable_link_survives_removal_from_scope(self):
+		requirement = self.make_requirement()
+		self.project.append(requirements.PROJECT_REQUIREMENTS, {"project_requirement": requirement.name})
+		self.project.save()
+		label = f"Historical result {frappe.generate_hash(length=10)}"
+		kind = frappe.get_doc(doctype="Project Deliverable Type", enabled=1).insert(set_name=label)
+		category = frappe.get_doc(doctype="Project Deliverable Category", enabled=1).insert(set_name=label)
+
+		def make_deliverable(title):
+			return frappe.get_doc(
+				doctype="Project Deliverable",
+				title=title,
+				project=self.project.name,
+				deliverable_type=kind.name,
+				category=category.name,
+				deliverable_requirements=[{"project_requirement": requirement.name}],
+			)
+
+		result = make_deliverable("Previously linked result").insert()
+		self.project.set(requirements.PROJECT_REQUIREMENTS, [])
+		self.project.save()
+		self.assertNotIn(requirement.name, requirements.project_membership(self.project.name))
+		self.assertEqual(result.reload().deliverable_requirements[0].project_requirement, requirement.name)
+		self.assertFalse(requirements.related_documents(requirement.name)["in_scope"])
 		with self.assertRaises(frappe.ValidationError):
-			requirement.save()
+			make_deliverable("New result outside scope").insert()
 
 	def test_requirement_cannot_be_completed_before_assigned_responsible(self):
 		requirement = self.make_requirement(responsible=None)

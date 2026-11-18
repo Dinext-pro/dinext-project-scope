@@ -12,3 +12,11 @@ def make_project(title, name, project_type=None):
 			"Project Payment Scheme", {}, "name", order_by="name asc"
 		)
 	return project.insert(set_name=name)
+
+
+def project_user_roles():
+	"""Use the normal Desk baseline when this stack includes Dinext_User."""
+	roles = [{"role": "Projects User"}]
+	if frappe.db.exists("Role", "Dinext_User"):
+		roles.append({"role": "Dinext_User"})
+	return roles

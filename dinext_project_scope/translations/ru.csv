@@ -7,6 +7,7 @@ Project Change Request,Запрос на изменение проекта,
 "Manages submittable change requests with initiator, justification, alternatives, and linked project objects.","Ведёт отправляемые на согласование запросы на изменение с инициатором, обоснованием, альтернативами и связанными объектами проекта.",
 Scope,Объем,
 Results,Результаты,
+Deliverables,Результаты,
 Project Scope Volume,Объем проекта,
 Constraints and Assumptions,Ограничения и допущения,
 Constraints and assumptions,Ограничения и допущения,
@@ -360,6 +361,7 @@ source,Источник изменения,
 target,Объект влияния,
 {0} · {1} without level,{0} · оценок без уровня: {1},
 Enter a valid report date.,Укажите корректную дату для отчёта.,
+Add Requirement,Добавить требование,
 Add Requirement Branch,Добавить ветвь требований
 Add Selected,Добавить выбранное
 Apply Constraints Template,Применить шаблон ограничений

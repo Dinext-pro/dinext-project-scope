@@ -5,27 +5,19 @@ Cypress.Commands.add("login", (email, password) => {
 	if (!password) {
 		password = Cypress.env("adminPassword");
 	}
-	return cy.session(
-		[email, password],
-		() => {
-			cy.request({
-				url: "/api/method/login",
-				method: "POST",
-				body: { usr: email, pwd: password },
-			});
-		},
-		{
-			cacheAcrossSpecs: false,
-			validate() {
-				cy.request("/api/method/frappe.auth.get_logged_user")
-					.its("body.message")
-					.should("eq", email);
-			},
-		}
-	);
+	return cy
+		.request({
+			url: "/api/method/login",
+			method: "POST",
+			body: { usr: email, pwd: password },
+			log: false,
+		})
+		.then(() => cy.request("/api/method/frappe.auth.get_logged_user"))
+		.its("body.message")
+		.should("eq", email);
 });
 
-Cypress.Commands.add("call", (method, args) => {
+Cypress.Commands.add("call", (method, args, { timeout } = {}) => {
 	return cy
 		.window()
 		.its("frappe.csrf_token")
@@ -36,6 +28,7 @@ Cypress.Commands.add("call", (method, args) => {
 					url: `/api/method/${method}`,
 					method: "POST",
 					body: args || {},
+					timeout,
 					headers: {
 						Accept: "application/json",
 						"Content-Type": "application/json",

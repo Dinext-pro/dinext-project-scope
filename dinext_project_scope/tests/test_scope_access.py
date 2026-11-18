@@ -2,6 +2,43 @@ from unittest import TestCase
 from unittest.mock import patch
 
 import frappe
+from frappe.desk.query_report import run
+from frappe.tests.utils import FrappeTestCase
+
+from dinext_project_scope.tests.project_fixture import make_project, project_user_roles
+
+
+class TestScopeReportPermissions(FrappeTestCase):
+	def test_project_reports_use_scope_permissions_and_deny_other_projects(self):
+		frappe.set_user("Administrator")
+		prefix = f"Scope reports {frappe.generate_hash(length=10)}"
+		project = make_project(prefix, prefix)
+		other = make_project(f"{prefix} hidden", f"{prefix} hidden", project.project_type)
+		user = frappe.get_doc(
+			doctype="User",
+			email=f"scope-report-{frappe.generate_hash(length=10)}@example.test",
+			first_name="Scope report reader",
+			send_welcome_email=0,
+			roles=project_user_roles(),
+		).insert()
+		frappe.share.add("Project", project.name, user=user.name, read=1, write=0, notify=0)
+		frappe.get_doc(
+			doctype="User Permission",
+			user=user.name,
+			allow="Project",
+			for_value=project.name,
+			apply_to_all_doctypes=1,
+		).insert()
+		try:
+			frappe.set_user(user.name)
+			for report in ("Project Scope Overview", "Project Constraint Register"):
+				with self.subTest(report=report):
+					result = run(report, filters={"project": project.name}, ignore_prepared_report=True)
+					self.assertIn("result", result)
+					with self.assertRaises(frappe.PermissionError):
+						run(report, filters={"project": other.name}, ignore_prepared_report=True)
+		finally:
+			frappe.set_user("Administrator")
 
 
 class TestScopeAccess(TestCase):
