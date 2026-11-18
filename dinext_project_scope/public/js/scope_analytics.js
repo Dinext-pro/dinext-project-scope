@@ -931,6 +931,11 @@
 			meter.max = 100;
 			meter.value = result.progress;
 			meter.setAttribute("aria-label", __("Deliverables progress"));
+			const formula = __(
+				"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded."
+			);
+			meter.title = formula;
+			meter.setAttribute("aria-description", formula);
 			progress.append(meter, node("strong", "", formatProgress(result.progress)));
 			surface.root.append(progress);
 		} catch {

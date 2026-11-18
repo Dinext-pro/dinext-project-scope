@@ -364,11 +364,14 @@ def results_view(deliverables, structure, tasks, accountable, filters, today=Non
 
 def progress_series(deliverable, events, today=None):
 	today = today or getdate()
-	actual = [
-		[str(event["log_date"]).replace(" ", "T"), numeric_progress(event["progress"])]
-		for event in events
-		if event.get("log_date") and event.get("progress") is not None
-	]
+	actual = []
+	for event in events:
+		if not event.get("log_date") or event.get("progress") is None:
+			continue
+		progress = numeric_progress(event["progress"])
+		# Date changes can create journal entries without changing recorded progress.
+		if not actual or actual[-1][1] != progress:
+			actual.append([str(event["log_date"]).replace(" ", "T"), progress])
 	start = deliverable.get("planned_start_date")
 	end = deliverable.get("planned_end_date")
 	result = {

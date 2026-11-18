@@ -183,14 +183,29 @@ def run_cypress():
 
 
 def verify_report():
-	total = 0
-	failures = 0
-	for path in RESULTS.glob("*.xml"):
-		for suite in ET.parse(path).iter("testsuite"):
-			total += int(suite.get("tests", 0))
-			failures += int(suite.get("errors", 0)) + int(suite.get("failures", 0))
-	if not total or failures:
-		raise RuntimeError(f"Acceptance produced {total} tests with {failures} failures or errors.")
+	counts = dict(executed=0, passed=0, failed=0, skipped=0)
+	reports = {}
+	for path in sorted(RESULTS.glob("*.xml")):
+		cases = []
+		for case in ET.parse(path).iter("testcase"):
+			if case.find("skipped") is not None:
+				status = "skipped"
+			elif case.find("failure") is not None or case.find("error") is not None:
+				status = "failed"
+			else:
+				status = "passed"
+			counts[status] += 1
+			cases.append(dict(name=case.get("name"), suite=case.get("classname"), status=status))
+		reports[path.name] = cases
+	counts["executed"] = counts["passed"] + counts["failed"]
+	source_commit = subprocess.check_output(
+		["git", "rev-parse", "HEAD"], cwd=SOURCE, text=True, timeout=30
+	).strip()
+	summary = dict(source_commit=source_commit, counts=counts, reports=reports)
+	(RESULTS / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+	print(f"Acceptance at {source_commit}: {counts}", flush=True)
+	if not counts["executed"] or counts["failed"] or counts["skipped"]:
+		raise RuntimeError("Acceptance must execute all reported cases and pass without skips.")
 
 
 if __name__ == "__main__":

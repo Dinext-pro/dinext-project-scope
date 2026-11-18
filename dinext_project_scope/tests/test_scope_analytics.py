@@ -89,6 +89,26 @@ class TestScopeAnalytics(TestCase):
 		series = data.progress_series(result, events, date(2026, 11, 10))
 		self.assertEqual(series["planned"][-1], ["2026-11-10T18:00:00", 100])
 
+	def test_recalculation_with_unchanged_progress_keeps_recorded_points(self):
+		events = [
+			{"log_date": datetime(2026, 11, 7, 10), "progress": 0},
+			{"log_date": datetime(2026, 11, 8, 10), "progress": 60},
+			{"log_date": datetime(2026, 11, 10, 10), "progress": 20},
+			{"log_date": datetime(2026, 11, 11, 10), "progress": 20},
+			{"log_date": datetime(2026, 11, 13, 10), "progress": 60},
+		]
+		result = {"planned_start_date": "2026-11-02", "planned_end_date": "2026-11-18"}
+		series = data.progress_series(result, events, date(2026, 11, 17))
+		self.assertEqual(
+			series["actual"],
+			[
+				["2026-11-07T10:00:00", 0],
+				["2026-11-08T10:00:00", 60],
+				["2026-11-10T10:00:00", 20],
+				["2026-11-13T10:00:00", 60],
+			],
+		)
+
 	def test_traceability_uses_plan_and_retains_terminal_tones(self):
 		today = date(2026, 11, 17)
 		result = {"planned_end_date": "2026-11-09"}

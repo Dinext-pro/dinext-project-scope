@@ -1,5 +1,7 @@
 """Seed project-specific routes through the existing Dinext Workflow API."""
 
+from uuid import uuid4
+
 import frappe
 
 EDIT_ROLE = "Projects User"
@@ -150,6 +152,7 @@ def ensure_default_workflows():
 					ignore_permissions=True
 				)
 		for row in transitions:
+			row["custom_transition_uuid"] = str(uuid4())
 			if not frappe.db.exists("Workflow Action Master", row["action"]):
 				frappe.get_doc(doctype="Workflow Action Master", workflow_action_name=row["action"]).insert(
 					ignore_permissions=True
