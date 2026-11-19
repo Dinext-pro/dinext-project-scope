@@ -211,17 +211,19 @@ def verify_report():
 if __name__ == "__main__":
 	RESULTS.mkdir()
 	install()
-	if sys.argv[1] == "server":
-		run(
-			"bench",
-			"--site",
-			SITE,
-			"run-tests",
-			"--app",
-			"dinext_project_scope",
-			"--skip-test-records",
-			f"--junit-xml-output={RESULTS}/server.xml",
-		)
-	else:
-		run_cypress()
-	verify_report()
+	try:
+		if sys.argv[1] == "server":
+			run(
+				"bench",
+				"--site",
+				SITE,
+				"run-tests",
+				"--app",
+				"dinext_project_scope",
+				"--skip-test-records",
+				f"--junit-xml-output={RESULTS}/server.xml",
+			)
+		else:
+			run_cypress()
+	finally:
+		verify_report()

@@ -7,7 +7,8 @@ export function optionValue(element) {
 }
 
 export function linkOption(field, value) {
+	const matching = (options) => [...options].filter((element) => optionValue(element) === value);
 	return linkOptions(field)
-		.filter((_, element) => optionValue(element) === value)
-		.should("have.length", 1);
+		.should((options) => expect(matching(options), value).to.have.length(1))
+		.then((options) => cy.wrap(matching(options)[0], { log: false }));
 }

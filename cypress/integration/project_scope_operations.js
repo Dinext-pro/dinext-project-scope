@@ -41,8 +41,14 @@ function select(name, value, host = page) {
 
 function chooseLink(name, value, host = page, search = value) {
 	const field = fields(name, host);
-	cy.get(field).find("input:visible").clear().type(search, { delay: 0 });
-	linkOption(field, value).click();
+	cy.get(field)
+		.find("input:visible")
+		.clear({ scrollBehavior: "center" })
+		.type(search, { delay: 0, scrollBehavior: "center" });
+	linkOption(field, value).click({ scrollBehavior: "center" });
+	cy.get(field)
+		.find("input:visible")
+		.then(($input) => $input[0].blur());
 }
 
 function checkWorkChoices(search, included, excluded) {
@@ -57,6 +63,16 @@ function checkWorkChoices(search, included, excluded) {
 
 function typeDate(name, isoDate, host = page) {
 	cy.window().then((window) => type(name, window.frappe.datetime.str_to_user(isoDate), host));
+}
+
+function showTaskTimeline() {
+	const section = `${page} .form-section[data-fieldname="sb_timeline"]`;
+	cy.get(section).then(($section) => {
+		if (!$section.find(".section-body").is(":visible")) {
+			cy.get(`${section} .section-head`).click({ scrollBehavior: "center" });
+		}
+	});
+	cy.get(`${section} .section-body`).should("be.visible");
 }
 
 function grid(table) {
@@ -177,6 +193,7 @@ describe("Project scope operations in Desk", () => {
 		closeRow();
 
 		openForm("task", fixture.partial);
+		showTaskTimeline();
 		type("progress", "60");
 		typeDate("exp_end_date", "2026-11-26");
 		save();
@@ -278,6 +295,7 @@ describe("Project scope operations in Desk", () => {
 
 		actor("author");
 		openForm("task", fixture.baseline);
+		showTaskTimeline();
 		typeDate("custom_planned_end_date", "2026-11-20");
 		save();
 		actor("reviewer");
@@ -291,6 +309,16 @@ describe("Project scope operations in Desk", () => {
 			expect(Number(doc.requires_recheck)).to.eq(0);
 		});
 		shot("operations-acceptance-reconfirmed");
+	});
+
+	it("explains and prevents acceptance when no project manager can review it", () => {
+		actor("observer");
+		openForm("project-deliverable", fixture.foreign_result);
+		const message = "Assign one active user to the project manager role";
+		cy.get(fields("acceptance_html")).should("contain.text", message);
+		action("Request Acceptance");
+		cy.get(modal).should("contain.text", message);
+		state("Not Started");
 	});
 
 	it("previews and applies project constraints then records verification from the Project form", () => {
@@ -324,11 +352,21 @@ describe("Project scope operations in Desk", () => {
 		editRow("project_constraints", 2);
 		select("verification_status", "Confirmed", rowForm);
 		closeRow();
+		cy.intercept("POST", "**/api/method/frappe.desk.form.save.savedocs").as("saveAssumption");
 		clickSave();
-		cy.get(modal).should("contain.text", "Describe the evidence or select an attachment");
-		shot("operations-assumption-without-evidence");
-		cy.get(`${modal} .btn-modal-close`).click();
+		cy.wait("@saveAssumption")
+			.its("response")
+			.should(({ statusCode, body }) => {
+				expect(statusCode).to.eq(417);
+				expect(JSON.stringify(body)).to.contain(
+					"Describe the evidence or select an attachment"
+				);
+			});
+		cy.reload();
+		readForm((doc) => expect(doc.project_constraints[1].verification_status).to.eq("Pending"));
+		scopeTab();
 		editRow("project_constraints", 2);
+		select("verification_status", "Confirmed", rowForm);
 		type("verification_note", "The participant confirmed resource availability.", rowForm);
 		typeDate("review_date", "2026-11-27", rowForm);
 		closeRow();
@@ -372,6 +410,7 @@ describe("Project scope operations in Desk", () => {
 	});
 
 	it("copies the nested result from template preview and links to its new project instance", () => {
+		cy.viewport(1440, 1250);
 		actor("author");
 		openForm("project-deliverables-template", fixture.result_template);
 		cy.contains(`${page} button`, "Apply to project").click();

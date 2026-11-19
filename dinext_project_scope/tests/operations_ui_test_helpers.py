@@ -22,7 +22,7 @@ def create_fixture(run_id: str) -> dict:
 	label, project_name = _identity(run_id)
 	password = f"Qa9!{token_urlsafe(18)}"
 	actors = {}
-	for role in ("author", "reviewer"):
+	for role in ("author", "reviewer", "observer"):
 		email = f"scope-ops-{run_id}-{role}@example.test"
 		actors[role] = frappe.get_doc(
 			doctype="User",
@@ -46,7 +46,7 @@ def create_fixture(run_id: str) -> dict:
 	role = frappe.get_doc(doctype="Project Role", role_name=label, enabled=1).insert(set_name=label)
 	contact = frappe.get_doc(doctype="Contact", first_name=f"{label} author").insert()
 	for user, project_role in ((actors["author"], role.name), (actors["reviewer"], manager_role)):
-		project.append("users", {"user": user})
+		project.append("users", {"user": user, "welcome_email_sent": 1})
 		project.append(
 			"custom_ts_details",
 			{"pt_role": project_role, "pt_participant_type": "User", "pt_participant": user},
@@ -54,6 +54,9 @@ def create_fixture(run_id: str) -> dict:
 	project.append("custom_contact_list", {"contact": contact.name, "project_role": role.name})
 	project.is_active = "Yes"
 	project.save()
+	other.append("users", {"user": actors["observer"], "welcome_email_sent": 1})
+	other.is_active = "Yes"
+	other.save()
 
 	category = frappe.get_doc(doctype="Project Deliverable Category", enabled=1).insert(set_name=label)
 	responsibility = frappe.get_doc(
@@ -167,21 +170,24 @@ def create_fixture(run_id: str) -> dict:
 		reqd_explanation=1,
 		reqd_link=1,
 	).insert(set_name=label)
-	for user in actors.values():
+	for actor, user in actors.items():
+		accessible = other if actor == "observer" else project
 		frappe.get_doc(
 			doctype="User Permission",
 			user=user,
 			allow="Project",
-			for_value=project.name,
+			for_value=accessible.name,
 			apply_to_all_doctypes=1,
 		).insert()
-		share("Project", project.name, user=user, read=1, write=1)
+		share("Project", accessible.name, user=user, read=1, write=1)
+		if actor == "observer":
+			continue
 		share("Contact", contact.name, user=user, read=1)
 		share("Task Type", task_type.name, user=user, read=1)
 		for project_role in (role.name, manager_role):
 			share("Project Role", project_role, user=user, read=1)
-		for participant in actors.values():
-			share("User", participant, user=user, read=1)
+		for participant in ("author", "reviewer"):
+			share("User", actors[participant], user=user, read=1)
 		for name in (baseline, partial, cancelled, wrong_type):
 			share("Task", name, user=user, write=1)
 

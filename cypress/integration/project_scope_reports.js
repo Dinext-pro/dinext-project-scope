@@ -42,7 +42,12 @@ describe("Project scope reports", () => {
 
 	it("opens the responsibility matrix from the Project Scope Reports menu with its project", () => {
 		cy.visit(`/app/project/${fixture.project}`);
-		cy.get('.inner-group-button[data-label="Scope%20Reports"] > button:visible').click();
+		cy.get('[data-fieldname="custom_scope_deliverables_progress_html"] progress').should(
+			"be.visible"
+		);
+		cy.get('.inner-group-button[data-label="Scope%20Reports"] > button:visible').click({
+			scrollBehavior: "center",
+		});
 		cy.contains(".dropdown-menu:visible a", exact(responsibility)).click();
 		reportShown(responsibility, { project: fixture.project });
 		rowLink(`${fixture.title} result`).should("be.visible");
@@ -344,7 +349,10 @@ describe("Project scope reports", () => {
 		cy.get(`${table} .ag-header-group-text`).should("have.length", 2);
 		rowLink(`${fixture.title} working`).should("not.exist");
 		cy.get(`${table} button[title="Fullscreen"]`).click();
-		cy.document().its("fullscreenElement").should("have.class", "dinext-scope-report-page");
+		cy.document().should((document) => {
+			expect(document.fullscreenElement?.classList.contains("dinext-scope-report-page")).to
+				.be.true;
+		});
 		cy.get(`${table} button[title="Exit fullscreen"]`).click();
 		cy.document().should((document) => expect(document.fullscreenElement).to.eq(null));
 	});
