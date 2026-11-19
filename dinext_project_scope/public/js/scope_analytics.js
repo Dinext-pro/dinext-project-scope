@@ -412,6 +412,11 @@
 					return node("span", "", value ? frappe.datetime.str_to_user(value) : "");
 				case "datetime":
 					return node("span", "", value ? frappe.datetime.str_to_user(value) : "");
+				case "note": {
+					const text = node("span", "", value);
+					if (value) text.title = value;
+					return text;
+				}
 				case "count":
 					return node("span", "", value ?? "");
 				default:

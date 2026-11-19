@@ -636,7 +636,7 @@ def constraint_register(filters):
 		column("responsible", _("Responsible"), width=150),
 		column("review_date", _("Planned review date"), kind="date"),
 		column("verification_status", _("Verification status"), kind="status", width=168),
-		column("verification_note", _("Verification Note"), width=280),
+		column("verification_note", _("Verification Note"), kind="note", width=280),
 		column("verified_at", _("Verified At"), kind="datetime", width=190),
 	]
 	return columns, rows

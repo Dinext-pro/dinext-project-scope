@@ -420,6 +420,11 @@ describe("Project scope reports", () => {
 			"have.text",
 			fixture.assumption_verification_note
 		);
+		cy.get(`${table} [col-id="verification_note"].ag-cell [title]`).should(
+			"have.attr",
+			"title",
+			fixture.assumption_verification_note
+		);
 		cy.window().then(({ frappe }) => {
 			cy.get(`${table} [col-id="review_date"].ag-cell`).should(
 				"have.text",

@@ -54,6 +54,7 @@ class TestScopeAnalytics(TestCase):
 		by_field = {column["fieldname"]: column for column in columns}
 		self.assertEqual(by_field["review_date"]["label"], "Planned review date")
 		self.assertEqual(by_field["verification_note"]["label"], "Verification Note")
+		self.assertEqual(by_field["verification_note"]["kind"], "note")
 		self.assertEqual(by_field["verified_at"]["fieldtype"], "Datetime")
 		self.assertEqual(rows[0]["verification_note"], note)
 		self.assertEqual(rows[0]["verified_at"], verified)
