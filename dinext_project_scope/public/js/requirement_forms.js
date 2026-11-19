@@ -185,6 +185,7 @@ frappe.provide("dinext_project_scope.requirement_forms");
 					fieldtype: "Select",
 					fieldname: "target_type",
 					label: __("Type"),
+					default: requirement,
 					options: [requirement, frm.doctype].map((value) => ({
 						value,
 						label: __(value),

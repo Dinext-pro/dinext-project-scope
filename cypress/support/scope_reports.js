@@ -55,7 +55,7 @@ export function downloadExcel(name, expectedFilters) {
 	cy.contains(`${table} button`, "Download Excel").click();
 	cy.wait("@workbook").then(({ request, response }) => {
 		expect(response.statusCode).to.eq(200);
-		expect(response.headers["content-type"]).to.include("spreadsheetml.sheet");
+		expect(response.headers["content-disposition"]).to.contain(`${name}.xlsx`);
 		expect(JSON.parse(request.query.filters)).to.include(expectedFilters);
 	});
 	cy.readFile(`${Cypress.config("downloadsFolder")}/${name}.xlsx`, null, {

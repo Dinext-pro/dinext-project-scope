@@ -148,7 +148,7 @@
 		picker.set_value(initial);
 
 		async function showProgress() {
-			const deliverable = picker.get_value();
+			const deliverable = picker.value;
 			const request = ++revision;
 			const old = output.querySelector(".dinext-scope-chart");
 			if (old) surface.unregisterChart(old);

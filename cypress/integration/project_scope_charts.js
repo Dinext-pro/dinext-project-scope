@@ -183,11 +183,18 @@ describe("Project scope charts", () => {
 		});
 		cy.get(progressPicker).clear().type(fixture.result);
 		cy.contains(
-			".dinext-scope-progress-picker .awesomplete li",
+			'.dinext-scope-progress-picker .awesomplete [role="option"]',
 			`${fixture.title} result`
 		).click();
+		chartOption(cy.get(output), (option) => {
+			expect(option.series.find((series) => series.name === "Recorded progress").data).not.to
+				.be.empty;
+		});
 		cy.get(progressPicker).clear().type(fixture.shared);
-		cy.contains(".dinext-scope-progress-picker .awesomplete li", "shared component").click();
+		cy.contains(
+			'.dinext-scope-progress-picker .awesomplete [role="option"]',
+			"shared component"
+		).click();
 		chartOption(cy.get(output), (option) => {
 			expect(
 				option.series
@@ -232,9 +239,10 @@ describe("Project scope charts", () => {
 		});
 		cy.get(progressPicker).clear().type(fixture.hidden_result);
 		cy.wait("@hiddenProgressSearch").its("response.body.message").should("deep.eq", []);
-		cy.contains(".dinext-scope-progress-picker .awesomplete li", "hidden deliverable").should(
-			"not.exist"
-		);
+		cy.contains(
+			'.dinext-scope-progress-picker .awesomplete [role="option"]',
+			"hidden deliverable"
+		).should("not.exist");
 		cy.request({
 			url: "/api/method/dinext_project_scope.analytics.data.deliverable_progress",
 			qs: { deliverable: fixture.hidden_result },

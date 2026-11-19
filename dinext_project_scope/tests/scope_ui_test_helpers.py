@@ -3,6 +3,7 @@
 from secrets import token_urlsafe
 
 import frappe
+import frappe.share
 from frappe.tests.ui_test_helpers import whitelist_for_tests
 from frappe.utils import add_days, getdate
 
@@ -248,6 +249,7 @@ def create_report_fixture(run_id):
 	work.reload()  # The child Task updates the group's dependency list on insert.
 	work.progress = 20
 	work.save()
+	frappe.share.add("Task", work.name, user=actor, write=1, notify=0)
 	foreign = _result(hidden.name, prefix, "hidden deliverable", other_category, leaf_kind)
 
 	change = frappe.get_doc(

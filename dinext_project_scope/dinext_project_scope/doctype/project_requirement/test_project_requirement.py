@@ -9,6 +9,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, today
 
 from dinext_project_scope import requirement_approval, requirements
+from dinext_project_scope.analytics import reports
 from dinext_project_scope.tests.project_fixture import make_project
 
 
@@ -270,6 +271,29 @@ class TestProjectRequirement(FrappeTestCase):
 			"New",
 		)
 		self.assertEqual(child_req.reload().status, "Template")
+		label = f"Template result {frappe.generate_hash(length=10)}"
+		kind = frappe.get_doc(doctype="Project Deliverable Type", enabled=1).insert(set_name=label)
+		category = frappe.get_doc(doctype="Project Deliverable Category", enabled=1).insert(set_name=label)
+		result = frappe.get_doc(
+			doctype="Project Deliverable",
+			title=label,
+			project=self.project.name,
+			deliverable_type=kind.name,
+			category=category.name,
+			deliverable_requirements=[{"project_requirement": first_child.name}],
+		).insert()
+		_, first_rows = reports.dataset(reports.TRACEABILITY, {"project": self.project.name})
+		_, second_rows = reports.dataset(reports.TRACEABILITY, {"project": other.name})
+		first_documents = {row["document"]: row for row in first_rows}
+		second_documents = {row["document"]: row for row in second_rows}
+		self.assertIn(result.name, first_documents)
+		self.assertEqual(first_documents[first_child.name]["status"], "Done")
+		self.assertNotIn(first_child.name, second_documents)
+		self.assertNotIn(result.name, second_documents)
+		other_child = second_documents[second["requirements"][child_req.name]]
+		self.assertEqual(other_child["status"], "New")
+		self.assertEqual(other_child["status_tone"], "red")
+		self.assertEqual(other_child["status_note"], "No linked deliverables in this project")
 
 	def vote(self, doc, action, *, comment=None, request_id=None):
 		result = apply_workflow(
@@ -277,6 +301,35 @@ class TestProjectRequirement(FrappeTestCase):
 		)
 		self.assertTrue(result["transitioned"], result)
 		doc.reload()
+
+	def test_requirement_edit_invalidates_all_approved_sets_and_keeps_snapshots(self):
+		requirement = self.make_requirement()
+		original = requirement.requirement_title
+		inner = self.make_specification([(requirement.doctype, requirement.name)])
+		outer = self.make_specification([(inner.doctype, inner.name)])
+		for source in (inner, outer):
+			self.project.append(requirements.PROJECT_SPECIFICATIONS, {"specification": source.name})
+			self.vote(source, "Submit for Review")
+			self.vote(source, "Approve")
+		self.project.save()
+
+		requirement.reload()
+		requirement.requirement_title = "Revised after approving two sets"
+		requirement.save()
+		[entry] = requirements.project_rows(self.project.name)
+		self.assertEqual(entry["title"], requirement.requirement_title)
+		self.assertTrue(entry["approval_stale"])
+		for source in (inner, outer):
+			self.assertEqual(
+				requirement_approval.approval_summary(source.doctype, source.name)["status"],
+				"Reapproval Required",
+			)
+			[decision] = requirement_approval.approval_history(source.doctype, source.name)["rounds"]
+			self.assertEqual(decision["decision"], "Approved")
+			self.assertEqual(
+				decision["snapshot"]["requirements"][requirement.name]["content"]["requirement_title"],
+				original,
+			)
 
 	def test_submission_without_an_approver_preserves_draft(self):
 		doc = self.make_requirement(responsible=None)

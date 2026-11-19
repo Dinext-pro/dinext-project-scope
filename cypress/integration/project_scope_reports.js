@@ -42,8 +42,8 @@ describe("Project scope reports", () => {
 
 	it("opens the responsibility matrix from the Project Scope Reports menu with its project", () => {
 		cy.visit(`/app/project/${fixture.project}`);
-		cy.contains("button", exact("Scope Reports")).click();
-		cy.contains(".dropdown-menu a", exact(responsibility)).click();
+		cy.get('.inner-group-button[data-label="Scope%20Reports"] > button:visible').click();
+		cy.contains(".dropdown-menu:visible a", exact(responsibility)).click();
 		reportShown(responsibility, { project: fixture.project });
 		rowLink(`${fixture.title} result`).should("be.visible");
 	});
@@ -125,6 +125,51 @@ describe("Project scope reports", () => {
 		cy.screenshot("traceability-matrix");
 		rowLink(`${fixture.title} detail task`).click();
 		cy.location("pathname").should("eq", `/app/task/${fixture.task}`);
+	});
+
+	it("refreshes ancestor progress and overdue styling after saving changed work", () => {
+		cy.login(fixture.actor, fixture.password);
+		const filters = { project: fixture.project };
+		openReport(traceability, filters);
+		rowLink(`${fixture.title} result`)
+			.first()
+			.closest(".ag-row")
+			.find(".dinext-scope-state-cell--red")
+			.should("contain.text", "20%");
+
+		cy.call("frappe.client.set_value", {
+			doctype: "Task",
+			name: fixture.work,
+			fieldname: {
+				progress: 65,
+				custom_planned_end_date: fixture.later_planned_end,
+			},
+		});
+		cy.reload();
+		reportShown(traceability, filters);
+		rowLink(`${fixture.title} result`)
+			.first()
+			.closest(".ag-row")
+			.should("contain.text", "65%")
+			.find(".dinext-scope-state-cell--red")
+			.should("not.exist");
+		rowLink(`${fixture.title} result`)
+			.first()
+			.closest(".ag-cell")
+			.find(".dinext-table-tree-toggle")
+			.click();
+		rowLink(`${fixture.title} shared component`)
+			.first()
+			.closest(".ag-row")
+			.should("contain.text", "65%")
+			.find(".dinext-scope-state-cell--red")
+			.should("not.exist");
+
+		cy.call("frappe.client.set_value", {
+			doctype: "Task",
+			name: fixture.work,
+			fieldname: { progress: 20, custom_planned_end_date: fixture.planned_end },
+		});
 	});
 
 	it("shows RACI roles, same-name participants, multiple colors and results without assignments", () => {
@@ -301,7 +346,7 @@ describe("Project scope reports", () => {
 		cy.get(`${table} button[title="Fullscreen"]`).click();
 		cy.document().its("fullscreenElement").should("have.class", "dinext-scope-report-page");
 		cy.get(`${table} button[title="Exit fullscreen"]`).click();
-		cy.document().its("fullscreenElement").should("eq", null);
+		cy.document().should((document) => expect(document.fullscreenElement).to.eq(null));
 	});
 
 	it("updates matrix rows and role columns when the project changes", () => {

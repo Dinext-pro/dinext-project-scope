@@ -545,7 +545,7 @@
 		const target = wrapper(frm, FIELD.changes);
 		if (!target || frm.is_new()) return;
 		const project = frm.doc.name;
-		const rows = frappe.perm.has_perm("Project Change Request", 0, "read")
+		const rows = frappe.model.can_read("Project Change Request")
 			? await rpc(`${PATH}project_scope.project_change_rows`, { project })
 			: [];
 		if (project !== frm.doc.name) return;

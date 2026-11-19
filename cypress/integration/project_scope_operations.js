@@ -1,3 +1,5 @@
+import { linkOption, linkOptions, optionValue } from "../support/link_options";
+
 const fixtureApi = "dinext_project_scope.tests.operations_ui_test_helpers";
 const runId = Array.from(crypto.getRandomValues(new Uint8Array(8)), (part) =>
 	part.toString(16).padStart(2, "0")
@@ -40,7 +42,17 @@ function select(name, value, host = page) {
 function chooseLink(name, value, host = page, search = value) {
 	const field = fields(name, host);
 	cy.get(field).find("input:visible").clear().type(search, { delay: 0 });
-	cy.contains(`${field} .awesomplete [role="option"]:visible`, value).click();
+	linkOption(field, value).click();
+}
+
+function checkWorkChoices(search, included, excluded) {
+	const field = fields("element", rowForm);
+	cy.get(field).find("input:visible").type(search, { delay: 0 });
+	linkOptions(field).should(($options) => {
+		const values = [...$options].map(optionValue);
+		expect(values).to.include(included);
+		expect(values).not.to.include(excluded);
+	});
 }
 
 function typeDate(name, isoDate, host = page) {
@@ -57,7 +69,14 @@ function row(table, idx) {
 
 function editRow(table, idx) {
 	cy.get(`${row(table, idx)} .btn-open-row`).click();
-	cy.get(rowForm).should("be.visible");
+	cy.get(rowForm)
+		.should("be.visible")
+		.then(($form) => {
+			const first = $form.find("input:first").get(0);
+			if (first && Cypress.$(first).is(":visible") && !first.disabled && !first.readOnly) {
+				cy.document().should((document) => expect(document.activeElement).to.eq(first));
+			}
+		});
 }
 
 function addRow(table, idx) {
@@ -78,8 +97,10 @@ function clickSave() {
 function save() {
 	clickSave();
 	cy.window().should((window) => {
-		expect(window.cur_frm?.is_new()).to.be.false;
-		expect(Boolean(window.cur_frm?.is_dirty())).to.be.false;
+		const frm = window.cur_frm;
+		expect(frm?.doc?.name).to.be.a("string");
+		expect(Boolean(frm.is_new())).to.be.false;
+		expect(Boolean(frm.is_dirty())).to.be.false;
 	});
 }
 
@@ -152,12 +173,7 @@ describe("Project scope operations in Desk", () => {
 		actor("author");
 		openForm("project-deliverable", fixture.leaf);
 		editRow("table_xuct", 2);
-		const field = fields("element", rowForm);
-		cy.get(field).find("input").type(fixture.label, { delay: 0 });
-		cy.contains(`${field} .awesomplete [role="option"]:visible`, fixture.partial).should(
-			"be.visible"
-		);
-		cy.get(field).find(".awesomplete").should("not.contain.text", fixture.wrong_type);
+		checkWorkChoices(fixture.label, fixture.partial, fixture.wrong_type);
 		closeRow();
 
 		openForm("task", fixture.partial);
@@ -190,12 +206,7 @@ describe("Project scope operations in Desk", () => {
 
 		openForm("project-deliverable", fixture.leaf);
 		editRow("table_xuct", 2);
-		const field = fields("element", rowForm);
-		cy.get(field).find("input").type(fixture.label, { delay: 0 });
-		cy.contains(`${field} .awesomplete [role="option"]:visible`, fixture.partial).should(
-			"be.visible"
-		);
-		cy.get(field).find(".awesomplete").should("not.contain.text", fixture.foreign_task);
+		checkWorkChoices(fixture.label, fixture.partial, fixture.foreign_task);
 		shot("operations-project-scoped-work-picker");
 		closeRow();
 	});
@@ -247,7 +258,9 @@ describe("Project scope operations in Desk", () => {
 		shot("operations-acceptance-blocked");
 		openForm("project-deliverable", fixture.acceptance);
 		editRow("table_xuct", 2);
-		cy.get(fields("element", rowForm)).find("input").clear().blur();
+		cy.get(fields("element", rowForm)).find("input").clear();
+		cy.get(fields("weight", rowForm)).find("input").click();
+		readForm((doc) => expect(doc.table_xuct[1].element).not.to.be.ok);
 		closeRow();
 		save();
 		cy.get(fields("acceptance_html")).should("contain.text", "Work is ready for acceptance.");
@@ -284,7 +297,7 @@ describe("Project scope operations in Desk", () => {
 		actor("author");
 		openForm("project", fixture.project);
 		scopeTab();
-		cy.contains(`${page} button`, /^Scope$/).click();
+		cy.get(`${page} .inner-group-button[data-label="Scope"] > button:visible`).click();
 		cy.contains(`${page} .dropdown-menu:visible a`, "Apply Constraints Template").click();
 		chooseLink("item", `${fixture.label} constraints`, modal);
 		cy.get(`${modal} .modal-footer .btn-primary`).click();
@@ -364,6 +377,7 @@ describe("Project scope operations in Desk", () => {
 		cy.contains(`${page} button`, "Apply to project").click();
 		chooseLink("project", fixture.project, modal);
 		cy.contains(`${modal} button.btn-primary`, "Preview").click();
+		cy.contains(`${modal} .section-head`, `${fixture.label} template parent`).click();
 		cy.get(modal).should(
 			"contain.text",
 			`Nested work will link to the new result ${fixture.label} template nested.`

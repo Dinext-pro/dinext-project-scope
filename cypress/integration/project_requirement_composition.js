@@ -1,3 +1,5 @@
+import { linkOption, linkOptions, optionValue } from "../support/link_options";
+
 const fixtureApi = "dinext_project_scope.tests.requirement_ui_test_helpers";
 const fixtureRequest = { timeout: 120000 };
 const workflowMenu = ".page-container:visible .actions-btn-group";
@@ -42,7 +44,7 @@ function changeApprovalInPlace(action, status) {
 
 function openProjectScope(project) {
 	cy.visit(`/app/project/${project}`);
-	cy.contains('[role="tab"]', /^Scope$/).click();
+	cy.get('button[data-fieldname="custom_объем"]').click();
 	cy.get(projectTree).should("be.visible");
 }
 
@@ -57,10 +59,7 @@ function linkSearch(field, text) {
 
 function chooseLink(field, search) {
 	linkSearch(field, search);
-	cy.contains(
-		`[data-fieldname="${field}"] .awesomplete ul:visible [role="option"]`,
-		search
-	).click();
+	linkOption(`[data-fieldname="${field}"]`, search).click();
 }
 
 function fitsViewport() {
@@ -218,6 +217,7 @@ describe("Requirement specification composition", () => {
 	});
 
 	it("shows the project and valid composition choices in the two specification registries", () => {
+		const target = '[data-fieldname="target"]';
 		cy.visit("/app/project-requirement-specification");
 		cy.get(`a[href$="/${fixture.ordinary}"]`).first().click();
 		cy.get('[data-fieldname="project"] a[data-name]').should(
@@ -232,13 +232,17 @@ describe("Requirement specification composition", () => {
 					"Project Requirement Specification",
 				]);
 			});
-			linkSearch("target", fixture.prefix);
-			cy.contains('.awesomplete ul:visible [role="option"]', fixture.working).should(
-				"be.visible"
+			cy.get('[data-fieldname="target_type"] select').should(
+				"have.value",
+				"Project Requirement"
 			);
-			cy.get(".awesomplete ul:visible")
-				.should("not.contain.text", fixture.foreign)
-				.and("not.contain.text", fixture.child);
+			linkSearch("target", fixture.prefix);
+			linkOptions(target).should(($options) => {
+				const values = [...$options].map(optionValue);
+				expect(values).to.include(fixture.working);
+				expect(values).not.to.include(fixture.foreign);
+				expect(values).not.to.include(fixture.child);
+			});
 		});
 		cy.visit("/app/project-requirement-specification-template");
 		cy.get(`a[href$="/${fixture.template}"]`).first().click();
@@ -251,10 +255,11 @@ describe("Requirement specification composition", () => {
 				]);
 			});
 			linkSearch("target", fixture.prefix);
-			cy.contains('.awesomplete ul:visible [role="option"]', fixture.child).should(
-				"be.visible"
-			);
-			cy.get(".awesomplete ul:visible").should("not.contain.text", fixture.working);
+			linkOptions(target).should(($options) => {
+				const values = [...$options].map(optionValue);
+				expect(values).to.include(fixture.child);
+				expect(values).not.to.include(fixture.working);
+			});
 		});
 	});
 
@@ -268,8 +273,13 @@ describe("Requirement specification composition", () => {
 				cy.get(".scope-source-path").should("have.length", 3);
 				cy.contains(".scope-source-path", "Included directly").should("be.visible");
 				cy.contains(".scope-row-details", "Must Have").should("be.visible");
-				cy.get(".scope-fold").click().should("have.attr", "aria-expanded", "false");
+				cy.get(".scope-fold").click();
 			});
+		cy.get(`${projectTree} tr[data-requirement="${fixture.working}"] .scope-fold`).should(
+			"have.attr",
+			"aria-expanded",
+			"false"
+		);
 		cy.get(`${projectTree} tr[data-requirement="${fixture.nested_child}"]`).should(
 			"not.exist"
 		);

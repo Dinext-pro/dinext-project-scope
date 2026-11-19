@@ -49,8 +49,7 @@
 			}));
 		}
 		const grid = frm.fields_dict.table_xuct.grid;
-		grid.df.cannot_add_rows = true;
-		grid.df.cannot_delete_rows = true;
+		grid.cannot_add_rows = true;
 		grid.is_sortable = () => false;
 	}
 
@@ -298,6 +297,7 @@
 	frappe.ui.form.on("Project Deliverable", {
 		setup: setupQueries,
 		async refresh(frm) {
+			frm.set_df_property("table_xuct", "cannot_delete_rows", true);
 			frm.toggle_enable("deliverable_type", frm.is_new());
 			frm.toggle_enable("project", frm.is_new());
 			frm.set_df_property(

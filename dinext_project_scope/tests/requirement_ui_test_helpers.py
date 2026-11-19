@@ -54,9 +54,10 @@ def create_fixture(run_id: str) -> dict:
 	for selected_project, roles in ((project, ("author", "reviewer")), (other, ("author", "outsider"))):
 		for role in roles:
 			user = actors[role]["email"]
-			frappe.share.add("Project", selected_project.name, user, read=1, write=1)
-			selected_project.append("users", {"user": user})
+			selected_project.append("users", {"user": user, "welcome_email_sent": 1})
 		selected_project.save()
+		for role in roles:
+			frappe.share.add("Project", selected_project.name, actors[role]["email"], read=1, write=1)
 	frappe.get_doc(
 		doctype="User Permission",
 		user=actors["outsider"]["email"],

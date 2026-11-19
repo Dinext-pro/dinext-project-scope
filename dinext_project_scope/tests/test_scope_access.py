@@ -2,9 +2,11 @@ from unittest import TestCase
 from unittest.mock import patch
 
 import frappe
+import frappe.share
 from frappe.desk.query_report import run
 from frappe.tests.utils import FrappeTestCase
 
+from dinext_project_scope.analytics import export
 from dinext_project_scope.tests.project_fixture import make_project, project_user_roles
 
 
@@ -38,6 +40,49 @@ class TestScopeReportPermissions(FrappeTestCase):
 					with self.assertRaises(frappe.PermissionError):
 						run(report, filters={"project": other.name}, ignore_prepared_report=True)
 		finally:
+			frappe.set_user("Administrator")
+
+	def test_responsibility_export_denies_access_revoked_after_report_run(self):
+		frappe.set_user("Administrator")
+		prefix = f"Scope export {frappe.generate_hash(length=10)}"
+		project = make_project(prefix, prefix)
+		other = make_project(f"{prefix} retained", f"{prefix} retained", project.project_type)
+		user = frappe.get_doc(
+			doctype="User",
+			email=f"scope-export-{frappe.generate_hash(length=10)}@example.test",
+			first_name="Scope export reader",
+			send_welcome_email=0,
+			roles=project_user_roles(),
+		).insert()
+		permissions = {}
+		for allowed in (project, other):
+			frappe.share.add("Project", allowed.name, user=user.name, read=1, notify=0)
+			permissions[allowed.name] = frappe.get_doc(
+				doctype="User Permission",
+				user=user.name,
+				allow="Project",
+				for_value=allowed.name,
+				apply_to_all_doctypes=1,
+			).insert().name
+		report = "Project Responsibility Matrix"
+		filters = {"project": project.name}
+		try:
+			frappe.set_user(user.name)
+			self.assertIn("result", run(report, filters=filters, ignore_prepared_report=True))
+			export.download(report, filters)
+			self.assertTrue(frappe.response["filecontent"].startswith(b"PK"))
+
+			frappe.set_user("Administrator")
+			frappe.share.remove("Project", project.name, user.name)
+			frappe.delete_doc("User Permission", permissions[project.name])
+
+			frappe.set_user(user.name)
+			with self.assertRaises(frappe.PermissionError):
+				export.download(report, filters)
+			self.assertIn("result", run(report, filters={"project": other.name}, ignore_prepared_report=True))
+		finally:
+			for key in ("type", "filename", "filecontent"):
+				frappe.response.pop(key, None)
 			frappe.set_user("Administrator")
 
 

@@ -329,6 +329,16 @@ class TestProjectDeliverable(FrappeTestCase):
 		self.assertTrue(task, f"No open approval task for {action}")
 		return engine.cast_vote(task, action=action, comment=comment)
 
+	def test_default_acceptance_requires_a_current_project_manager(self):
+		self.project.is_active = "Yes"
+		self.project.save()
+		doc = self.result(self.kind())
+		self.assertTrue(deliverables.get_deliverable_details(doc.name)["missing_approver"])
+		with self.assertRaisesRegex(frappe.ValidationError, "Assign one active user"):
+			self._workflow_vote(doc, "Request Acceptance")
+		self.assertEqual(doc.reload().status, "Not Started")
+		self.assertFalse(doc.last_acceptance_log)
+
 	def test_acceptance_is_separate_from_work_completion_and_can_be_reconfirmed(self):
 		from dinext_common.workflow_approval.lifecycle import is_engine_enabled
 		from frappe.utils import add_days, today
