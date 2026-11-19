@@ -4,6 +4,7 @@
 import os
 from contextlib import contextmanager
 from datetime import timedelta
+from unittest.mock import patch
 
 import frappe
 from dinext_common.workflow_approval import engine
@@ -588,19 +589,72 @@ def add_demo_report_data():
 					doc.kind = kind
 					doc.save()
 
+	add_demo_drafts()
+
+
+def add_demo_drafts():
+	contact = frappe.db.get_value(
+		CHANGE,
+		{"project": PORTAL, "title": "Сократить обязательные поля анкеты", "owner": ANALYST},
+		"initiator",
+	)
 	start = frappe.db.get_value("Project", PORTAL, "creation")
-	# Simulate requests raised on different days in the archived project history.
-	for project, title, days in (
-		(PORTAL, "Сократить обязательные поля анкеты", 12),
-		(PORTAL, "Ускорить подключение мессенджера", 7),
-		(PORTAL, "Добавить ночную эскалацию для критичных заявок", 2),
-		(INTEGRATION, "Добавить пакетную передачу регистра", 4),
-	):
-		filters = {"project": project, "title": title, "owner": ANALYST}
-		if stored := frappe.db.get_value(CHANGE, filters, ["name", "creation"], as_dict=True):
-			created = (start - timedelta(days=days)).replace(microsecond=0)
-			if stored.creation != created:
-				frappe.db.set_value(CHANGE, stored.name, "creation", created, update_modified=False)
+	plans = (
+		(
+			"Уточнить сообщение об ошибке при загрузке вложения",
+			12,
+			"Влияние на качество обслуживания (демо)",
+			"Moderate",
+			"Карточка заявки и каталог",
+			"2 сценария",
+			"Проверить подсказки для неподдерживаемого формата и слишком большого файла.",
+		),
+		(
+			"Расширить выборку для проверки маршрутизации",
+			7,
+			"Влияние на трудозатраты команды (демо)",
+			"Weak",
+			"Правила маршрутизации и SLA",
+			"3–5 часов",
+			"Дополнить проверку обращениями второй линии и сменой дежурного.",
+		),
+	)
+	for title, days, kind_title, level, result_title, estimate, explanation in plans:
+		if frappe.db.exists(CHANGE, {"project": PORTAL, "title": title, "owner": ANALYST}):
+			continue
+		kind = catalog(
+			"Project Change Relation Type",
+			kind_title,
+			enabled=1,
+			reqd_explanation=1,
+			reqd_estimation=1,
+			reqd_link=1,
+			link_doctype=RESULT,
+		)
+		target = frappe.db.get_value(RESULT, {"project": PORTAL, "title": result_title})
+		# Set the simulated date on insert so Workflow can keep the original document identity.
+		created = (start - timedelta(days=days)).replace(microsecond=0).isoformat(" ")
+		with actor(ANALYST), patch("frappe.model.document.now", return_value=created):
+			request = insert(
+				CHANGE,
+				project=PORTAL,
+				title=title,
+				initiator=contact,
+				description=explanation,
+				implementation_responsible=ANALYST,
+				change_relations=[
+					dict(
+						type=kind.name,
+						direction="target",
+						level=level,
+						estimation=estimate,
+						explanation=explanation,
+						link_doctype=RESULT,
+						link=target,
+					)
+				],
+			)
+		share(request)
 
 
 def seed():

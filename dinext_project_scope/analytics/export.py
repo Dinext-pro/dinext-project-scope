@@ -27,6 +27,7 @@ STATE_FILLS = {
 	"blue": "D7E4FC",
 	"gray": "DDE1E5",
 }
+BODY_ALIGNMENT = Alignment(vertical="top", wrap_text=True)
 
 
 def rgb(color):
@@ -176,8 +177,7 @@ def add_impact_details(workbook, columns, rows):
 				for index, (key, _header, _width) in enumerate(fields, start=1):
 					cell = sheet.cell(next_row, index)
 					write_cell(cell, record.get(key))
-					if key == "explanation":
-						cell.alignment = Alignment(vertical="top", wrap_text=True)
+					cell.alignment = BODY_ALIGNMENT
 				next_row += 1
 	sheet.auto_filter.ref = sheet.dimensions
 
@@ -199,8 +199,11 @@ def make_workbook(report_name, columns, rows):
 			if row.get("is_group"):
 				cell.fill = GROUP_FILL
 				cell.font = Font(bold=True)
-			if column_index == 1 and depth:
-				cell.alignment = Alignment(indent=depth)
+			cell.alignment = (
+				Alignment(vertical="top", wrap_text=True, indent=depth)
+				if column_index == 1 and depth
+				else BODY_ALIGNMENT
+			)
 	if legend:
 		legend_sheet = workbook.create_sheet(_("Legend")[:31])
 		legend_sheet.column_dimensions["A"].width = 16
@@ -211,7 +214,10 @@ def make_workbook(report_name, columns, rows):
 			cell = legend_sheet.cell(index, 1)
 			write_cell(cell, code)
 			cell.font = Font(color=rgb(entry.get("color")), bold=True)
-			write_cell(legend_sheet.cell(index, 2), entry["label"])
+			cell.alignment = BODY_ALIGNMENT
+			label = legend_sheet.cell(index, 2)
+			write_cell(label, entry["label"])
+			label.alignment = BODY_ALIGNMENT
 	if report_name == "Project Change Impact Matrix":
 		add_impact_details(workbook, columns, rows)
 	buffer = BytesIO()

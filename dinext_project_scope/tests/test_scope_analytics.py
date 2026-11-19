@@ -280,10 +280,14 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual(table["A3"].value, "Cat")
 		self.assertEqual(table["A4"].value, "=1+2")
 		self.assertEqual(table["A4"].data_type, "s")
+		self.assertTrue(table["A4"].alignment.wrap_text)
+		self.assertEqual(table["A4"].alignment.indent, 1)
 		self.assertEqual(table["B4"].value, "Type")
-		multiple = next(cell.value for cell in table[4][2:] if "Own" in str(cell.value))
+		multiple = next(cell for cell in table[4][2:] if "Own" in str(cell.value))
+		self.assertTrue(multiple.alignment.wrap_text)
 		self.assertEqual(
-			[block.font.color.rgb for block in multiple if hasattr(block, "font")], ["FF12ABFF", "FFDC2525"]
+			[block.font.color.rgb for block in multiple.value if hasattr(block, "font")],
+			["FF12ABFF", "FFDC2525"],
 		)
 		self.assertEqual(book["Legend"]["B2"].value, "Does the work")
 
