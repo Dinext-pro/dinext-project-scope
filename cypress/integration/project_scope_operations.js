@@ -10,6 +10,7 @@ const rowForm = ".grid-row-open .form-in-grid";
 const workflowButton = `${page} .actions-btn-group > button:visible`;
 const workflowItem = `${page} .actions-btn-group .dropdown-menu:visible a`;
 let fixture;
+let linkSearchNumber = 0;
 
 function actor(role) {
 	cy.login(fixture.actors[role], fixture.password);
@@ -41,11 +42,19 @@ function select(name, value, host = page) {
 
 function chooseLink(name, value, host = page, search = value) {
 	const field = fields(name, host);
+	const alias = `scopeLinkSearch${++linkSearchNumber}`;
+	cy.intercept("POST", "**/api/method/frappe.desk.search.search_link", (request) => {
+		if (new URLSearchParams(request.body).get("txt") === search) {
+			request.alias = alias;
+			request.continue();
+		}
+	});
 	cy.get(field)
 		.find("input:visible")
 		.clear({ scrollBehavior: "center" })
 		.type(search, { delay: 0, scrollBehavior: "center" });
-	linkOption(field, value).click({ scrollBehavior: "center" });
+	cy.wait(`@${alias}`).its("response.statusCode").should("eq", 200);
+	linkOption(field, value).click({ scrollBehavior: false });
 	cy.get(field)
 		.find("input:visible")
 		.then(($input) => $input[0].blur());
@@ -338,7 +347,11 @@ describe("Project scope operations in Desk", () => {
 			.parent()
 			.should("contain.text", "Completed");
 		cy.get(fields("status")).find("select").should("have.value", "New");
-		cy.contains(`${page} button:visible`, /^Mark Done$/).click();
+		cy.intercept("POST", "**/api/method/frappe.desk.form.save.savedocs").as(
+			"markRequirementDone"
+		);
+		cy.get('button[data-label="Mark%20Done"]:visible').click({ scrollBehavior: "nearest" });
+		cy.wait("@markRequirementDone").its("response.statusCode").should("eq", 200);
 		cy.get(fields("status")).find("select").should("have.value", "Done");
 		cy.request(`/api/resource/Project%20Requirement/${fixture.requirement}`)
 			.its("body.data.status")
