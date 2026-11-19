@@ -103,7 +103,14 @@ function editRow(table, idx) {
 		.should("be.visible")
 		.then(($form) => {
 			const first = $form.find("input:first").get(0);
-			if (first && Cypress.$(first).is(":visible") && !first.disabled && !first.readOnly) {
+			const doc = $form[0].ownerDocument.defaultView.cur_frm.doc;
+			if (
+				doc.docstatus === 0 &&
+				first &&
+				Cypress.$(first).is(":visible") &&
+				!first.disabled &&
+				!first.readOnly
+			) {
 				cy.document().should((document) => expect(document.activeElement).to.eq(first));
 			}
 		});
@@ -116,6 +123,15 @@ function addRow(table, idx) {
 
 function closeRow() {
 	cy.get(".grid-row-open .grid-collapse-row").click();
+	cy.window().then(
+		(window) =>
+			new Cypress.Promise((resolve) =>
+				window
+					.$("html, body")
+					.promise()
+					.done(() => resolve())
+			)
+	);
 }
 
 function clickSave() {

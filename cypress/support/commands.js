@@ -5,6 +5,13 @@ Cypress.Commands.add("login", (email, password) => {
 	if (!password) {
 		password = Cypress.env("adminPassword");
 	}
+	// Leave the old Desk page so its pending requests cannot restore its session cookie.
+	cy.intercept("GET", "/__scope-test-sign-in", {
+		headers: { "Content-Type": "text/html; charset=utf-8" },
+		body: "<!doctype html><title>Scope test sign-in</title>",
+	});
+	cy.visit("/__scope-test-sign-in", { log: false });
+	cy.clearCookies({ log: false });
 	return cy
 		.request({
 			url: "/api/method/login",

@@ -410,6 +410,7 @@ Withdraw Review,Отозвать согласование
 The amended request cannot be changed after the first save.,Исходный запрос нельзя изменить после первого сохранения.
 Amend a cancelled change request from this project.,Исправленную версию можно создать из отменённого запроса этого проекта.
 Install a version of {0} that includes {1}.,Установите версию {0} с типом документа {1}.
+Use the Goal DocType from Dinext Goals to link project requirements.,Для связи требований проекта используйте тип документа Goal из Dinext Goals.
 Return to Draft,Вернуть в черновик
 Mark Implemented,Подтвердить выполнение
 Select a record from the same project.,Выберите запись этого проекта.

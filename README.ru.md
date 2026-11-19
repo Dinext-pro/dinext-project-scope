@@ -39,7 +39,7 @@ Dinext Project Scope добавляет в карточку проекта ERPNe
 
 В bench с Frappe и ERPNext 15, где на сайте установлены Dinext Common, Dinext Projects и Dinext Goals, установите приложение из принятой ветки или выпуска. Подставьте `<ref>` и `<site>` для своей среды.
 
-Используйте версию Dinext Common с DocType `Workflow Process` и версию Dinext Goals с DocType `Goal`. Приложение проверяет их наличие при установке.
+Используйте версию Dinext Common с DocType `Workflow Process` и версию Dinext Goals с DocType `Goal`, где доступны связи с проектами. Приложение проверяет эти условия при установке и миграции.
 
 ```bash
 bench get-app --branch <ref> https://github.com/Dinext-pro/dinext-project-scope.git

@@ -14,6 +14,9 @@ def before_install() -> None:
 	for app, doctype in (("Dinext Common", "Workflow Process"), ("Dinext Goals", "Goal")):
 		if not frappe.db.exists("DocType", doctype):
 			frappe.throw(_("Install a version of {0} that includes {1}.").format(app, doctype))
+	goal = frappe.get_meta("Goal")
+	if not all(goal.has_field(field) for field in ("subject", "goal_projects")):
+		frappe.throw(_("Use the Goal DocType from Dinext Goals to link project requirements."))
 
 
 def after_install() -> None:
@@ -22,5 +25,6 @@ def after_install() -> None:
 
 
 def after_migrate() -> None:
+	before_install()
 	register_dinext_hub_items()
 	ensure_default_workflows()

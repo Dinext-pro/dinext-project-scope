@@ -1,10 +1,20 @@
+from unittest.mock import patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from dinext_project_scope.install import before_install
 from dinext_project_scope.setup.workflows import default_routes, ensure_default_workflows
 
 
 class TestScopeWorkflowSetup(FrappeTestCase):
+	def test_install_rejects_goal_doctype_without_dinext_project_links(self):
+		with patch.object(frappe, "get_meta") as get_meta:
+			get_meta.return_value.has_field.side_effect = lambda field: field == "goal_name"
+			with self.assertRaisesRegex(frappe.ValidationError, "Dinext Goals"):
+				before_install()
+		before_install()
+
 	def test_default_scope_routes_have_stable_transition_identities(self):
 		routes = [f"Dinext {doctype}" for doctype, _, _ in default_routes()]
 

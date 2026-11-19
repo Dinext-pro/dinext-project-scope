@@ -75,7 +75,10 @@ function fitsViewport() {
 
 function compositionEditor() {
 	cy.get('[data-action="manage-composition"]').click();
-	return cy.get(modal);
+	return cy.get(modal).should(([$modal]) => {
+		const dialog = $modal.ownerDocument.defaultView.cur_dialog;
+		expect(dialog?.$wrapper?.get(0)).to.eq($modal);
+	});
 }
 
 function approvalHistory() {
@@ -259,6 +262,10 @@ describe("Requirement specification composition", () => {
 					"Project Requirement Specification Template",
 				]);
 			});
+			cy.get('[data-fieldname="target_type"] select').should(
+				"have.value",
+				"Project Requirement"
+			);
 			linkSearch("target", fixture.prefix);
 			linkOptions(target).should(($options) => {
 				const values = [...$options].map(optionValue);
