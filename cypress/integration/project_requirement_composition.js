@@ -397,7 +397,14 @@ describe("Requirement specification composition", () => {
 		cy.get(`${projectTree} tr[data-requirement="${fixture.working}"]`).within(() => {
 			cy.contains("summary", "Details").then(([summary]) => summary.focus());
 			cy.focused().should("have.text", "Details");
-			cy.contains("summary", "Details").click();
+			cy.then(async () => {
+				for (const type of ["keyDown", "keyUp"]) {
+					await Cypress.automation("remote:debugger:protocol", {
+						command: "Input.dispatchKeyEvent",
+						params: { type, key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 },
+					});
+				}
+			});
 			cy.contains(".scope-source-path", "Included directly").should("be.visible");
 		});
 		fitsViewport();
@@ -662,5 +669,59 @@ describe("Requirement specification composition", () => {
 			403,
 			"You do not have access to the selected project."
 		);
+	});
+
+	it("links the same goal in two projects and hides it from a reader without goal access", () => {
+		const page = ".page-container:visible";
+		const goalGrid = `${page} [data-fieldname="goals"]`;
+		const goalField = `${goalGrid} .grid-row-open [data-fieldname="goal"]`;
+		const related = `${page} .requirement-form-related`;
+		prepareSession();
+		cy.call(`${fixtureApi}.create_goal_fixture`, { run_id: runId }, fixtureRequest)
+			.its("body.message")
+			.then(({ shared, private: privateGoal }) => {
+				signIn("author");
+				cy.intercept("POST", "/api/method/frappe.desk.form.save.savedocs").as(
+					"saveGoalLink"
+				);
+				for (const name of [fixture.working, fixture.foreign]) {
+					cy.openDesk(requirementForm(name));
+					cy.get(`${goalGrid} .grid-add-row`).click({ scrollBehavior: "center" });
+					cy.get(`${goalGrid} .grid-body .btn-open-row`).click({
+						scrollBehavior: "center",
+					});
+					cy.get(`${goalField} input:visible`).type(fixture.prefix, { delay: 0 });
+					linkOptions(goalField).should(($options) => {
+						const names = [...$options].map(optionValue);
+						expect(names).to.include(shared).and.not.include(privateGoal);
+					});
+					linkOption(goalField, shared).click({ scrollBehavior: "nearest" });
+					cy.get(`${goalField} input:visible`).blur();
+					cy.get(`${goalGrid} .grid-collapse-row`).click();
+					cy.contains(`${page} .primary-action`, /^\s*Save\s*$/).click({
+						scrollBehavior: "center",
+					});
+					cy.wait("@saveGoalLink").its("response.statusCode").should("eq", 200);
+					cy.get(`${related} a[href$="/${shared}"]`).should("be.visible");
+					cy.request(`/api/resource/Project%20Requirement/${name}`)
+						.its("body.data.goals.0.goal")
+						.should("eq", shared);
+				}
+				cy.get(`${related} a[href$="/${shared}"]`).click({ scrollBehavior: "center" });
+				cy.location("pathname").should("eq", `/app/goal/${shared}`);
+
+				signIn("reviewer");
+				cy.openDesk(requirementForm(fixture.working));
+				cy.get(related)
+					.should("be.visible")
+					.find(`a[href$="/${shared}"]`)
+					.should("not.exist");
+				cy.request(`/api/resource/Project%20Requirement/${fixture.working}`)
+					.its("body.data.goals")
+					.should("deep.equal", []);
+				cy.request({ url: `/api/resource/Goal/${shared}`, failOnStatusCode: false })
+					.its("status")
+					.should("eq", 403);
+			});
 	});
 });

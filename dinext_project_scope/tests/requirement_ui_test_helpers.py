@@ -12,7 +12,7 @@ from dinext_project_scope.requirements import (
 	SPEC_TEMPLATE,
 	SPECIFICATION,
 )
-from dinext_project_scope.tests.project_fixture import make_project, project_user_roles
+from dinext_project_scope.tests.project_fixture import make_goal, make_project, project_user_roles
 
 
 def _prefix(run_id):
@@ -174,6 +174,19 @@ def create_fixture(run_id: str) -> dict:
 
 
 @whitelist_for_tests(methods=["POST"])
+def create_goal_fixture(run_id: str) -> dict:
+	prefix = _prefix(run_id)
+	projects = [f"CYPRESS-SCOPE-REQ-{run_id}-{suffix}" for suffix in ("A", "B")]
+	owners = [f"scope-{run_id}-{role}@example.test" for role in ("author", "reviewer")]
+	for email in owners:
+		frappe.get_doc("User", email).add_roles("Goal Owner")
+	goal_type = frappe.get_doc(doctype="Goal Type", goal_type_name=prefix).insert()
+	shared = make_goal(f"{prefix} shared objective", goal_type.name, owners[0], projects)
+	private = make_goal(f"{prefix} private objective", goal_type.name, owners[1], projects[:1])
+	return {"shared": shared.name, "private": private.name}
+
+
+@whitelist_for_tests(methods=["POST"])
 def remove_fixture(run_id: str) -> None:
 	prefix = _prefix(run_id)
 	for doctype, title in (
@@ -186,9 +199,12 @@ def remove_fixture(run_id: str) -> None:
 			doctype, filters={title: ("like", f"{prefix} %")}, pluck="name", order_by=order_by
 		):
 			frappe.delete_doc(doctype, name, force=True, delete_permanently=True)
+	for name in frappe.get_all("Goal", filters={"subject": ("like", f"{prefix} %")}, pluck="name"):
+		frappe.delete_doc("Goal", name, force=True, delete_permanently=True)
 	for doctype, title in (
 		("Contact", "first_name"),
 		("Requirement Kind", "name"),
+		("Goal Type", "goal_type_name"),
 	):
 		for name in frappe.get_all(doctype, filters={title: prefix}, pluck="name"):
 			frappe.delete_doc(doctype, name, force=True, delete_permanently=True)

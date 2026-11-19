@@ -1,3 +1,5 @@
+from io import BytesIO
+from secrets import token_hex
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -5,12 +7,36 @@ import frappe
 import frappe.share
 from frappe.desk.query_report import run
 from frappe.tests.utils import FrappeTestCase
+from openpyxl import load_workbook
 
 from dinext_project_scope.analytics import export
 from dinext_project_scope.tests.project_fixture import make_project, project_user_roles
+from dinext_project_scope.tests.scope_ui_test_helpers import create_report_fixture
 
 
 class TestScopeReportPermissions(FrappeTestCase):
+	def test_change_impact_download_keeps_two_permitted_projects_and_excludes_the_third(self):
+		frappe.set_user("Administrator")
+		fixture = create_report_fixture(token_hex(8))
+		prefix = fixture["title"]
+		try:
+			frappe.set_user(fixture["actor"])
+			export.download("Project Change Impact Matrix", {})
+			workbook = load_workbook(BytesIO(frappe.response["filecontent"]), read_only=True)
+			try:
+				values = {value for row in workbook.worksheets[0].values for value in row}
+				self.assertIn(f"{prefix} change", values)
+				self.assertIn(f"{prefix} rollout change", values)
+				self.assertIn(f"{prefix} secondary", values)
+				self.assertNotIn(f"{prefix} hidden change", values)
+				self.assertNotIn(f"{prefix} hidden", values)
+			finally:
+				workbook.close()
+		finally:
+			for key in ("type", "filename", "filecontent"):
+				frappe.response.pop(key, None)
+			frappe.set_user("Administrator")
+
 	def test_project_reports_use_scope_permissions_and_deny_other_projects(self):
 		frappe.set_user("Administrator")
 		prefix = f"Scope reports {frappe.generate_hash(length=10)}"

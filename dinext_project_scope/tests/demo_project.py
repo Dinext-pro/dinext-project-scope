@@ -14,7 +14,12 @@ from dinext_project_scope.requirements import (
 	apply_specification_template,
 	preview_specification_template,
 )
-from dinext_project_scope.tests.project_fixture import make_project, project_user_roles
+from dinext_project_scope.tests.project_fixture import (
+	goal_project_parameter,
+	make_goal,
+	make_project,
+	project_user_roles,
+)
 
 PORTAL = "SCOPE-DEMO-PORTAL"
 INTEGRATION = "SCOPE-DEMO-INTEGRATION"
@@ -22,6 +27,7 @@ ANALYST = "scope-demo-analyst@example.test"
 MANAGER = "scope-demo-manager@example.test"
 ENGINEER = "scope-demo-engineer@example.test"
 USERS = (ANALYST, MANAGER, ENGINEER)
+GOAL_SUBJECT = "Сократить задержку передачи обращений из цифровых каналов"
 
 REQ = "Project Requirement"
 SPEC = "Project Requirement Specification"
@@ -119,7 +125,7 @@ def requirement(title, contact, kind, project=None, parent=None, group=False):
 		parent_project_requirement=parent.name if parent else None,
 		status="New" if project else "Template",
 		is_group=int(group),
-		description=f"<p>{title}. Проверка входит в программу приёмки сервисного портала.</p>",
+		description=f"{title}. Проверка входит в программу приёмки сервисного портала.",
 	)
 
 
@@ -494,9 +500,18 @@ def snapshot():
 	if not frappe.local.site.endswith(".localhost"):
 		frappe.throw("Run the demonstration on a localhost site.")
 	project = frappe.get_doc("Project", PORTAL)
+	goal = frappe.db.get_value("Goal", {"subject": GOAL_SUBJECT, "goal_owner": MANAGER})
 	return {
 		"project": project.name,
 		"secondary_project": INTEGRATION,
+		"shared_goal": {
+			"name": goal,
+			"subject": GOAL_SUBJECT,
+			"projects": frappe.get_all("Goal Project", filters={"parent": goal}, pluck="project"),
+			"requirements": frappe.get_all("Project Requirement Goal", filters={"goal": goal}, pluck="parent"),
+		}
+		if goal
+		else None,
 		"requirements": frappe.get_all(
 			REQ, filters={"project": PORTAL}, fields=["name", "requirement_title", "status"]
 		),
@@ -523,6 +538,41 @@ def snapshot():
 	}
 
 
+def add_demo_goal():
+	requirements = [
+		frappe.db.get_value(REQ, {"project": project, "requirement_title": title, "responsible": ANALYST})
+		for project, title in (
+			(PORTAL, "Приём обращений из корпоративного мессенджера"),
+			(INTEGRATION, "Документировать контрольные ответы API"),
+		)
+	]
+	if not all(requirements):
+		frappe.throw("The synthetic demonstration requirements were not found.")
+	goal = frappe.db.get_value("Goal", {"subject": GOAL_SUBJECT, "goal_owner": MANAGER})
+	if not goal:
+		frappe.get_doc("User", MANAGER).add_roles("Goal Owner")
+		kind = "Качество обслуживания (демо)"
+		catalog("Goal Type", kind, goal_type_name=kind)
+		goal = make_goal(GOAL_SUBJECT, kind, MANAGER, (PORTAL, INTEGRATION)).name
+	else:
+		doc = frappe.get_doc("Goal", goal)
+		if not doc.goal_projects and not doc.parameters:
+			doc.append("parameters", goal_project_parameter((PORTAL, INTEGRATION)))
+			doc.save()
+	with actor(MANAGER):
+		for name in requirements:
+			doc = frappe.get_doc(REQ, name)
+			description = f"{doc.requirement_title}. Проверка входит в программу приёмки сервисного портала."
+			update_description = doc.description == f"<p>{description}</p>"
+			add_link = not any(row.goal == goal for row in doc.goals)
+			if update_description:
+				doc.description = description
+			if add_link:
+				doc.append("goals", {"goal": goal})
+			if update_description or add_link:
+				doc.save()
+
+
 def seed():
 	"""Create the two demonstration projects and their ordinary user accounts."""
 	if (
@@ -532,6 +582,7 @@ def seed():
 	):
 		frappe.throw("The scope demonstration requires a localhost site with email and scheduler disabled.")
 	if frappe.db.exists("Project", PORTAL):
+		add_demo_goal()
 		return snapshot()
 	if frappe.db.exists("Project", INTEGRATION):
 		frappe.throw("The secondary demonstration project identifier is already in use.")
@@ -601,4 +652,5 @@ def seed():
 		for key, status in (("form", "Done"), ("queue", "In Progress"), ("chat", "Cancelled")):
 			requirements[key].reload().update({"status": status}).save()
 	create_changes(project, secondary, contact.name, results)
+	add_demo_goal()
 	return snapshot()

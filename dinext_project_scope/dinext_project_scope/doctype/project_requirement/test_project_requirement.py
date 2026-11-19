@@ -6,11 +6,10 @@ from dinext_common.workflow_approval.api import apply_workflow
 from dinext_common.workflow_approval.engine import WorkflowDomainRollbackError
 from dinext_common.workflow_approval.scenarios.service import workflow_context
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import add_days, today
 
 from dinext_project_scope import requirement_approval, requirements
 from dinext_project_scope.analytics import reports
-from dinext_project_scope.tests.project_fixture import make_project
+from dinext_project_scope.tests.project_fixture import make_goal, make_project
 
 
 class TestProjectRequirement(FrappeTestCase):
@@ -180,18 +179,9 @@ class TestProjectRequirement(FrappeTestCase):
 		kind = frappe.get_doc(
 			doctype="Goal Type", goal_type_name=f"Service goal {frappe.generate_hash(length=10)}"
 		).insert()
-		goal = frappe.get_doc(
-			doctype="Goal",
-			goal_type=kind.name,
-			subject="Reduce first response time",
-			goal_owner="Administrator",
-			priority="Medium",
-			exp_start_date=today(),
-			exp_end_date=add_days(today(), 30),
-			progress_method="Manual",
-			is_group=1,
-			goal_projects=[{"project": project.name} for project in (self.project, other)],
-		).insert()
+		project_names = {self.project.name, other.name}
+		goal = make_goal("Reduce first response time", kind.name, "Administrator", sorted(project_names))
+		self.assertEqual({row.project for row in goal.reload().goal_projects}, project_names)
 		for project in (self.project, other):
 			doc = self.make_requirement(project=project.name, goals=[{"goal": goal.name}])
 			self.assertEqual(doc.reload().goals[0].goal, goal.name)

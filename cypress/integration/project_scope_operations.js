@@ -332,6 +332,17 @@ describe("Project scope operations in Desk", () => {
 			expect(doc.table_xuct[1].element).not.to.be.ok;
 		});
 		shot("operations-acceptance-completed");
+		openForm("project-requirement", fixture.requirement);
+		cy.get(`${page} .requirement-form-related a[href$="/${fixture.acceptance}"]`)
+			.should("be.visible")
+			.parent()
+			.should("contain.text", "Completed");
+		cy.get(fields("status")).find("select").should("have.value", "New");
+		cy.contains(`${page} button:visible`, /^Mark Done$/).click();
+		cy.get(fields("status")).find("select").should("have.value", "Done");
+		cy.request(`/api/resource/Project%20Requirement/${fixture.requirement}`)
+			.its("body.data.status")
+			.should("eq", "Done");
 
 		actor("author");
 		openForm("task", fixture.baseline);

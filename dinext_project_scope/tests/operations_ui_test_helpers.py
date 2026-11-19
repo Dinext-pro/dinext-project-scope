@@ -58,6 +58,19 @@ def create_fixture(run_id: str) -> dict:
 	other.is_active = "Yes"
 	other.save()
 
+	kind = frappe.get_doc(doctype="Requirement Kind", enabled=1).insert(set_name=label)
+	requirement = frappe.get_doc(
+		doctype="Project Requirement",
+		project=project.name,
+		requirement_title=f"{label} acceptance requirement",
+		author=contact.name,
+		responsible=actors["reviewer"],
+		kind=kind.name,
+		requirement_importance="Must Have",
+	).insert()
+	project.append("custom_project_requirements", {"project_requirement": requirement.name})
+	project.save()
+
 	category = frappe.get_doc(doctype="Project Deliverable Category", enabled=1).insert(set_name=label)
 	responsibility = frappe.get_doc(
 		doctype="Project Deliverable Responsibility", enabled=1, responsibility=f"R-{run_id}"
@@ -144,6 +157,9 @@ def create_fixture(run_id: str) -> dict:
 			)
 		],
 	)
+	accepted_result = frappe.get_doc("Project Deliverable", acceptance)
+	accepted_result.append("deliverable_requirements", {"project_requirement": requirement.name})
+	accepted_result.save()
 	constraint_template = frappe.get_doc(
 		doctype="Project Constraints Template",
 		template_name=f"{label} constraints",
@@ -210,6 +226,7 @@ def create_fixture(run_id: str) -> dict:
 		leaf=leaf,
 		parent=parent,
 		acceptance=acceptance,
+		requirement=requirement.name,
 		finished_on=add_days(today(), -2),
 		constraint_template=constraint_template,
 		result_template=result_template,
@@ -222,7 +239,7 @@ def remove_fixture(run_id: str) -> None:
 	label, project = _identity(run_id)
 	projects = [project, f"{project}-RESTRICTED"]
 	users = frappe.get_all("User", filters={"name": ("like", f"scope-ops-{run_id}-%@example.test")}, pluck="name")
-	for doctype in ("Project Change Request", "Project Deliverable", "Task"):
+	for doctype in ("Project Change Request", "Project Deliverable", "Task", "Project Requirement"):
 		rows = frappe.get_all(doctype, filters={"project": ("in", projects)}, fields=["name", "docstatus"])
 		for row in rows:
 			frappe.db.delete("Project Scope Approval", {"reference_doctype": doctype, "reference_name": row.name})
@@ -244,6 +261,7 @@ def remove_fixture(run_id: str) -> None:
 		("Project Deliverable Category", "name", label),
 		("Project Deliverable Responsibility", "name", label),
 		("Project Change Relation Type", "name", label),
+		("Requirement Kind", "name", label),
 		("Task Type", "name", label),
 		("Project Role", "name", label),
 		("Project Type", "project_type", label),

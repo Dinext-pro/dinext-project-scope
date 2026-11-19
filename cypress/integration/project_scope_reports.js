@@ -156,6 +156,9 @@ describe("Project scope reports", () => {
 		cy.screenshot("traceability-matrix");
 		rowLink(`${fixture.title} detail task`).click();
 		cy.location("pathname").should("eq", `/app/task/${fixture.task}`);
+		openReport(traceability, { project: fixture.project });
+		rowLink(`${fixture.title} result`).first().click();
+		cy.location("pathname").should("eq", `/app/project-deliverable/${fixture.result}`);
 	});
 
 	it("refreshes ancestor progress and overdue styling after saving changed work", () => {
@@ -413,6 +416,7 @@ describe("Project scope reports", () => {
 		cy.login(fixture.actor, fixture.password);
 		openReport(impact);
 		rowLink(`${fixture.title} change`).should("be.visible");
+		rowLink(`${fixture.title} rollout change`).should("be.visible");
 		rowLink(`${fixture.title} hidden change`).should("not.exist");
 		cy.contains(`${table} .ag-header-cell-text`, exact(`${fixture.title} hidden`)).should(
 			"not.exist"
@@ -421,6 +425,12 @@ describe("Project scope reports", () => {
 			"exist"
 		);
 		cy.contains(`${table} button`, "Download Excel").should("be.visible");
+		cy.request({ url: exportMethod, qs: { report_name: impact }, encoding: "binary" }).then(
+			(response) => {
+				expect(response.status).to.eq(200);
+				expect(response.body.slice(0, 2)).to.eq("PK");
+			}
+		);
 		cy.request({
 			url: exportMethod,
 			qs: {

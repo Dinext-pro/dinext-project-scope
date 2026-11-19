@@ -58,6 +58,7 @@ def create_report_fixture(run_id):
 	_prefix(run_id)
 	prefix = f"Cypress report {run_id}"
 	project = make_project(prefix, f"CYPRESS-SCOPE-REPORT-{run_id}")
+	rollout = make_project(f"{prefix} rollout", f"CYPRESS-SCOPE-REPORT-ROLLOUT-{run_id}", project.project_type)
 	person = frappe.get_doc(doctype="Contact", first_name=prefix).insert().name
 	other_category = f"{prefix} secondary"
 	password = f"Qa9!{token_urlsafe(18)}"
@@ -83,6 +84,11 @@ def create_report_fixture(run_id):
 		project.append("users", {"user": email})
 	actor = actors["en"]
 	hidden = make_project(other_category, f"CYPRESS-SCOPE-REPORT-HIDDEN-{run_id}", project.project_type)
+	rollout.append("users", {"user": actor, "welcome_email_sent": 1})
+	rollout.save()
+	frappe.get_doc(
+		doctype="User Permission", user=actor, allow="Project", for_value=rollout.name, apply_to_all_doctypes=1
+	).insert()
 
 	_named("Requirement Kind", prefix)
 	_named("Requirement Kind", other_category)
@@ -272,6 +278,15 @@ def create_report_fixture(run_id):
 			_impact(secondary_impact, "Moderate", result.name),
 		],
 	).insert()
+	rollout_result = _result(rollout.name, prefix, "rollout deliverable", other_category, leaf_kind)
+	frappe.get_doc(
+		doctype="Project Change Request",
+		project=rollout.name,
+		title=f"{prefix} rollout change",
+		initiator=person,
+		description="Update the rollout schedule",
+		change_relations=[_impact(impact, "Moderate", rollout_result.name)],
+	).insert()
 	frappe.get_doc(
 		doctype="Project Change Request",
 		project=hidden.name,
@@ -316,7 +331,8 @@ def remove_report_fixture(run_id):
 	prefix = f"Cypress report {run_id}"
 	project = frappe.db.get_value("Project", {"project_name": prefix}, "name")
 	hidden = frappe.db.get_value("Project", {"project_name": f"{prefix} secondary"}, "name")
-	projects = [name for name in (project, hidden) if name]
+	rollout = frappe.db.get_value("Project", {"project_name": f"{prefix} rollout"}, "name")
+	projects = [name for name in (project, hidden, rollout) if name]
 	for doctype, order in (
 		("Project Change Request", "creation desc"),
 		("Project Deliverable", "creation desc"),
