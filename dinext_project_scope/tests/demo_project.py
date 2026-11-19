@@ -3,6 +3,7 @@
 
 import os
 from contextlib import contextmanager
+from datetime import timedelta
 
 import frappe
 from dinext_common.workflow_approval import engine
@@ -513,7 +514,7 @@ def snapshot():
 		if goal
 		else None,
 		"requirements": frappe.get_all(
-			REQ, filters={"project": PORTAL}, fields=["name", "requirement_title", "status"]
+			REQ, filters={"project": PORTAL}, fields=["name", "requirement_title", "status", "kind"]
 		),
 		"specifications": frappe.get_all(
 			SPEC, filters={"project": PORTAL}, fields=["name", "title", "workflow_state"]
@@ -533,7 +534,7 @@ def snapshot():
 		"changes": frappe.get_all(
 			CHANGE,
 			filters={"project": ("in", [PORTAL, INTEGRATION])},
-			fields=["name", "title", "project", "status"],
+			fields=["name", "title", "project", "status", "creation"],
 		),
 	}
 
@@ -573,6 +574,35 @@ def add_demo_goal():
 				doc.save()
 
 
+def add_demo_report_data():
+	for title, kind in (
+		("Приём обращений из корпоративного мессенджера", "Каналы обращений (демо)"),
+		("Синхронизация справочника подразделений", "Интеграции и справочники (демо)"),
+	):
+		name = frappe.db.get_value(REQ, {"project": PORTAL, "requirement_title": title, "responsible": ANALYST})
+		if name:
+			catalog("Requirement Kind", kind, enabled=1)
+			with actor(ANALYST):
+				doc = frappe.get_doc(REQ, name)
+				if doc.kind != kind:
+					doc.kind = kind
+					doc.save()
+
+	start = frappe.db.get_value("Project", PORTAL, "creation")
+	# Simulate requests raised on different days in the archived project history.
+	for project, title, days in (
+		(PORTAL, "Сократить обязательные поля анкеты", 12),
+		(PORTAL, "Ускорить подключение мессенджера", 7),
+		(PORTAL, "Добавить ночную эскалацию для критичных заявок", 2),
+		(INTEGRATION, "Добавить пакетную передачу регистра", 4),
+	):
+		filters = {"project": project, "title": title, "owner": ANALYST}
+		if stored := frappe.db.get_value(CHANGE, filters, ["name", "creation"], as_dict=True):
+			created = (start - timedelta(days=days)).replace(microsecond=0)
+			if stored.creation != created:
+				frappe.db.set_value(CHANGE, stored.name, "creation", created, update_modified=False)
+
+
 def seed():
 	"""Create the two demonstration projects and their ordinary user accounts."""
 	if (
@@ -583,6 +613,7 @@ def seed():
 		frappe.throw("The scope demonstration requires a localhost site with email and scheduler disabled.")
 	if frappe.db.exists("Project", PORTAL):
 		add_demo_goal()
+		add_demo_report_data()
 		return snapshot()
 	if frappe.db.exists("Project", INTEGRATION):
 		frappe.throw("The secondary demonstration project identifier is already in use.")
@@ -653,4 +684,5 @@ def seed():
 			requirements[key].reload().update({"status": status}).save()
 	create_changes(project, secondary, contact.name, results)
 	add_demo_goal()
+	add_demo_report_data()
 	return snapshot()
