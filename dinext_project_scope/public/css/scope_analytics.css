@@ -42,6 +42,11 @@
 	padding: 1rem;
 }
 
+.dinext-scope-analytics:fullscreen .dinext-scope-grid-target,
+.dinext-scope-report-page:fullscreen .dinext-scope-grid-target {
+	height: 75vh;
+}
+
 .dinext-scope-filter-strip {
 	display: flex;
 	flex-wrap: wrap;

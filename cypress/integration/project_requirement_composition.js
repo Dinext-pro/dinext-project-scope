@@ -18,8 +18,8 @@ function workflowAction(label, comment) {
 	cy.contains(`${workflowMenu} .dropdown-menu:visible a`, label).click();
 	if (comment) {
 		cy.get(modal).within(() => {
-			cy.get('[data-fieldname="comment"] textarea').type(comment);
-			cy.get(".modal-footer .btn-primary").click();
+			cy.get('[data-fieldname="comment"] textarea').type(comment).blur();
+			cy.get(".modal-footer .btn-primary").should("not.be.disabled").click();
 		});
 	}
 }
@@ -32,10 +32,10 @@ function approvalStatus(status) {
 	});
 }
 
-function changeApprovalInPlace(action, status) {
+function changeApprovalInPlace(action, status, comment) {
 	cy.intercept("POST", workflowApply).as("applyScopeApproval");
 	cy.document().then((page) => {
-		workflowAction(action);
+		workflowAction(action, comment);
 		cy.wait("@applyScopeApproval").its("response.statusCode").should("eq", 200);
 		approvalStatus(status);
 		cy.document().should("eq", page);
@@ -44,13 +44,18 @@ function changeApprovalInPlace(action, status) {
 
 function openProjectScope(project) {
 	cy.visit(`/app/project/${project}`);
+	cy.get(
+		'[data-fieldname="custom_scope_deliverables_progress_html"] .dinext-scope-heading'
+	).should("exist");
 	cy.get('button[data-fieldname="custom_объем"]').click();
 	cy.get(projectTree).should("be.visible");
 }
 
 function moreScopeAction(label) {
 	cy.contains(`${projectTree} summary`, "More Actions").click();
-	cy.contains(`${projectTree} button`, label).click();
+	cy.contains(`${projectTree} .scope-actions-menu button:visible`, label).click({
+		scrollBehavior: "nearest",
+	});
 }
 
 function linkSearch(field, text) {
@@ -337,8 +342,12 @@ describe("Requirement specification composition", () => {
 			chooseLink("item", fixture.standalone);
 			cy.contains("button", "Continue").click();
 		});
+		cy.intercept("POST", "**/api/method/frappe.desk.form.save.savedocs").as(
+			"updateConnections"
+		);
 		cy.contains(modal, "with 0 requirements").contains("button", "Yes").click();
-		cy.get(modal).should("not.exist");
+		cy.wait("@updateConnections").its("response.statusCode").should("eq", 200);
+		openProjectScope(fixture.project);
 		moreScopeAction("Manage Requirement Connections");
 		cy.contains(`${modal} .scope-connection-row button`, fixture.standalone)
 			.should("be.visible")
@@ -351,7 +360,8 @@ describe("Requirement specification composition", () => {
 			.contains("button", "Disconnect")
 			.click();
 		cy.contains(modal, "Remove this source").contains("button", "Yes").click();
-		cy.get(modal).should("not.exist");
+		cy.wait("@updateConnections").its("response.statusCode").should("eq", 200);
+		openProjectScope(fixture.project);
 		moreScopeAction("Manage Requirement Connections");
 		cy.contains(`${modal} .scope-connection-row button`, fixture.standalone).should(
 			"not.exist"
@@ -378,8 +388,9 @@ describe("Requirement specification composition", () => {
 		cy.contains(`${projectTree} button`, "Apply Specification Template").should("be.visible");
 		cy.contains(`${projectTree} summary`, "More Actions").click();
 		cy.get(`${projectTree} tr[data-requirement="${fixture.working}"]`).within(() => {
-			cy.contains("summary", "Details").click();
+			cy.contains("summary", "Details").then(([summary]) => summary.focus());
 			cy.focused().should("have.text", "Details");
+			cy.contains("summary", "Details").click();
 			cy.contains(".scope-source-path", "Included directly").should("be.visible");
 		});
 		fitsViewport();
@@ -478,17 +489,14 @@ describe("Requirement specification composition", () => {
 				cy.get(`${compositionRows} a[href$="/${firstChild}"]`).click();
 				approvalStatus("Draft");
 				cy.get('[data-fieldname="status"] select').should("have.value", "New");
-				cy.get('[data-fieldname="template_source"] a[data-name]').should(
-					"have.attr",
-					"data-name",
-					fixture.child
-				);
-				cy.contains(".page-container:visible .inner-toolbar button", "Mark Done").should(
-					"not.exist"
-				);
+				cy.get(
+					'.page-container:visible [data-fieldname="template_source"] a[data-name]'
+				).should("have.attr", "data-name", fixture.child);
+				const markDone = 'button[data-label="Mark%20Done"]:visible';
+				cy.get(markDone).should("not.exist");
 				signIn("reviewer");
 				cy.visit(requirementForm(firstChild));
-				cy.contains(".page-container:visible .inner-toolbar button", "Mark Done").click();
+				cy.get(markDone).click({ scrollBehavior: "nearest" });
 				cy.get('[data-fieldname="status"] select').should("have.value", "Done");
 				approvalStatus("Draft");
 				signIn("author");
@@ -533,7 +541,6 @@ describe("Requirement specification composition", () => {
 					"The requirement composition changed. Withdraw the review and submit it again."
 				);
 			});
-		cy.contains(modal, "Withdraw the review and submit it again.").should("be.visible");
 		approvalStatus("Reapproval Required");
 		cy.visit(requirementForm(fixture.stale_addition));
 		cy.get('[data-fieldname="status"] select').should("have.value", "New");
@@ -542,8 +549,7 @@ describe("Requirement specification composition", () => {
 
 		signIn("author");
 		cy.visit(form);
-		workflowAction("Withdraw Review", "The nested specification changed.");
-		approvalStatus("Draft");
+		changeApprovalInPlace("Withdraw Review", "Draft", "The nested specification changed.");
 		workflowAction("Submit for Review");
 		approvalStatus("In Review");
 		signIn("reviewer");

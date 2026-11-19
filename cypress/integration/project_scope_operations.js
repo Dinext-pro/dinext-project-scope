@@ -61,8 +61,22 @@ function checkWorkChoices(search, included, excluded) {
 	});
 }
 
-function typeDate(name, isoDate, host = page) {
-	cy.window().then((window) => type(name, window.frappe.datetime.str_to_user(isoDate), host));
+function selectDate(name, isoDate, host = page) {
+	const [year, month, day] = isoDate.split("-").map(Number);
+	cy.get(fields(name, host))
+		.find("input:visible")
+		.click({ scrollBehavior: "center" })
+		.then(([input]) => {
+			const view = input.ownerDocument.defaultView;
+			const picker = view.$(input).data("datepicker");
+			picker.date = new view.Date(year, month - 1, 1);
+			const cell = `.datepicker--cell-day[data-year="${year}"][data-month="${
+				month - 1
+			}"][data-date="${day}"]`;
+			cy.wrap(picker.$datepicker[0], { log: false })
+				.find(cell)
+				.click({ scrollBehavior: false });
+		});
 }
 
 function showTaskTimeline() {
@@ -105,9 +119,10 @@ function closeRow() {
 }
 
 function clickSave() {
-	cy.get(`${page} .page-actions .primary-action:visible`)
-		.contains(/Save|Update/)
-		.click();
+	cy.scrollTo("top", { ensureScrollable: false });
+	cy.contains(`${page} .page-actions .primary-action:visible`, /^\s*(Save|Update)\s*$/).click({
+		scrollBehavior: false,
+	});
 }
 
 function save() {
@@ -124,8 +139,13 @@ function scopeTab() {
 	cy.get('button[data-fieldname="custom_объем"]').click();
 }
 
+function openActions() {
+	cy.scrollTo("top", { ensureScrollable: false });
+	cy.get(workflowButton).click({ scrollBehavior: false });
+}
+
 function action(label, comment) {
-	cy.get(workflowButton).click({ scrollBehavior: "nearest" });
+	openActions();
 	cy.contains(workflowItem, new RegExp(`^\\s*${label}\\s*$`)).click();
 	if (comment) {
 		type("comment", comment, modal);
@@ -195,7 +215,11 @@ describe("Project scope operations in Desk", () => {
 		openForm("task", fixture.partial);
 		showTaskTimeline();
 		type("progress", "60");
-		typeDate("exp_end_date", "2026-11-26");
+		selectDate("exp_end_date", "2026-11-26");
+		readForm((doc) => {
+			expect(doc.progress).to.eq(60);
+			expect(doc.exp_end_date).to.eq("2026-11-26");
+		});
 		save();
 		openForm("project-deliverable", fixture.parent);
 		readForm((doc) => {
@@ -296,7 +320,8 @@ describe("Project scope operations in Desk", () => {
 		actor("author");
 		openForm("task", fixture.baseline);
 		showTaskTimeline();
-		typeDate("custom_planned_end_date", "2026-11-20");
+		selectDate("custom_planned_end_date", "2026-11-20");
+		readForm((doc) => expect(doc.custom_planned_end_date).to.eq("2026-11-20"));
 		save();
 		actor("reviewer");
 		openForm("project-deliverable", fixture.acceptance);
@@ -325,7 +350,10 @@ describe("Project scope operations in Desk", () => {
 		actor("author");
 		openForm("project", fixture.project);
 		scopeTab();
-		cy.get(`${page} .inner-group-button[data-label="Scope"] > button:visible`).click();
+		cy.scrollTo("top", { ensureScrollable: false });
+		cy.get('.inner-group-button[data-label="Scope"] > button:visible').click({
+			scrollBehavior: false,
+		});
 		cy.contains(`${page} .dropdown-menu:visible a`, "Apply Constraints Template").click();
 		chooseLink("item", `${fixture.label} constraints`, modal);
 		cy.get(`${modal} .modal-footer .btn-primary`).click();
@@ -368,7 +396,7 @@ describe("Project scope operations in Desk", () => {
 		editRow("project_constraints", 2);
 		select("verification_status", "Confirmed", rowForm);
 		type("verification_note", "The participant confirmed resource availability.", rowForm);
-		typeDate("review_date", "2026-11-27", rowForm);
+		selectDate("review_date", "2026-11-27", rowForm);
 		closeRow();
 		save();
 		cy.reload();
@@ -470,7 +498,7 @@ describe("Project scope operations in Desk", () => {
 			action("Submit for Review");
 			state("In Review");
 			shot("operations-change-in-review");
-			cy.get(workflowButton).click();
+			openActions();
 			cy.contains(workflowItem, "Withdraw Review").should("be.visible");
 			cy.contains(workflowItem, /^\s*(Approve|Reject)\s*$/).should("not.exist");
 			shot("operations-change-author-actions");
@@ -499,7 +527,7 @@ describe("Project scope operations in Desk", () => {
 			action("Approve");
 			state("Approved");
 			shot("operations-change-approved");
-			cy.get(workflowButton).click();
+			openActions();
 			cy.contains(workflowItem, "Cancel").should("be.visible");
 			cy.contains(workflowItem, "Mark Implemented").should("not.exist");
 			shot("operations-change-reviewer-actions");
@@ -507,7 +535,7 @@ describe("Project scope operations in Desk", () => {
 			actor("author");
 			openForm("project-change-request", name);
 			cy.get(fields("title")).find("input:visible").should("not.exist");
-			typeDate("implementation_date", "2026-11-18");
+			selectDate("implementation_date", "2026-11-18");
 			type("implementation_note", "The completion date was updated.");
 			addRow("implementation_items", 1);
 			select("reference_doctype", "Task", rowForm);

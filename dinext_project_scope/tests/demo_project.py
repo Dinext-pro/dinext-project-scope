@@ -29,6 +29,13 @@ SPEC_TEMPLATE = "Project Requirement Specification Template"
 RESULT = "Project Deliverable"
 CHANGE = "Project Change Request"
 
+OPTIONAL_ASSIGNMENTS_BY_RESULT = {
+	"Правила маршрутизации и SLA": ("Получает информацию (демо)",),
+	"Личный кабинет и единый вход": ("Согласует требования (демо)", "Получает информацию (демо)"),
+	"Отчётность службы поддержки": ("Согласует требования (демо)",),
+	"Канал обращений из мессенджера": ("Выполняет работы (демо)", "Согласует требования (демо)"),
+}
+
 REQUIREMENTS = (
 	("intake", "Единый приём сервисных заявок", None),
 	("form", "Форма заявки с каталогом услуг", "intake"),
@@ -170,6 +177,7 @@ def create_requirements(project, contact, kind):
 		[docs[k] for k in ("analytics", "chart", "export", "checklist")],
 		project,
 	)
+	specification("Подготовка запуска и обучение операторов", contact, [], project)
 	template_leaf = specification("Контрольные точки обмена", contact, template_items[:2])
 	template = specification("Типовые требования к интеграции", contact, [template_leaf, template_items[2]])
 	project.reload()
@@ -180,8 +188,11 @@ def create_requirements(project, contact, kind):
 	project.save()
 	for spec in (portal, analytics, template):
 		vote(spec, "Submit for Review", ANALYST)
-	vote(portal, "Approve", MANAGER)
-	vote(template, "Approve", MANAGER)
+	for spec in (portal, analytics, template):
+		vote(spec, "Approve", MANAGER)
+	vote(routing, "Submit for Review", ANALYST)
+	vote(exchange, "Submit for Review", ANALYST)
+	vote(exchange, "Reject", MANAGER, "В первой очереди требуется уточнить SLA повторной доставки.")
 	return docs, template
 
 
@@ -286,8 +297,10 @@ def create_results(project, requirements, categories, assignments):
 	chat = task(project, "Согласование канала мессенджера", 0, -7)
 
 	def add(title, category, keys, work):
+		omit = OPTIONAL_ASSIGNMENTS_BY_RESULT.get(title, ())
+		selected = [row for row in assignments if row["responsibility"] not in omit]
 		return result(
-			project, title, categories[category], [requirements[key] for key in keys], work, assignments
+			project, title, categories[category], [requirements[key] for key in keys], work, selected
 		)
 
 	form = add(
@@ -584,5 +597,8 @@ def seed():
 		)
 	add_constraints(project, categories)
 	results = create_results(project, requirements, categories, responsibility_rows(roles, contact.name))
+	with actor(ANALYST):
+		for key, status in (("form", "Done"), ("queue", "In Progress"), ("chat", "Cancelled")):
+			requirements[key].reload().update({"status": status}).save()
 	create_changes(project, secondary, contact.name, results)
 	return snapshot()

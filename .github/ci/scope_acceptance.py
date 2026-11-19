@@ -146,6 +146,30 @@ def wait_for_site(server):
 
 
 def run_cypress():
+	legacy_task_asset = BENCH / "apps/dinext_common/dinext_common/public/js/form_conflict_merge.js"
+	if not legacy_task_asset.is_file():
+		# The disposable site can inherit a client script for an asset removed by Common.
+		run(
+			"bench",
+			"--site",
+			SITE,
+			"execute",
+			"frappe.db.set_value",
+			"--args",
+			json.dumps(
+				[
+					"Client Script",
+					{
+						"name": "Utility-FormConflictMerge-Task",
+						"dt": "Task",
+						"script": ["like", "%/js/form_conflict_merge.js%"],
+					},
+					"enabled",
+					0,
+				]
+			),
+		)
+		run("bench", "--site", SITE, "clear-cache")
 	with (RESULTS / "web.log").open("w") as output:
 		server = subprocess.Popen(
 			["bench", "--site", SITE, "serve", "--port", "8000", "--noreload"],

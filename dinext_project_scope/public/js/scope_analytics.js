@@ -500,8 +500,7 @@
 							{
 								id: "scope-export",
 								type: "custom",
-								render: ({ host }) =>
-									host.append(button(__("Download Excel"), options.export)),
+								render: () => button(__("Download Excel"), options.export),
 							},
 					  ]
 					: [],

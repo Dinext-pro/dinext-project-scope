@@ -16,6 +16,32 @@ const overview = "Project Scope Overview";
 const deliverables = "Project Deliverable Register";
 const constraints = "Project Constraint Register";
 
+function clickFullscreenControl(title) {
+	cy.get(`${table} button[title="${title}"]`)
+		.should("be.visible")
+		.then(async ([button]) => {
+			// Chromium requires trusted user input to enter fullscreen.
+			button.scrollIntoView({ block: "nearest" });
+			const rect = button.getBoundingClientRect();
+			let x = rect.left + rect.width / 2;
+			let y = rect.top + rect.height / 2;
+			const view = button.ownerDocument.defaultView;
+			const frame =
+				view.frameElement || view.parent.document.querySelector("iframe.aut-iframe");
+			if (frame) {
+				const bounds = frame.getBoundingClientRect();
+				x = bounds.left + (x * bounds.width) / frame.offsetWidth;
+				y = bounds.top + (y * bounds.height) / frame.offsetHeight;
+			}
+			for (const type of ["mousePressed", "mouseReleased"]) {
+				await Cypress.automation("remote:debugger:protocol", {
+					command: "Input.dispatchMouseEvent",
+					params: { type, x, y, clickCount: 1, button: "left" },
+				});
+			}
+		});
+}
+
 describe("Project scope reports", () => {
 	const fixture = useReportFixture();
 
@@ -348,13 +374,26 @@ describe("Project scope reports", () => {
 		cy.get("html").should("have.attr", "data-theme", "dark");
 		cy.get(`${table} .ag-header-group-text`).should("have.length", 2);
 		rowLink(`${fixture.title} working`).should("not.exist");
-		cy.get(`${table} button[title="Fullscreen"]`).click();
+		const exportButtons = `${table} [data-toolbar-custom-id="scope-export"] button`;
+		cy.get(exportButtons).should("have.length", 1);
+		clickFullscreenControl("Fullscreen");
 		cy.document().should((document) => {
 			expect(document.fullscreenElement?.classList.contains("dinext-scope-report-page")).to
 				.be.true;
 		});
-		cy.get(`${table} button[title="Exit fullscreen"]`).click();
+		rowLink(`${fixture.title} result`).should(($link) => {
+			const element = $link[0];
+			const bounds = element.getBoundingClientRect();
+			const hit = element.ownerDocument.elementFromPoint(
+				bounds.left + Math.min(5, bounds.width / 2),
+				bounds.top + bounds.height / 2
+			);
+			expect(element.contains(hit), "result link inside the fullscreen viewport").to.be.true;
+		});
+		cy.get(exportButtons).should("have.length", 1);
+		clickFullscreenControl("Exit fullscreen");
 		cy.document().should((document) => expect(document.fullscreenElement).to.eq(null));
+		cy.get(exportButtons).should("have.length", 1);
 	});
 
 	it("updates matrix rows and role columns when the project changes", () => {
