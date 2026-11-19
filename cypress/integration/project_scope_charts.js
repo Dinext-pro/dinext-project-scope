@@ -67,11 +67,10 @@ function showResults(project) {
 	cy.get(resultHost).should("be.visible");
 }
 
-function resultFilter(label) {
+function resultFilter(title, fieldname) {
 	return cy
-		.contains(".dinext-scope-control > span", exact(label))
-		.closest("label")
-		.find("select");
+		.contains(`${resultHost} ${chartCard}`, title)
+		.find(`.frappe-control[data-fieldtype="Select"][data-fieldname="${fieldname}"] select`);
 }
 
 describe("Project scope charts", () => {
@@ -90,43 +89,88 @@ describe("Project scope charts", () => {
 			]);
 		});
 		clickPieSegment(categoryChart, category);
-		resultFilter("Category").should("have.value", category);
-		cy.get(`${table} .dinext-scope-context-row`).should("have.length", 2);
+		resultFilter(categoryChart, "category").should("have.value", category);
+		cy.get(`${table} .ag-center-cols-container .dinext-scope-context-row`).should(
+			"have.length",
+			2
+		);
 		cy.get(`${table} a`).should(($links) => {
 			expect($links.filter((_, link) => link.textContent === child)).to.have.length(2);
 		});
-		cy.get(`${resultHost} ${chartCard} .dinext-scope-legend-item`).should(($items) => {
-			expect($items).to.have.length(3);
-			expect([...$items].map((item) => item.textContent)).to.deep.eq([
-				`${category} · 1`,
-				`${category} · 1`,
-				"Not Started · 1",
-			]);
-		});
+		for (const [title, name] of [
+			[categoryChart, category],
+			["Deliverables by type", category],
+			["Deliverables by status", "Not Started"],
+		]) {
+			chartOption(chart(title), (option) => {
+				expect(option.series[0].data).to.deep.eq([{ name, value: 1 }]);
+			});
+		}
 		cy.screenshot("project-results-charts");
 		rowLink(child).first().click();
 		cy.location("pathname").should("eq", `/app/project-deliverable/${fixture.shared}`);
 	});
 
-	it("applies the type legend and clears all result filters", () => {
+	it("filters results with the Frappe dropdowns below the charts", () => {
 		showResults(fixture.project);
-		cy.contains(chartCard, "Deliverables by type")
-			.contains("button", exact(`${fixture.title} · 2`))
-			.click();
-		resultFilter("Deliverable type").should("have.value", fixture.title);
+		const filters = [
+			["Deliverables by category", "category"],
+			["Deliverables by type", "deliverable_type"],
+			["Deliverables by status", "status"],
+		];
+		for (const [title, fieldname] of filters) {
+			resultFilter(title, fieldname).should(($input) => {
+				const card = $input[0].closest(chartCard);
+				const donut = card.querySelector(".dinext-scope-chart--donut");
+				expect($input[0].getBoundingClientRect().top).to.be.at.least(
+					donut.getBoundingClientRect().bottom
+				);
+			});
+		}
+		cy.get(`${resultHost} .dinext-scope-chart-legend`).should("not.exist");
+		resultFilter("Deliverables by type", "deliverable_type").select(fixture.title);
 		rowLink(`${fixture.title} peer`).should("be.visible");
 		rowLink(`${fixture.title} shared component`).should("not.exist");
-		cy.contains(chartCard, "Deliverables by status")
-			.contains("button", exact("Not Started · 2"))
-			.click();
-		resultFilter("Status").should("have.value", "Not Started");
-		cy.contains(`${resultHost} button`, "Clear filters").click();
-		cy.get(`${resultHost} .dinext-scope-control select`).should(($selects) => {
-			expect([...$selects].map((select) => select.value)).to.deep.eq(["", "", ""]);
+		resultFilter("Deliverables by status", "status").select("Not Started");
+		chartOption(chart("Deliverables by status"), (option) => {
+			expect(option.series[0].data).to.deep.eq([{ name: "Not Started", value: 2 }]);
 		});
+		resultFilter("Deliverables by category", "category").select(`${fixture.title} secondary`);
+		cy.contains(`${resultHost} [role="status"]`, "No records match the filters.").should(
+			"be.visible"
+		);
+		cy.get(`${resultHost} select`).should("have.length", 3);
+		cy.contains(`${resultHost} button`, "Clear filters").click();
+		for (const [title, fieldname] of filters) {
+			resultFilter(title, fieldname).should("have.value", "");
+		}
 		chartOption(chart("Deliverables by status"), (option) => {
 			expect(option.series[0].data).to.deep.eq([{ name: "Not Started", value: 3 }]);
 		});
+	});
+
+	it("keeps the result tree's first column visible during horizontal scrolling", () => {
+		cy.viewport(1050, 900);
+		showResults(fixture.project);
+		const header = `${resultHost} ${table} .ag-header-cell[col-id="label"]`;
+		const cell = `${resultHost} ${table} .ag-cell[col-id="label"]`;
+		cy.get(header)
+			.should("be.visible")
+			.then(($header) => {
+				const left = $header[0].getBoundingClientRect().left;
+				cy.get(`${resultHost} ${table} .ag-body-horizontal-scroll-viewport`)
+					.scrollTo("right")
+					.should(($viewport) => expect($viewport[0].scrollLeft).to.be.greaterThan(0));
+				cy.get(header).should(($column) => {
+					expect($column[0].getBoundingClientRect().left).to.be.closeTo(left, 1);
+				});
+				cy.get(cell)
+					.first()
+					.should(($column) => {
+						expect($column[0].getBoundingClientRect().left).to.be.closeTo(left, 1);
+					});
+				rowLink(`${fixture.title} result`).should("be.visible");
+			});
 	});
 
 	it("plots recorded values and a separate current plan on a result card", () => {

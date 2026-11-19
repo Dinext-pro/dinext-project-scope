@@ -431,6 +431,10 @@
 				minWidth: 76,
 				cellDataType: false,
 			};
+			if (column.pinned) {
+				item.pinned = column.pinned;
+				item.lockPinned = true;
+			}
 			if (column.kind === "label") item.render = cellRenderer(column);
 			else item.cellRenderer = cellRenderer(column);
 			if (column.kind === "trace_state") {
@@ -586,44 +590,54 @@
 		const card = node("section", "dinext-scope-chart-card");
 		card.append(node("h4", "dinext-scope-heading", title));
 		container.append(card);
+		drawDonut(surface, card, items, onSelect, options);
+	}
+
+	function drawDonut(
+		surface,
+		container,
+		items,
+		onSelect,
+		{ legend = true, translate = false } = {}
+	) {
 		if (!items.length) {
-			card.append(node("div", "dinext-scope-empty", __("No data")));
+			container.append(node("div", "dinext-scope-empty", __("No data")));
 			return;
 		}
 		const chart = node("div", "dinext-scope-chart dinext-scope-chart--donut");
-		chart.setAttribute("aria-hidden", String(Boolean(onSelect)));
-		const labels = node("div", "dinext-scope-chart-legend");
-		for (const [index, item] of items.entries()) {
-			const label =
+		const describeChart = !onSelect || !legend;
+		chart.setAttribute("aria-hidden", String(!describeChart));
+		const data = items.map((item) => ({
+			name:
 				item.label ||
-				(item.name
-					? options.translate
-						? __(item.name)
-						: item.name
-					: __("Not specified"));
-			const action = onSelect
-				? button(
-						`${label} · ${item.count}`,
-						() => onSelect(item),
-						"dinext-scope-legend-item"
-				  )
-				: node("span", "dinext-scope-legend-item", `${label} · ${item.count}`);
-			const color = node("span", "dinext-scope-legend-dot");
-			color.style.setProperty(
-				"--scope-legend-color",
-				chartPalette[index % chartPalette.length]
-			);
-			action.prepend(color);
-			labels.append(action);
+				(translate ? statusLabel(item.name) : item.name || __("Not specified")),
+			value: item.count,
+		}));
+		container.append(chart);
+		if (legend) {
+			const labels = node("div", "dinext-scope-chart-legend");
+			for (const [index, item] of data.entries()) {
+				const label = `${item.name} · ${item.value}`;
+				const action = onSelect
+					? button(label, () => onSelect(items[index]), "dinext-scope-legend-item")
+					: node("span", "dinext-scope-legend-item", label);
+				const color = node("span", "dinext-scope-legend-dot");
+				color.style.setProperty(
+					"--scope-legend-color",
+					chartPalette[index % chartPalette.length]
+				);
+				action.prepend(color);
+				labels.append(action);
+			}
+			container.append(labels);
 		}
-		card.append(chart, labels);
 		surface.registerChart(
 			chart,
 			() => ({
 				color: chartPalette,
 				backgroundColor: "transparent",
 				animation: false,
-				aria: { enabled: !onSelect },
+				aria: { enabled: describeChart },
 				title: {
 					text: String(items.reduce((sum, item) => sum + item.count, 0)),
 					left: "center",
@@ -636,16 +650,7 @@
 						type: "pie",
 						radius: ["59%", "82%"],
 						label: { show: false },
-						data: items.map((item) => ({
-							name:
-								item.label ||
-								(item.name
-									? options.translate
-										? __(item.name)
-										: item.name
-									: __("Not specified")),
-							value: item.count,
-						})),
+						data,
 					},
 				],
 			}),
@@ -806,7 +811,7 @@
 
 	function resultColumns() {
 		return [
-			["label", __("Deliverable / Work"), "label", 285],
+			["label", __("Deliverable / Work"), "label", 285, "left"],
 			["status", __("Status"), "status", 155],
 			["deliverable_type", __("Deliverable type"), null, 150],
 			["category", __("Category"), null, 150],
@@ -815,7 +820,13 @@
 			["planned_end_date", __("Planned end"), "plan_date", 140],
 			["expected_end_date", __("Expected end"), "date", 138],
 			["actual_end_date", __("Actual end"), "date", 138],
-		].map(([fieldname, label, kind, width]) => ({ fieldname, label, kind, width }));
+		].map(([fieldname, label, kind, width, pinned]) => ({
+			fieldname,
+			label,
+			kind,
+			width,
+			pinned,
+		}));
 	}
 
 	async function renderResults(frm) {
@@ -825,28 +836,40 @@
 		const surface = createSurface(host, () => routeMatches("Form", "Project", project));
 		await libraries();
 		if (!surface.active()) return;
-		const controls = node("div", "dinext-scope-filter-strip");
 		const charts = node("div", "dinext-scope-charts");
+		const actions = node("div", "dinext-scope-result-actions");
 		const table = node("div", "dinext-scope-table");
-		surface.root.append(controls, charts, table);
+		surface.root.append(charts, actions, table);
 		const profiles = [
 			["category", __("Category"), __("Deliverables by category")],
 			["deliverable_type", __("Deliverable type"), __("Deliverables by type")],
 			["status", __("Status"), __("Deliverables by status")],
 		];
-		const selects = new Map();
-		for (const [key, label] of profiles) {
-			const control = node("label", "dinext-scope-control");
-			control.append(node("span", "", label));
-			const select = node("select", "form-control input-xs");
-			select.addEventListener("change", refresh);
-			selects.set(key, select);
-			control.append(select);
-			controls.append(control);
-		}
-		controls.append(
+		const allOption = { value: "", label: frappe.utils.escape_html(__("All")) };
+		const panels = profiles.map(([key, label, title]) => {
+			const card = node("section", "dinext-scope-chart-card");
+			const chart = node("div");
+			const filter = node("div", "dinext-scope-result-filter");
+			card.append(node("h4", "dinext-scope-heading", title), chart, filter);
+			charts.append(card);
+			const control = frappe.ui.form.make_control({
+				parent: filter,
+				only_input: true,
+				render_input: true,
+				df: {
+					fieldtype: "Select",
+					fieldname: key,
+					label,
+					options: [allOption],
+					onchange: refresh,
+				},
+			});
+			control.$input.attr("aria-label", label);
+			return { key, chart, control };
+		});
+		actions.append(
 			button(__("Clear filters"), () => {
-				for (const select of selects.values()) select.value = "";
+				for (const { control } of panels) control.set_input("");
 				refresh();
 			})
 		);
@@ -855,7 +878,7 @@
 		async function refresh() {
 			const request = ++revision;
 			const filters = Object.fromEntries(
-				Array.from(selects, ([key, control]) => [key, control.value])
+				panels.map(({ key, control }) => [key, control.get_value() || ""])
 			);
 			let result;
 			try {
@@ -868,7 +891,7 @@
 					surface.table?.destroy();
 					surface.table = null;
 					surface.clearCharts();
-					charts.replaceChildren();
+					for (const { chart } of panels) chart.replaceChildren();
 					table.replaceChildren();
 					setMessage(surface, __("Could not load project results."));
 				}
@@ -876,28 +899,27 @@
 			}
 			if (!surface.active() || request !== revision) return;
 			surface.clearCharts();
-			charts.replaceChildren();
-			for (const [key, label, chartLabel] of profiles) {
-				const select = selects.get(key);
-				select.replaceChildren(new Option(__("All"), ""));
-				for (const option of result.options[key]) {
-					const label =
-						key === "status"
-							? statusLabel(option.name)
-							: option.name || __("Not specified");
-					select.add(new Option(label, option.name || EMPTY));
-				}
-				select.value = filters[key] || "";
-				donut(
+			for (const { key, chart, control } of panels) {
+				control.df.options = [
+					allOption,
+					...result.options[key].map(({ name }) => ({
+						value: name || EMPTY,
+						label: frappe.utils.escape_html(
+							key === "status" ? statusLabel(name) : name || __("Not specified")
+						),
+					})),
+				];
+				control.set_input(filters[key]);
+				chart.replaceChildren();
+				drawDonut(
 					surface,
-					charts,
-					chartLabel,
+					chart,
 					result.counts[key],
 					(item) => {
-						select.value = item.name || EMPTY;
+						control.set_input(item.name || EMPTY);
 						refresh();
 					},
-					{ translate: key === "status" }
+					{ legend: false, translate: key === "status" }
 				);
 			}
 			await drawGrid(surface, table, resultColumns(), result.rows, { expand: "roots" });
