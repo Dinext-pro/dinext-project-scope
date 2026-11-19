@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import frappe
+import frappe.share
 from frappe.core.doctype.data_import.importer import INSERT, UPDATE, Importer
 from frappe.tests.utils import FrappeTestCase
 
@@ -62,9 +63,17 @@ class TestScopeDataImport(FrappeTestCase):
 
 	def prepare_project(self):
 		self.manager = self.make_user("manager", "System Manager", "Projects Manager")
-		self.project = make_project(self.tag, self.tag).name
+		self.project = self.make_import_project(self.tag)
 		self.author = frappe.get_doc(doctype="Contact", first_name=self.tag).insert().name
+		frappe.share.add("Contact", self.author, user=self.manager, read=1, notify=0)
 		self.kind = frappe.get_doc(doctype="Requirement Kind", enabled=1).insert(set_name=self.tag).name
+
+	def make_import_project(self, name):
+		project = make_project(name, name).name
+		frappe.share.add("Project", project, user=self.manager, read=1, write=1, notify=0)
+		for permission in ("read", "write"):
+			self.assertTrue(frappe.has_permission("Project", permission, doc=project, user=self.manager))
+		return project
 
 	def requirement_fields(self, **overrides):
 		return {
@@ -200,7 +209,7 @@ class TestScopeDataImport(FrappeTestCase):
 
 	def test_import_rejects_project_reassignment_and_foreign_composition(self):
 		self.prepare_project()
-		other = make_project(f"{self.tag}-OTHER", f"{self.tag}-OTHER").name
+		other = self.make_import_project(f"{self.tag}-OTHER")
 		requirement = self.import_row("Project Requirement", self.requirement_fields())
 		specification = self.import_row(
 			"Project Requirement Specification", self.specification_fields(project=self.project)
