@@ -218,7 +218,10 @@
 			$("<a>", { href: frappe.utils.get_form_link(slot.element_type, slot.element) })
 				.text(slot.element_name)
 				.appendTo(row);
-			const state = [__(item.status), format_number(item.progress || 0) + "%"];
+			const state = [
+				__(item.status, null, slot.element_type),
+				format_number(item.progress || 0) + "%",
+			];
 			if (item.planned_end_date)
 				state.push(
 					__("Plan to {0}", [frappe.datetime.str_to_user(item.planned_end_date)])
@@ -273,7 +276,9 @@
 			[
 				row.element_name,
 				workType(row),
-				row.is_optional ? __("Optional") : __("Required"),
+				row.is_optional
+					? __("Optional", null, "Project Deliverable")
+					: __("Required", null, "Project Deliverable"),
 				row.element,
 			]
 				.filter(Boolean)

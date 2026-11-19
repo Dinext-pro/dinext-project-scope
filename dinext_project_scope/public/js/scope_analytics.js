@@ -289,7 +289,7 @@
 
 	function stateCell(row, summary) {
 		const holder = node("span", "dinext-scope-state");
-		const status = row.status ? __(row.status) : "";
+		const status = row.status ? __(row.status, null, row.document_type) : "";
 		const tone = summary ? null : row.status_tone;
 		if (summary && row.progress !== null && row.progress !== undefined) {
 			holder.append(
@@ -806,7 +806,7 @@
 	}
 
 	function statusLabel(name) {
-		return name ? __(name) : __("Not specified");
+		return name ? __(name, null, DELIVERABLE) : __("Not specified");
 	}
 
 	function resultColumns() {
@@ -817,9 +817,19 @@
 			["category", __("Category"), null, 150],
 			["progress", __("Progress"), "progress", 85],
 			["accountable", __("Accountable"), "accountable", 188],
-			["planned_end_date", __("Planned end"), "plan_date", 140],
-			["expected_end_date", __("Expected end"), "date", 138],
-			["actual_end_date", __("Actual end"), "date", 138],
+			[
+				"planned_end_date",
+				__("Planned end", null, "Dinext.ProjectScope.Dates"),
+				"plan_date",
+				140,
+			],
+			[
+				"expected_end_date",
+				__("Expected end", null, "Dinext.ProjectScope.Dates"),
+				"date",
+				138,
+			],
+			["actual_end_date", __("Actual end", null, "Dinext.ProjectScope.Dates"), "date", 138],
 		].map(([fieldname, label, kind, width, pinned]) => ({
 			fieldname,
 			label,
@@ -845,7 +855,10 @@
 			["deliverable_type", __("Deliverable type"), __("Deliverables by type")],
 			["status", __("Status"), __("Deliverables by status")],
 		];
-		const allOption = { value: "", label: frappe.utils.escape_html(__("All")) };
+		const allOption = {
+			value: "",
+			label: frappe.utils.escape_html(__("All", null, "Dinext.ProjectScope.Filters")),
+		};
 		const panels = profiles.map(([key, label, title]) => {
 			const card = node("section", "dinext-scope-chart-card");
 			const chart = node("div");

@@ -92,7 +92,7 @@ frappe.query_reports["Requirement Traceability Matrix"] = {
 			fieldtype: "Select",
 			options: ["", "New", "Approved", "In Progress", "Done", "Cancelled"].map((value) => ({
 				value,
-				label: value ? __(value) : "",
+				label: value ? __(value, null, "Project Requirement") : "",
 			})),
 		},
 		{ fieldname: "without_results", label: __("Without deliverables"), fieldtype: "Check" },

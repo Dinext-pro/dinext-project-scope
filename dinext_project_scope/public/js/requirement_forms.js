@@ -134,7 +134,7 @@ frappe.provide("dinext_project_scope.requirement_forms");
 			}
 			group.append(link(requirement, row.name, row.title));
 			tr.insertCell().append(group);
-			tr.insertCell().textContent = __(row.status);
+			tr.insertCell().textContent = __(row.status, null, requirement);
 			tr.insertCell().textContent = __(row.approval_status);
 			tr.insertCell().append(sourcesFor(doctype, row.paths));
 		}
@@ -340,7 +340,10 @@ frappe.provide("dinext_project_scope.requirement_forms");
 				.filter(Boolean)
 				.join(" · ");
 			body.prepend(element("p", submitted));
-			const label = [__("Round {0}", [round.round_number]), __(round.decision)];
+			const label = [
+				__("Round {0}", [round.round_number]),
+				__(round.decision, null, "Project Scope Approval"),
+			];
 			if (round.status === "Reapproval Required") label.push(__(round.status));
 			content.append(disclosure(label.join(" · "), body));
 		}
@@ -430,7 +433,7 @@ frappe.provide("dinext_project_scope.requirement_forms");
 		for (const row of rows) {
 			const item = element("li");
 			item.append(link(doctype, row.name, row.title));
-			if (row.status) item.append(" · ", __(row.status));
+			if (row.status) item.append(" · ", __(row.status, null, doctype));
 			list.append(item);
 		}
 		group.append(list);

@@ -135,6 +135,34 @@ def create_report_fixture(run_id):
 			{"reference_doctype": SPECIFICATION, "reference_name": nested.name},
 		],
 	).insert()
+	out_of_scope = frappe.get_doc(
+		doctype=REQUIREMENT,
+		project=project.name,
+		requirement_title=f"{prefix} outside scope",
+		author=person,
+		responsible="Administrator",
+		kind=prefix,
+		requirement_importance="Must Have",
+		status="New",
+	).insert()
+	detached = frappe.get_doc(
+		doctype=SPECIFICATION,
+		project=project.name,
+		title=f"{prefix} detached specification",
+		author=person,
+		responsible="Administrator",
+		items=[
+			{"reference_doctype": SPECIFICATION, "reference_name": nested.name},
+			{"reference_doctype": REQUIREMENT, "reference_name": out_of_scope.name},
+		],
+	).insert()
+	hidden_specification = frappe.get_doc(
+		doctype=SPECIFICATION,
+		project=hidden.name,
+		title=f"{prefix} hidden specification",
+		author=person,
+		responsible="Administrator",
+	).insert()
 	unlinked = frappe.get_doc(
 		doctype=REQUIREMENT,
 		project=project.name,
@@ -195,6 +223,18 @@ def create_report_fixture(run_id):
 			"status": "New",
 			"review_date": getdate(),
 			"verification_status": "Pending",
+		},
+	)
+	verified_assumption = project.append(
+		"project_constraints",
+		{
+			"subject": f"{prefix} verified supplier capacity",
+			"category": category,
+			"record_type": "Assumption",
+			"status": "New",
+			"review_date": add_days(getdate(), 7),
+			"verification_status": "Confirmed",
+			"verification_note": "Confirmed against the supplier calendar.",
 		},
 	)
 	project.save()
@@ -305,6 +345,8 @@ def create_report_fixture(run_id):
 		title=prefix,
 		project=project.name,
 		ordinary=ordinary.name,
+		detached_specification=detached.name,
+		hidden_specification=hidden_specification.name,
 		working=parent.name,
 		contact=person,
 		actor=actor,
@@ -320,6 +362,9 @@ def create_report_fixture(run_id):
 		planned_end=str(planned_end),
 		later_planned_end=str(add_days(getdate(), 7)),
 		assumption=assumption.name,
+		assumption_verification_note=verified_assumption.verification_note,
+		assumption_review_date=str(verified_assumption.review_date),
+		assumption_verified_at=str(verified_assumption.verified_at),
 		hidden_project=hidden.name,
 		hidden_result=foreign.name,
 	)

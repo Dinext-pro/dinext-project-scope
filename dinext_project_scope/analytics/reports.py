@@ -196,7 +196,7 @@ def traceability(filters):
 		column("label", _("Traceability"), kind="label", width=330),
 		column("category", _("Category"), width=160),
 		column("status", _("State / Progress"), kind="trace_state", width=260),
-		column("planned_end_date", _("Planned end"), kind="plan_date"),
+		column("planned_end_date", _("Planned end", context="Dinext.ProjectScope.Dates"), kind="plan_date"),
 	], list(flatten_rows(top))
 
 
@@ -537,9 +537,24 @@ def result_columns(*, show_project=False):
 			column("category", _("Category"), width=148),
 			column("progress", _("Progress"), kind="progress", width=86),
 			column("accountable", _("Accountable"), kind="accountable", width=180),
-			column("planned_end_date", _("Planned end"), kind="plan_date", width=132),
-			column("expected_end_date", _("Expected end"), kind="date", width=132),
-			column("actual_end_date", _("Actual end"), kind="date", width=132),
+			column(
+				"planned_end_date",
+				_("Planned end", context="Dinext.ProjectScope.Dates"),
+				kind="plan_date",
+				width=132,
+			),
+			column(
+				"expected_end_date",
+				_("Expected end", context="Dinext.ProjectScope.Dates"),
+				kind="date",
+				width=132,
+			),
+			column(
+				"actual_end_date",
+				_("Actual end", context="Dinext.ProjectScope.Dates"),
+				kind="date",
+				width=132,
+			),
 		]
 	)
 	return columns
@@ -619,8 +634,10 @@ def constraint_register(filters):
 		column("category", _("Category")),
 		column("status", _("Status"), kind="status"),
 		column("responsible", _("Responsible"), width=150),
-		column("review_date", _("Review date"), kind="date"),
+		column("review_date", _("Planned review date"), kind="date"),
 		column("verification_status", _("Verification status"), kind="status", width=168),
+		column("verification_note", _("Verification Note"), width=280),
+		column("verified_at", _("Verified At"), kind="datetime", width=190),
 	]
 	return columns, rows
 
@@ -682,16 +699,16 @@ def overview(filters):
 	)
 	metric(_("Change requests"), len(requests), CHANGE_REGISTER)
 	metrics[0]["progress_deliverable"] = next(iter(deliverables), None)
-	for rows, key, chart, report in [
-		(requirements, "status", "requirement_status", TRACEABILITY),
-		(requirements, "kind", "requirement_category", TRACEABILITY),
-		(deliverables, "status", "deliverable_status", DELIVERABLE_REGISTER),
-		(requests, "status", "change_status", CHANGE_REGISTER),
+	for rows, key, chart, report, context in [
+		(requirements, "status", "requirement_status", TRACEABILITY, data.REQUIREMENT),
+		(requirements, "kind", "requirement_category", TRACEABILITY, None),
+		(deliverables, "status", "deliverable_status", DELIVERABLE_REGISTER, data.DELIVERABLE),
+		(requests, "status", "change_status", CHANGE_REGISTER, None),
 	]:
 		for item in data.distribution(rows.values(), key):
 			value = item["name"]
 			metric(
-				_(value) if value else _("Not specified"),
+				_(value, context=context) if value else _("Not specified"),
 				item["count"],
 				report,
 				chart=chart,

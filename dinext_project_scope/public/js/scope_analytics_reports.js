@@ -186,16 +186,16 @@
 
 		if (name === overview) {
 			const project = report.get_filter_value("project");
-			const workflow = ui.node("div", "dinext-scope-filter-strip");
+			const actions = ui.node("div", "dinext-scope-overview-actions");
 			for (const target of [
 				"Requirement Traceability Matrix",
 				"Project Responsibility Matrix",
 				"Project Change Impact Matrix",
 				"Project Constraint Register",
 			]) {
-				workflow.append(ui.button(__(target), () => ui.toReport(target, { project })));
+				actions.append(ui.button(__(target), () => ui.toReport(target, { project })));
 			}
-			surface.root.prepend(workflow);
+			surface.root.prepend(actions);
 			const charts = ui.node("div", "dinext-scope-charts");
 			const progress = ui.node("div", "dinext-scope-overview-progress");
 			surface.root.append(charts, progress);

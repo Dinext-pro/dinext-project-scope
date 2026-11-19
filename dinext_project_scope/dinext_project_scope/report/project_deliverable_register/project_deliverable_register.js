@@ -18,7 +18,10 @@ frappe.query_reports["Project Deliverable Register"] = {
 				"Acceptance",
 				"Completed",
 				"Cancelled",
-			].map((value) => ({ value, label: value ? __(value) : "" })),
+			].map((value) => ({
+				value,
+				label: value ? __(value, null, "Project Deliverable") : "",
+			})),
 		},
 		{
 			fieldname: "deliverable_type",

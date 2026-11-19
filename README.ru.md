@@ -85,11 +85,13 @@ flowchart LR
 
 ## 🤝 Участие в разработке и проверки
 
-Запускайте проверки на отдельном тестовом сайте с включённым Workflow Dinext и работающим сервером разработки. Откройте pull request в `develop` и приложите результаты проверок.
+Для локальной разработки и проверок используйте основной сайт WSL [localhost:8000](http://localhost:8000/). Тестовые данные размещайте в отдельном синтетическом проекте. Откройте pull request в `develop` и приложите результаты проверок. GitHub Actions запускает серверные и Cypress-тесты для pull request.
+
+Автоматические проверки можно запустить на том же локальном сайте, когда в Frappe настроен режим тестирования.
 
 ```bash
-bench --site <test-site> run-tests --app dinext_project_scope --skip-test-records
-bench --site <test-site> run-ui-tests dinext_project_scope --headless
+bench --site localhost run-tests --app dinext_project_scope --skip-test-records
+bench --site localhost run-ui-tests dinext_project_scope --headless
 ```
 
 ## 📄 Документация

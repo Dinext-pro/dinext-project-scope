@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "autoname": "SPEC-T-.#####",
  "creation": "2026-11-18 00:55:32.575599",
  "doctype": "DocType",
@@ -89,6 +90,7 @@
    "delete": 1,
    "email": 1,
    "export": 1,
+   "import": 1,
    "print": 1,
    "read": 1,
    "report": 1,

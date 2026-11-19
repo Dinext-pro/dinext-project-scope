@@ -39,6 +39,8 @@ CONSTRAINT_FIELDS = [
 	"responsible_type",
 	"review_date",
 	"verification_status",
+	"verification_note",
+	"verified_at",
 ]
 TASK_FIELDS = [
 	"name",

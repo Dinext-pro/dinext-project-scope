@@ -339,6 +339,61 @@ describe("Project scope charts", () => {
 		);
 	});
 
+	it("uses Russian scope labels even when other apps translate the same words", () => {
+		cy.login(fixture.russian_actor, fixture.password);
+		cy.visit(`/app/project/${fixture.project}`);
+		cy.get('button[data-fieldname="custom_результаты"]').should("be.visible");
+		cy.window().then(({ frappe }) => {
+			Object.assign(frappe._messages, {
+				All: "Всего",
+				Completed: "Завершено",
+				Done: "Готово",
+			});
+		});
+		cy.get('button[data-fieldname="custom_результаты"]').click();
+		resultFilter("Результаты по статусам", "status")
+			.find('option[value=""]')
+			.should("have.text", "Все");
+		cy.window().then(({ frappe }) => {
+			frappe.route_options = { project: fixture.project };
+			return frappe.set_route("query-report", "Project Deliverable Register");
+		});
+		cy.get('.page-form:visible [data-fieldname="status"] option[value="Completed"]').should(
+			"have.text",
+			"Завершён"
+		);
+		cy.window().then(({ frappe }) => {
+			frappe.route_options = { project: fixture.project };
+			return frappe.set_route("query-report", traceability);
+		});
+		cy.get('.page-form:visible [data-fieldname="status"] option[value="Done"]').should(
+			"have.text",
+			"Реализовано"
+		);
+	});
+
+	it("shows Russian result and change request labels and workflow actions", () => {
+		cy.login(fixture.russian_actor, fixture.password);
+		cy.visit(`/app/project-deliverable/${fixture.result}`);
+		cy.get('.frappe-control[data-fieldname="deliverable_type"] .control-label').should(
+			"have.text",
+			"Тип результата"
+		);
+		cy.get(".actions-btn-group > button:visible").click();
+		cy.contains(".actions-btn-group .dropdown-menu a:visible", /^\s*Начать работу\s*$/).should(
+			"be.visible"
+		);
+		cy.contains(
+			".actions-btn-group .dropdown-menu a:visible",
+			/^\s*Передать на приёмку\s*$/
+		).should("be.visible");
+		cy.visit(`/app/project-change-request/${fixture.change}`);
+		cy.get('.frappe-control[data-fieldname="change_relations"] .control-label').should(
+			"have.text",
+			"Связанные объекты изменения"
+		);
+	});
+
 	it("repaints overview charts when switching theme in the same report", () => {
 		openReport(overview, { project: fixture.project });
 		const labels = "Requirements by category";

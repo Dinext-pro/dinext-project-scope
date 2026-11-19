@@ -92,6 +92,7 @@ def write_report_value(cell, row, column, legend):
 	field = column["fieldname"]
 	kind = column.get("kind")
 	value = row.get(field)
+	document_type = row.get("document_type")
 	if kind in {"raci", "badges"}:
 		entries = row.get("cells", {}).get(field, []) if kind == "raci" else value
 		if entries:
@@ -104,7 +105,7 @@ def write_report_value(cell, row, column, legend):
 			cell.fill = PatternFill("solid", fgColor=color)
 			cell.font = Font(bold=True, color="FF161616" if impact["level"] == "Moderate" else "FFFFFFFF")
 	elif kind == "trace_state":
-		parts = [_(value)] if value else []
+		parts = [_(value, context=document_type)] if value else []
 		if row.get("progress") is not None:
 			parts.append(f"{flt(row['progress']):.2f}".rstrip("0").rstrip(".") + "%")
 		if row.get("status_note"):
@@ -113,12 +114,12 @@ def write_report_value(cell, row, column, legend):
 			parts.append(_("Reapproval required"))
 		value = " · ".join(parts)
 	elif kind == "accountable":
-		if row.get("document_type") == data.DELIVERABLE:
+		if document_type == data.DELIVERABLE:
 			value = " / ".join(f"{member['label']} ({_(member['doctype'])})" for member in value or []) or _(
 				"Responsible person not assigned"
 			)
 	elif kind == "status" and value:
-		value = _(value)
+		value = _(value, context=document_type)
 	if kind in {"status", "trace_state"} and (color := STATE_FILLS.get(row.get("status_tone"))):
 		cell.fill = PatternFill("solid", fgColor=rgb(color))
 	if kind == "progress" and value is not None:
@@ -127,7 +128,7 @@ def write_report_value(cell, row, column, legend):
 	if kind in {"date", "plan_date"} and value:
 		value = getdate(value)
 		cell.number_format = "yyyy-mm-dd"
-	elif kind == "plan_date" and row.get("document_type") == data.DELIVERABLE:
+	elif kind == "plan_date" and document_type == data.DELIVERABLE:
 		value = _("No planned date")
 	elif kind == "datetime" and value:
 		value = get_datetime(value)

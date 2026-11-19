@@ -159,7 +159,7 @@
 				holder.append(title);
 				entry.insertCell().append(holder);
 				const status = entry.insertCell();
-				status.append(node("span", __(row.status), "indicator-pill"));
+				status.append(node("span", __(row.status, null, REQ), "indicator-pill"));
 				if (row.approval_stale)
 					status.append(node("small", __("Reapproval Required"), "text-warning"));
 				const source = entry.insertCell();

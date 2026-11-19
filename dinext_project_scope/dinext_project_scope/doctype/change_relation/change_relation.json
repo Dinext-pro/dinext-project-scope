@@ -56,7 +56,7 @@
    "fieldname": "link_doctype",
    "fieldtype": "Link",
    "hidden": 1,
-   "label": "link_doctype",
+   "label": "Object type",
    "options": "DocType"
   },
   {

@@ -6,6 +6,7 @@ from unittest.mock import patch
 import frappe
 from openpyxl import load_workbook
 
+from dinext_project_scope import requirements
 from dinext_project_scope.analytics import data, export, reports
 
 
@@ -25,6 +26,73 @@ class TestScopeAnalytics(TestCase):
 			"project_constraints",
 		)
 		self.assertIn("subject", child_rows.call_args.args[4])
+		self.assertIn("verification_note", child_rows.call_args.args[4])
+		self.assertIn("verified_at", child_rows.call_args.args[4])
+
+	@patch.object(export, "_", lambda string, **_: string)
+	@patch.object(reports, "_", lambda string: string)
+	def test_constraint_register_exports_actual_verification_separately_from_plan(self):
+		planned = date(2026, 11, 29)
+		verified = datetime(2026, 11, 20, 10, 30)
+		note = "Confirmed against the supplier calendar."
+		assumption = {
+			"parent": "p1",
+			"subject": "Supplier capacity",
+			"record_type": "Assumption",
+			"review_date": planned,
+			"verification_status": "Confirmed",
+			"verification_note": note,
+			"verified_at": verified,
+		}
+		with (
+			patch.object(data, "project_ids", return_value=["p1"]),
+			patch.object(data, "get_constraints", return_value={"assumption": assumption}),
+			patch.object(reports, "getdate", return_value=date(2026, 11, 20)),
+		):
+			columns, rows = reports.constraint_register({"project": "p1", "verification_status": "Confirmed"})
+
+		by_field = {column["fieldname"]: column for column in columns}
+		self.assertEqual(by_field["review_date"]["label"], "Planned review date")
+		self.assertEqual(by_field["verification_note"]["label"], "Verification Note")
+		self.assertEqual(by_field["verified_at"]["fieldtype"], "Datetime")
+		self.assertEqual(rows[0]["verification_note"], note)
+		self.assertEqual(rows[0]["verified_at"], verified)
+		book = load_workbook(BytesIO(export.make_workbook(reports.CONSTRAINT_REGISTER, columns, rows)))
+		headers, values = book.active.values
+		exported = dict(zip(headers, values, strict=True))
+		self.assertEqual(exported["Planned review date"], datetime.combine(planned, datetime.min.time()))
+		self.assertEqual(exported["Verification Note"], note)
+		self.assertEqual(exported["Verified At"], verified)
+
+	def test_detached_specification_filters_current_requirements_without_changing_their_paths(self):
+		member = frappe._dict(requirement_title="In scope", status="New")
+		project_graph = requirements.Composition(
+			requirements={"member": member, "other": frappe._dict(requirement_title="Other", status="New")},
+			paths={"member": [[], ["connected"]], "other": [[]]},
+		)
+		selected = frappe._dict(name="detached", project="p1", doctype=requirements.SPECIFICATION)
+		selected_graph = requirements.Composition(
+			requirements={
+				"member": member,
+				"outside": frappe._dict(requirement_title="Outside current scope", status="New"),
+			},
+			paths={"member": [["detached", "nested"]], "outside": [["detached"]]},
+		)
+		with (
+			patch.object(requirements, "_project_composition", return_value=project_graph),
+			patch.object(requirements.access, "check_document", return_value=selected) as read_specification,
+			patch.object(requirements, "specification_graph", return_value=selected_graph) as resolve,
+			patch(
+				"dinext_project_scope.requirement_approval.requirement_states",
+				return_value={"member": "Draft"},
+			),
+		):
+			rows = requirements.project_rows("p1", "detached")
+
+		self.assertEqual([row["name"] for row in rows], ["member"])
+		self.assertEqual(rows[0]["paths"], [[], ["connected"]])
+		read_specification.assert_called_once_with(requirements.SPECIFICATION, "detached")
+		resolve.assert_called_once_with(selected, mode="visible")
 
 	def test_root_progress_weights_results_equally(self):
 		deliverables = {
@@ -120,7 +188,7 @@ class TestScopeAnalytics(TestCase):
 			data.result_tone({"status": "In Progress", "expected_end_date": "2026-11-09"}, today), "blue"
 		)
 
-	@patch.object(reports, "_", lambda string: string)
+	@patch.object(reports, "_", lambda string, **_: string)
 	def test_traceability_keeps_context_and_grouped_task_paths(self):
 		requirements = {
 			"top": {"title": "Navigation parent", "kind": "Other"},

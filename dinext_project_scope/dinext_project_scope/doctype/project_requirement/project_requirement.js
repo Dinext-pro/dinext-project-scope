@@ -36,7 +36,7 @@ frappe.ui.form.on("Project Requirement", {
 			frm.doc.responsible === frappe.session.user &&
 			!["Done", "Template", "Cancelled"].includes(frm.doc.status)
 		) {
-			frm.add_custom_button(__("Mark Done"), async () => {
+			frm.add_custom_button(__("Mark Done", null, "Project Requirement"), async () => {
 				await frm.set_value("status", "Done");
 				await frm.save();
 			});

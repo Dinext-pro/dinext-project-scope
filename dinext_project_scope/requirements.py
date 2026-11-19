@@ -453,11 +453,10 @@ def _rows(graph: Composition) -> list[RequirementRow]:
 def project_rows(project: str, specification: str | None = None) -> list[RequirementRow]:
 	graph = _project_composition(project)
 	if specification:
-		graph.paths = {
-			name: subset
-			for name, paths in graph.paths.items()
-			if (subset := [path for path in paths if specification in path])
-		}
+		doc = _get_specification(SPECIFICATION, specification)
+		_validate_target(doc, project, template=False)
+		members = specification_graph(doc, mode="visible").requirements
+		graph.paths = {name: paths for name, paths in graph.paths.items() if name in members}
 		graph.requirements = {name: graph.requirements[name] for name in graph.paths}
 	return _rows(graph)
 

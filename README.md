@@ -85,11 +85,13 @@ flowchart LR
 
 ## 🤝 Contributing and verification
 
-Run the checks on an isolated test site with Dinext Workflow enabled and the developer server running. Open a pull request to `develop` with the test results.
+Use the primary WSL site, [localhost:8000](http://localhost:8000/), for local development and verification. Use a dedicated synthetic project for test data. Open a pull request to `develop` with the verification results. GitHub Actions runs the server and Cypress checks for the pull request.
+
+Run the app's automated checks on the same local site when Frappe testing is configured.
 
 ```bash
-bench --site <test-site> run-tests --app dinext_project_scope --skip-test-records
-bench --site <test-site> run-ui-tests dinext_project_scope --headless
+bench --site localhost run-tests --app dinext_project_scope --skip-test-records
+bench --site localhost run-ui-tests dinext_project_scope --headless
 ```
 
 ## 📄 Documentation

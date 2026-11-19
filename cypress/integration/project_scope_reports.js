@@ -122,6 +122,31 @@ describe("Project scope reports", () => {
 		rowLink(`${fixture.title} unlinked`).should("not.exist");
 	});
 
+	it("intersects a detached specification's nested requirements with the current project scope", () => {
+		cy.login(fixture.actor, fixture.password);
+		openReport(traceability, {
+			project: fixture.project,
+			specification: fixture.detached_specification,
+		});
+		rowLink(`${fixture.title} working`)
+			.closest(".ag-row")
+			.should("have.class", "dinext-scope-context-row");
+		rowLink(`${fixture.title} analyzed child`)
+			.closest(".ag-cell")
+			.find(".dinext-table-tree-toggle")
+			.click();
+		rowLink(`${fixture.title} result`).should("be.visible");
+		rowLink(`${fixture.title} outside scope`).should("not.exist");
+		rowLink(`${fixture.title} unlinked`).should("not.exist");
+		cy.request({
+			url: "/api/method/dinext_project_scope.requirements.project_rows",
+			qs: { project: fixture.project, specification: fixture.hidden_specification },
+			failOnStatusCode: false,
+		})
+			.its("status")
+			.should("eq", 403);
+	});
+
 	it("opens result and task branches independently and marks missing links and overdue results", () => {
 		openReport(traceability, { project: fixture.project });
 		rowLink(`${fixture.title} unlinked`)
@@ -344,6 +369,21 @@ describe("Project scope reports", () => {
 		downloadExcel("project_deliverable_register", { project: fixture.project, overdue: 1 });
 	});
 
+	it("wraps the overview report shortcuts on a narrow screen and preserves the project on navigation", () => {
+		cy.viewport(480, 850);
+		openReport(overview, { project: fixture.project });
+		const actions = ".dinext-scope-overview-actions:visible";
+		cy.get(actions).should("have.css", "display", "flex").and("have.css", "flex-wrap", "wrap");
+		cy.get(`${actions} button`).should(($buttons) => {
+			expect($buttons).to.have.length(4);
+			expect($buttons[3].getBoundingClientRect().top).to.be.greaterThan(
+				$buttons[0].getBoundingClientRect().top
+			);
+		});
+		cy.contains(`${actions} button`, exact(constraints)).click();
+		reportShown(constraints, { project: fixture.project });
+	});
+
 	it("drills from the overview review metric to the assumption and exports the filtered register", () => {
 		openReport(overview, { project: fixture.project });
 		cy.contains(
@@ -359,6 +399,38 @@ describe("Project scope reports", () => {
 			"contain.text",
 			`${fixture.title} assumption`
 		);
+	});
+
+	it("shows and exports the recorded assumption verification alongside its planned date", () => {
+		cy.viewport(1440, 900);
+		const filters = { project: fixture.project, verification_status: "Confirmed" };
+		openReport(constraints, filters);
+		rowLink(`${fixture.title} verified supplier capacity`).should("be.visible");
+		rowLink(`${fixture.title} assumption`).should("not.exist");
+		cy.get(`${table} .ag-body-horizontal-scroll-viewport`).scrollTo("right");
+		cy.get(`${table} [col-id="review_date"].ag-header-cell`).should(
+			"contain.text",
+			"Planned review date"
+		);
+		cy.get(`${table} [col-id="verified_at"].ag-header-cell`).should(
+			"contain.text",
+			"Verified At"
+		);
+		cy.get(`${table} [col-id="verification_note"].ag-cell`).should(
+			"have.text",
+			fixture.assumption_verification_note
+		);
+		cy.window().then(({ frappe }) => {
+			cy.get(`${table} [col-id="review_date"].ag-cell`).should(
+				"have.text",
+				frappe.datetime.str_to_user(fixture.assumption_review_date)
+			);
+			cy.get(`${table} [col-id="verified_at"].ag-cell`).should(
+				"have.text",
+				frappe.datetime.str_to_user(fixture.assumption_verified_at)
+			);
+		});
+		downloadExcel("project_constraint_register", filters);
 	});
 
 	it("keeps the active matrix usable when switching reports and theme in the same Desk session", () => {

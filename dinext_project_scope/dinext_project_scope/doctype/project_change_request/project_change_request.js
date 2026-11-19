@@ -30,7 +30,7 @@
 					const summary = document.createElement("summary");
 					summary.textContent = [
 						row.round_number,
-						__(row.decision),
+						__(row.decision, null, "Project Scope Approval"),
 						date && frappe.datetime.str_to_user(date),
 						row.decision_reason,
 					]
