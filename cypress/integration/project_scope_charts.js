@@ -33,10 +33,19 @@ function clickChartPoint(title, locate) {
 		.find("canvas")
 		.first()
 		.then(($canvas) => {
-			const target = $canvas.closest(".dinext-scope-chart")[0];
+			const canvas = $canvas[0];
+			canvas.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+			const target = canvas.closest(".dinext-scope-chart");
 			const instance = target.ownerDocument.defaultView.echarts.getInstanceByDom(target);
 			const [x, y] = locate(instance);
-			cy.wrap($canvas).click(Math.round(x), Math.round(y));
+			cy.wrap($canvas)
+				.should(() => {
+					const rect = canvas.getBoundingClientRect();
+					expect(
+						canvas.ownerDocument.elementFromPoint(rect.left + x, rect.top + y)
+					).to.eq(canvas);
+				})
+				.click(Math.round(x), Math.round(y), { scrollBehavior: false });
 		});
 }
 
