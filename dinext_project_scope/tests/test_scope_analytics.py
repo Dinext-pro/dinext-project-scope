@@ -65,11 +65,16 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual(exported["Verification Note"], note)
 		self.assertEqual(exported["Verified At"], verified)
 
-	def test_detached_specification_filters_current_requirements_without_changing_their_paths(self):
-		member = frappe._dict(requirement_title="In scope", status="New")
+	@patch.object(reports, "_", lambda string, **_: string)
+	def test_detached_specification_filters_current_requirements_keeps_their_ancestors(self):
+		member = frappe._dict(requirement_title="In scope", status="New", parent_project_requirement="parent")
 		project_graph = requirements.Composition(
-			requirements={"member": member, "other": frappe._dict(requirement_title="Other", status="New")},
-			paths={"member": [[], ["connected"]], "other": [[]]},
+			requirements={
+				"parent": frappe._dict(requirement_title="Parent", status="New"),
+				"member": member,
+				"other": frappe._dict(requirement_title="Other", status="New"),
+			},
+			paths={"parent": [[]], "member": [[], ["connected"]], "other": [[]]},
 		)
 		selected = frappe._dict(name="detached", project="p1", doctype=requirements.SPECIFICATION)
 		selected_graph = requirements.Composition(
@@ -85,15 +90,39 @@ class TestScopeAnalytics(TestCase):
 			patch.object(requirements, "specification_graph", return_value=selected_graph) as resolve,
 			patch(
 				"dinext_project_scope.requirement_approval.requirement_states",
+				return_value={name: "Draft" for name in project_graph.requirements},
+			),
+			patch.object(data, "project_ids", return_value=["p1"]),
+			patch.object(data, "get_deliverables", return_value={}),
+			patch.object(data, "load_structure", return_value={}),
+			patch.object(data, "available_tasks", return_value={}),
+			patch.object(reports, "getdate", return_value=date(2026, 11, 20)),
+		):
+			_, rows = reports.traceability({"project": "p1", "specification": "detached"})
+
+		self.assertEqual(
+			[(row["document"], row["context_only"]) for row in rows], [("parent", True), ("member", False)]
+		)
+		read_specification.assert_called_once_with(requirements.SPECIFICATION, "detached")
+		resolve.assert_called_once_with(selected, mode="visible")
+
+	def test_project_tree_keeps_only_matching_sources_when_filtering_by_specification(self):
+		member = frappe._dict(requirement_title="In scope", status="New")
+		graph = requirements.Composition(
+			requirements={"member": member, "other": frappe._dict(requirement_title="Other", status="New")},
+			paths={"member": [[], ["selected"], ["outer", "selected"]], "other": [[]]},
+		)
+		with (
+			patch.object(requirements, "_project_composition", return_value=graph),
+			patch(
+				"dinext_project_scope.requirement_approval.requirement_states",
 				return_value={"member": "Draft"},
 			),
 		):
-			rows = requirements.project_rows("p1", "detached")
+			rows = requirements.project_rows("p1", "selected")
 
 		self.assertEqual([row["name"] for row in rows], ["member"])
-		self.assertEqual(rows[0]["paths"], [[], ["connected"]])
-		read_specification.assert_called_once_with(requirements.SPECIFICATION, "detached")
-		resolve.assert_called_once_with(selected, mode="visible")
+		self.assertEqual(rows[0]["paths"], [["selected"], ["outer", "selected"]])
 
 	def test_root_progress_weights_results_equally(self):
 		deliverables = {

@@ -407,19 +407,26 @@ describe("Project scope reports", () => {
 		openReport(constraints, filters);
 		rowLink(`${fixture.title} verified supplier capacity`).should("be.visible");
 		rowLink(`${fixture.title} assumption`).should("not.exist");
-		cy.get(`${table} .ag-body-horizontal-scroll-viewport`).scrollTo("right");
+		cy.get(`${table} .ag-body-horizontal-scroll-viewport`).then(([scrollbar]) => {
+			scrollbar.scrollLeft = scrollbar.scrollWidth;
+		});
+		cy.get(`${table} .ag-center-cols-viewport`).should(([viewport]) => {
+			const end = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+			expect(viewport.scrollLeft, "grid viewport scrolled to its last column").to.be.closeTo(
+				end,
+				2
+			);
+		});
 		cy.get(`${table} [col-id="review_date"].ag-header-cell`).should(
 			"contain.text",
 			"Planned review date"
 		);
-		cy.get(`${table} [col-id="verified_at"].ag-header-cell`).should(
-			"contain.text",
-			"Verified At"
-		);
-		cy.get(`${table} [col-id="verification_note"].ag-cell`).should(
-			"have.text",
-			fixture.assumption_verification_note
-		);
+		cy.get(`${table} [col-id="verified_at"].ag-header-cell`)
+			.should("be.visible")
+			.and("contain.text", "Verified At");
+		cy.get(`${table} [col-id="verification_note"].ag-cell`)
+			.should("be.visible")
+			.and("have.text", fixture.assumption_verification_note);
 		cy.get(`${table} [col-id="verification_note"].ag-cell [title]`).should(
 			"have.attr",
 			"title",
@@ -430,10 +437,9 @@ describe("Project scope reports", () => {
 				"have.text",
 				frappe.datetime.str_to_user(fixture.assumption_review_date)
 			);
-			cy.get(`${table} [col-id="verified_at"].ag-cell`).should(
-				"have.text",
-				frappe.datetime.str_to_user(fixture.assumption_verified_at)
-			);
+			cy.get(`${table} [col-id="verified_at"].ag-cell`)
+				.should("be.visible")
+				.and("have.text", frappe.datetime.str_to_user(fixture.assumption_verified_at));
 		});
 		downloadExcel("project_constraint_register", filters);
 	});

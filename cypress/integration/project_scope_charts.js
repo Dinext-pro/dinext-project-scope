@@ -373,18 +373,23 @@ describe("Project scope charts", () => {
 	});
 
 	it("shows Russian result and change request labels and workflow actions", () => {
+		const workflowMenu = ".page-container:visible .actions-btn-group";
+		const startWork = /^\s*Начать работу\s*$/;
 		cy.login(fixture.russian_actor, fixture.password);
 		cy.visit(`/app/project-deliverable/${fixture.result}`);
 		cy.get('.frappe-control[data-fieldname="deliverable_type"] .control-label').should(
 			"have.text",
 			"Тип результата"
 		);
-		cy.get(".actions-btn-group > button:visible").click();
-		cy.contains(".actions-btn-group .dropdown-menu a:visible", /^\s*Начать работу\s*$/).should(
-			"be.visible"
-		);
+		cy.scrollTo("top", { ensureScrollable: false });
+		// The form label can render before Workflow populates the action menu.
+		cy.contains(`${workflowMenu} .dropdown-menu a`, startWork)
+			.closest(".actions-btn-group")
+			.children("button:visible")
+			.click({ scrollBehavior: false });
+		cy.contains(`${workflowMenu} .dropdown-menu:visible a`, startWork).should("be.visible");
 		cy.contains(
-			".actions-btn-group .dropdown-menu a:visible",
+			`${workflowMenu} .dropdown-menu:visible a`,
 			/^\s*Передать на приёмку\s*$/
 		).should("be.visible");
 		cy.visit(`/app/project-change-request/${fixture.change}`);

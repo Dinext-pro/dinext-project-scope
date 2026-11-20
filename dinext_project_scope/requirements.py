@@ -453,10 +453,11 @@ def _rows(graph: Composition) -> list[RequirementRow]:
 def project_rows(project: str, specification: str | None = None) -> list[RequirementRow]:
 	graph = _project_composition(project)
 	if specification:
-		doc = _get_specification(SPECIFICATION, specification)
-		_validate_target(doc, project, template=False)
-		members = specification_graph(doc, mode="visible").requirements
-		graph.paths = {name: paths for name, paths in graph.paths.items() if name in members}
+		graph.paths = {
+			name: subset
+			for name, paths in graph.paths.items()
+			if (subset := [path for path in paths if specification in path])
+		}
 		graph.requirements = {name: graph.requirements[name] for name in graph.paths}
 	return _rows(graph)
 
@@ -465,6 +466,12 @@ def _get_specification(doctype: str, name: str) -> Document:
 	if doctype not in (SPECIFICATION, SPEC_TEMPLATE):
 		frappe.throw(_("Choose a specification or a specification template."))
 	return access.check_document(doctype, name)
+
+
+def visible_specification_members(project: str, specification: str) -> set[str]:
+	doc = _get_specification(SPECIFICATION, specification)
+	_validate_target(doc, project, template=False)
+	return set(specification_graph(doc, mode="visible").requirements)
 
 
 @frappe.whitelist(methods=["GET", "POST"])

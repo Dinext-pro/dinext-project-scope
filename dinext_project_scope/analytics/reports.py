@@ -110,18 +110,21 @@ def requirement_subtree(rows, selected):
 	return visited
 
 
-def scope_requirement_rows(project, specification=None):
+def scope_requirement_rows(project):
 	from dinext_project_scope.requirements import project_rows
 
-	rows = project_rows(project, specification=specification)
-	return {row["name"]: row for row in rows}
+	return {row["name"]: row for row in project_rows(project)}
 
 
 def traceability(filters):
+	from dinext_project_scope.requirements import visible_specification_members
+
 	project = data.project_ids(filters.get("project"), required=True)[0]
 	full = scope_requirement_rows(project)
-	specification = filters.get("specification")
-	candidates = scope_requirement_rows(project, specification) if specification else full
+	candidates = full
+	if specification := filters.get("specification"):
+		members = visible_specification_members(project, specification)
+		candidates = {name: row for name, row in candidates.items() if name in members}
 	if selected := filters.get("requirement"):
 		subtree = requirement_subtree(full, selected)
 		candidates = {name: row for name, row in candidates.items() if name in subtree}
