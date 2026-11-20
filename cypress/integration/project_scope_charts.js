@@ -346,6 +346,47 @@ describe("Project scope charts", () => {
 		});
 	});
 
+	it("keeps the progress legend below date labels when resizing and switching theme", () => {
+		cy.visit(`/app/project-deliverable/${fixture.result}`);
+		const host = '[data-fieldname="progress_html"] .dinext-scope-chart--progress';
+		const bounds = (item) => {
+			const rect = item.getBoundingRect().clone();
+			const transform = item.getComputedTransform();
+			if (transform) rect.applyTransform(transform);
+			return rect;
+		};
+		for (const [width, theme] of [
+			[1440, "dark"],
+			[800, "dark"],
+			[800, "light"],
+		]) {
+			cy.viewport(width, 960);
+			cy.window().then(({ frappe }) => frappe.ui.set_theme(theme));
+			cy.get("html").should("have.attr", "data-theme", theme);
+			chartOption(cy.get(host), (_option, instance) => {
+				expect(instance.getWidth()).to.eq(instance.getDom().clientWidth);
+				const model = instance.getModel();
+				const group = (name) =>
+					instance.getViewOfComponentModel(model.getComponent(name)).group;
+				const labelBottoms = [];
+				group("xAxis").traverse((item) => {
+					if (item.type !== "text" || item.ignore) return;
+					const rect = bounds(item);
+					labelBottoms.push(rect.y + rect.height);
+				});
+				expect(labelBottoms, "rendered date labels").not.to.be.empty;
+				const legend = bounds(group("legend"));
+				expect(
+					legend.y - Math.max(...labelBottoms),
+					"gap above the legend"
+				).to.be.at.least(4);
+				expect(legend.y + legend.height, "legend bottom").to.be.at.most(
+					instance.getHeight()
+				);
+			});
+		}
+	});
+
 	it("explains a missing planned interval on a result card", () => {
 		cy.visit(`/app/project-deliverable/${fixture.hidden_result}`);
 		cy.contains(

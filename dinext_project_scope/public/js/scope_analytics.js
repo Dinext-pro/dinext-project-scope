@@ -904,8 +904,8 @@
 					color: ["#3976b7", "#22877c"],
 					animation: false,
 					aria: { enabled: true },
-					legend: { textStyle: { color: colors.text } },
-					grid: { left: 49, right: 22, bottom: 33, top: 39 },
+					legend: { type: "scroll", bottom: 3, textStyle: { color: colors.text } },
+					grid: { left: 49, right: 22, bottom: 52, top: 22 },
 					tooltip: {
 						trigger: "axis",
 						renderMode: "richText",
