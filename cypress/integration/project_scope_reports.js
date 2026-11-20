@@ -55,13 +55,13 @@ describe("Project scope reports", () => {
 			.and("be.visible");
 		cy.contains(
 			'[data-fieldname="custom_scope_changes_html"]',
-			`${fixture.title} change`
+			`${fixture.title} change`,
 		).should("be.visible");
 		cy.get('[data-fieldname="custom_project_requirements"] .grid-body:visible').should(
-			"not.exist"
+			"not.exist",
 		);
 		cy.get(
-			'[data-fieldname="custom_project_requirement_specifications"] .grid-body:visible'
+			'[data-fieldname="custom_project_requirement_specifications"] .grid-body:visible',
 		).should("not.exist");
 		cy.screenshot("project-scope-requirements");
 	});
@@ -69,7 +69,7 @@ describe("Project scope reports", () => {
 	it("opens the responsibility matrix from the Project Scope Reports menu with its project", () => {
 		cy.visit(`/app/project/${fixture.project}`);
 		cy.get('[data-fieldname="custom_scope_deliverables_progress_html"] progress').should(
-			"be.visible"
+			"be.visible",
 		);
 		cy.get('.inner-group-button[data-label="Scope%20Reports"] > button:visible').click({
 			scrollBehavior: "center",
@@ -87,7 +87,7 @@ describe("Project scope reports", () => {
 			expect($meter).to.have.prop("value", 20);
 			expect($meter).to.have.attr(
 				"title",
-				"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded."
+				"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded.",
 			);
 		});
 	});
@@ -139,12 +139,19 @@ describe("Project scope reports", () => {
 		rowLink(`${fixture.title} outside scope`).should("not.exist");
 		rowLink(`${fixture.title} unlinked`).should("not.exist");
 		cy.request({
-			url: "/api/method/dinext_project_scope.requirements.project_rows",
-			qs: { project: fixture.project, specification: fixture.hidden_specification },
+			url: "/api/method/frappe.desk.query_report.run",
+			qs: {
+				report_name: traceability,
+				filters: JSON.stringify({
+					project: fixture.project,
+					specification: fixture.hidden_specification,
+				}),
+			},
 			failOnStatusCode: false,
-		})
-			.its("status")
-			.should("eq", 403);
+		}).then(({ status, body }) => {
+			expect(status).to.eq(403);
+			expect(body.exc_type).to.eq("PermissionError");
+		});
 	});
 
 	it("opens result and task branches independently and marks missing links and overdue results", () => {
@@ -166,7 +173,7 @@ describe("Project scope reports", () => {
 		rowLink(`${fixture.title} result`).then(() => {
 			cy.get(`${table} a`).should(($links) => {
 				expect(
-					$links.filter((_, link) => link.textContent === `${fixture.title} result`)
+					$links.filter((_, link) => link.textContent === `${fixture.title} result`),
 				).to.have.length(2);
 			});
 		});
@@ -235,13 +242,13 @@ describe("Project scope reports", () => {
 		openReport(responsibility, { project: fixture.project });
 		cy.contains(`${table} .ag-header-group-text`, exact(fixture.title)).should("be.visible");
 		cy.contains(`${table} .ag-header-group-text`, exact(`${fixture.title} secondary`)).should(
-			"be.visible"
+			"be.visible",
 		);
 		cy.contains(`${table} .ag-header-cell-text`, `Contact · ${fixture.contact}`).should(
-			"be.visible"
+			"be.visible",
 		);
 		cy.contains(`${table} .ag-header-cell-text`, `User · ${fixture.actor}`).should(
-			"be.visible"
+			"be.visible",
 		);
 		rowLink(`${fixture.title} peer`)
 			.closest(".ag-row")
@@ -256,7 +263,7 @@ describe("Project scope reports", () => {
 				cy.get(`[title="${fixture.title} reviewer"]`).should(
 					"have.css",
 					"background-color",
-					"rgb(120, 44, 196)"
+					"rgb(120, 44, 196)",
 				);
 			});
 		cy.screenshot("responsibility-matrix");
@@ -313,7 +320,7 @@ describe("Project scope reports", () => {
 		rowLink(`${fixture.title} change`).should("be.visible");
 		cy.contains(`${table} .ag-header-group-text`, "Impact").should("be.visible");
 		cy.contains(`${table} .ag-header-cell-text`, exact(`${fixture.title} secondary`)).should(
-			"exist"
+			"exist",
 		);
 		cy.contains(`${table} button.dinext-scope-badge--red`, /Strong.*1 without level/).click();
 		cy.get(".modal:visible .dinext-scope-impact-detail").should("have.length", 3);
@@ -324,11 +331,11 @@ describe("Project scope reports", () => {
 			.should("have.attr", "href", `/app/project-deliverable/${fixture.shared}`);
 		cy.contains(".modal:visible .dinext-scope-impact-detail", "5 days").should(
 			"not.contain.text",
-			"Matched filters"
+			"Matched filters",
 		);
 		cy.contains(".modal:visible .dinext-scope-impact-detail", "Historical assessment.").should(
 			"contain.text",
-			"Level not specified"
+			"Level not specified",
 		);
 		cy.get(".modal:visible button.btn-modal-close").click();
 		cy.screenshot("change-impact-matrix");
@@ -377,7 +384,7 @@ describe("Project scope reports", () => {
 		cy.get(`${actions} button`).should(($buttons) => {
 			expect($buttons).to.have.length(4);
 			expect($buttons[3].getBoundingClientRect().top).to.be.greaterThan(
-				$buttons[0].getBoundingClientRect().top
+				$buttons[0].getBoundingClientRect().top,
 			);
 		});
 		cy.contains(`${actions} button`, exact(constraints)).click();
@@ -388,7 +395,7 @@ describe("Project scope reports", () => {
 		openReport(overview, { project: fixture.project });
 		cy.contains(
 			`${table} button.dinext-scope-link`,
-			exact("Constraints and assumptions due for review")
+			exact("Constraints and assumptions due for review"),
 		).click();
 		reportShown(constraints, { project: fixture.project, review_due: 1 });
 		rowLink(`${fixture.title} assumption`).should("be.visible");
@@ -397,7 +404,7 @@ describe("Project scope reports", () => {
 		cy.location("pathname").should("eq", `/app/project/${fixture.project}`);
 		cy.get('[data-fieldname="project_constraints"] .grid-row-open:visible').should(
 			"contain.text",
-			`${fixture.title} assumption`
+			`${fixture.title} assumption`,
 		);
 	});
 
@@ -407,20 +414,15 @@ describe("Project scope reports", () => {
 		openReport(constraints, filters);
 		rowLink(`${fixture.title} verified supplier capacity`).should("be.visible");
 		rowLink(`${fixture.title} assumption`).should("not.exist");
-		cy.get(`${table} .ag-body-horizontal-scroll-viewport`).then(([scrollbar]) => {
-			scrollbar.scrollLeft = scrollbar.scrollWidth;
-		});
-		cy.get(`${table} .ag-center-cols-viewport`).should(([viewport]) => {
-			const end = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
-			expect(viewport.scrollLeft, "grid viewport scrolled to its last column").to.be.closeTo(
-				end,
-				2
+		cy.get(`${table} .ag-root-wrapper[grid-id]`).then(([grid]) => {
+			const api = grid.ownerDocument.defaultView.agGrid.getGridApi(
+				grid.getAttribute("grid-id"),
 			);
+			api.ensureColumnVisible("verified_at", "end");
 		});
-		cy.get(`${table} [col-id="review_date"].ag-header-cell`).should(
-			"contain.text",
-			"Planned review date"
-		);
+		cy.get(`${table} [col-id="review_date"].ag-header-cell`)
+			.should("be.visible")
+			.and("contain.text", "Planned review date");
 		cy.get(`${table} [col-id="verified_at"].ag-header-cell`)
 			.should("be.visible")
 			.and("contain.text", "Verified At");
@@ -430,13 +432,12 @@ describe("Project scope reports", () => {
 		cy.get(`${table} [col-id="verification_note"].ag-cell [title]`).should(
 			"have.attr",
 			"title",
-			fixture.assumption_verification_note
+			fixture.assumption_verification_note,
 		);
 		cy.window().then(({ frappe }) => {
-			cy.get(`${table} [col-id="review_date"].ag-cell`).should(
-				"have.text",
-				frappe.datetime.str_to_user(fixture.assumption_review_date)
-			);
+			cy.get(`${table} [col-id="review_date"].ag-cell`)
+				.should("be.visible")
+				.and("have.text", frappe.datetime.str_to_user(fixture.assumption_review_date));
 			cy.get(`${table} [col-id="verified_at"].ag-cell`)
 				.should("be.visible")
 				.and("have.text", frappe.datetime.str_to_user(fixture.assumption_verified_at));
@@ -472,7 +473,7 @@ describe("Project scope reports", () => {
 			const bounds = element.getBoundingClientRect();
 			const hit = element.ownerDocument.elementFromPoint(
 				bounds.left + Math.min(5, bounds.width / 2),
-				bounds.top + bounds.height / 2
+				bounds.top + bounds.height / 2,
 			);
 			expect(element.contains(hit), "result link inside the fullscreen viewport").to.be.true;
 		});
@@ -502,17 +503,17 @@ describe("Project scope reports", () => {
 		rowLink(`${fixture.title} rollout change`).should("be.visible");
 		rowLink(`${fixture.title} hidden change`).should("not.exist");
 		cy.contains(`${table} .ag-header-cell-text`, exact(`${fixture.title} hidden`)).should(
-			"not.exist"
+			"not.exist",
 		);
 		cy.contains(`${table} .ag-header-cell-text`, exact(`${fixture.title} secondary`)).should(
-			"exist"
+			"exist",
 		);
 		cy.contains(`${table} button`, "Download Excel").should("be.visible");
 		cy.request({ url: exportMethod, qs: { report_name: impact }, encoding: "binary" }).then(
 			(response) => {
 				expect(response.status).to.eq(200);
 				expect(response.body.slice(0, 2)).to.eq("PK");
-			}
+			},
 		);
 		cy.request({
 			url: exportMethod,

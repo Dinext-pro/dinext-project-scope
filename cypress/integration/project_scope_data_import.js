@@ -7,6 +7,7 @@ describe("Project scope Data Import", () => {
 	it("offers the five scope document types in the native importer", () => {
 		cy.login();
 		cy.openDesk("/app/data-import");
+		cy.window().its("frappe.boot.user.can_create").should("include", "Data Import");
 		cy.get(`${page} .page-actions .primary-action:visible`).click();
 		cy.location("pathname").should("match", /^\/app\/data-import\/new-data-import-/);
 		cy.get(field).find("input:visible").should("be.visible");

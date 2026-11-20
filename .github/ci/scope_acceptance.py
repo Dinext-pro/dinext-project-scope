@@ -146,6 +146,14 @@ def wait_for_site(server):
 
 
 def run_cypress():
+	# The pinned Projects policy references this role without shipping its record.
+	run(
+		"bench",
+		"--site",
+		SITE,
+		"execute",
+		"dinext_project_scope.tests.scope_ui_test_helpers.ensure_data_import_role",
+	)
 	legacy_task_asset = BENCH / "apps/dinext_common/dinext_common/public/js/form_conflict_merge.js"
 	if not legacy_task_asset.is_file():
 		# The disposable site can inherit a client script for an asset removed by Common.

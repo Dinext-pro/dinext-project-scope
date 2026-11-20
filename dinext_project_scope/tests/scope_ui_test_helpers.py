@@ -23,6 +23,14 @@ def _fixture_user(run_id, language):
 	return f"scope-reports-{run_id}-{language}@example.test"
 
 
+def ensure_data_import_role():
+	role = "Dinext_Data_Import"
+	if frappe.db.exists("Custom DocPerm", {"parent": "Data Import", "role": role}) and not frappe.db.exists(
+		"Role", role
+	):
+		frappe.get_doc(doctype="Role", role_name=role).insert()
+
+
 def _named(doctype, name, **fields):
 	return frappe.get_doc(doctype=doctype, enabled=1, **fields).insert(set_name=name)
 
