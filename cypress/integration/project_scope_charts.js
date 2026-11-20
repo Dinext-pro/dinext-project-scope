@@ -165,7 +165,10 @@ describe("Project scope charts", () => {
 	it("keeps the result donuts compact and uses a brighter palette in the light theme", () => {
 		showResults(fixture.project);
 		const theme = (mode) => cy.window().then(({ frappe }) => frappe.ui.set_theme(mode));
-		const byCategory = chart("Deliverables by category");
+		const byCategory = () =>
+			cy
+				.contains(`${resultHost} ${chartCard}`, "Deliverables by category")
+				.find(".dinext-scope-chart:visible");
 		theme("light");
 		cy.get(`${resultHost} .dinext-scope-charts`).should(([charts]) => {
 			const surface = charts.closest(".dinext-scope-analytics");
@@ -173,11 +176,11 @@ describe("Project scope charts", () => {
 				charts.getBoundingClientRect().top - surface.getBoundingClientRect().top
 			).to.be.at.most(1);
 		});
-		chartOption(byCategory, (option) => expect(option.color[0]).to.eq("#2868eb"));
+		chartOption(byCategory(), (option) => expect(option.color[0]).to.eq("#2868eb"));
 		theme("dark");
-		chartOption(byCategory, (option) => expect(option.color[0]).to.eq("#3976b7"));
+		chartOption(byCategory(), (option) => expect(option.color[0]).to.eq("#3976b7"));
 		theme("light");
-		chartOption(byCategory, (option) => expect(option.color[0]).to.eq("#2868eb"));
+		chartOption(byCategory(), (option) => expect(option.color[0]).to.eq("#2868eb"));
 	});
 
 	it("recounts unique results after an actual pie segment filters the two shared branches", () => {
