@@ -280,6 +280,52 @@ describe("Project scope charts", () => {
 			});
 	});
 
+	it("opens a task only by double-click in the results tree", () => {
+		showResults(fixture.project);
+		const result = `${resultHost} ${table}`;
+		const projectPath = `/app/project/${fixture.project}`;
+		rowLink(`${fixture.title} shared component`)
+			.first()
+			.closest(".ag-cell")
+			.find(".dinext-table-tree-toggle")
+			.click();
+		cy.contains(`${result} .dinext-scope-label`, `${fixture.title} work group`)
+			.first()
+			.closest(".ag-cell")
+			.find(".dinext-table-tree-toggle")
+			.click();
+		cy.location("pathname").should("eq", projectPath);
+		const taskLabel = () =>
+			cy.contains(`${result} .dinext-scope-label`, `${fixture.title} detail task`).first();
+		taskLabel().should("not.have.descendants", "a").click();
+		cy.location("pathname").should("eq", projectPath);
+		taskLabel().closest(".ag-cell").trigger("keydown", { key: "Enter" });
+		cy.location("pathname").should("eq", projectPath);
+		taskLabel().dblclick();
+		cy.location("pathname").should("eq", `/app/task/${fixture.task}`);
+	});
+
+	it("shows the progress chart first and uses project titles for saved links", () => {
+		cy.visit(`/app/project-deliverable/${fixture.result}`);
+		cy.contains('[data-fieldname="progress_html"]', "Planned and recorded progress")
+			.should("be.visible")
+			.should(($heading) => {
+				const form = $heading[0].closest(".form-layout");
+				const title = form.querySelector('.frappe-control[data-fieldname="title"]');
+				expect(
+					$heading[0].compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING
+				).to.be.greaterThan(0);
+			});
+		for (const [field, id, title] of [
+			["deliverable_scopes", fixture.scope, `${fixture.title} warehouse operations`],
+			["deliverable_constraints", fixture.assumption, `${fixture.title} assumption`],
+		]) {
+			cy.get(`[data-fieldname="${field}"] .tb-selected-value[data-value="${id}"]`)
+				.find(".btn-link-to-form")
+				.should("have.text", title);
+		}
+	});
+
 	it("plots recorded values and a separate current plan on a result card", () => {
 		cy.visit(`/app/project-deliverable/${fixture.result}`);
 		const host = '[data-fieldname="progress_html"]';

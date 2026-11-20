@@ -228,6 +228,10 @@ def create_report_fixture(run_id):
 			{"pt_role": project_role, "pt_participant_type": "User", "pt_participant": actor},
 		)
 	project.append("custom_contact_list", {"contact": person, "project_role": role})
+	scope = project.append(
+		"project_scopes",
+		{"scope_title": f"{prefix} warehouse operations", "scope_type": _named("Project Scope Type", prefix).name},
+	)
 	assumption = project.append(
 		"project_constraints",
 		{
@@ -321,6 +325,8 @@ def create_report_fixture(run_id):
 		work=shared.name,
 		deliverable_requirements=[{"project_requirement": name} for name in (parent.name, child.name)],
 		deliverable_responsibles=assigned,
+		deliverable_scopes=[{"project_scope": scope.name}],
+		deliverable_constraints=[{"project_constraint": assumption.name}],
 	)
 	_result(project.name, prefix, "peer", category, kind, work=shared.name)
 	work.reload()  # The child Task updates the group's dependency list on insert.
@@ -395,6 +401,7 @@ def create_report_fixture(run_id):
 		change_date=str(getdate(change.creation)),
 		planned_end=str(planned_end),
 		later_planned_end=str(add_days(getdate(), 7)),
+		scope=scope.name,
 		assumption=assumption.name,
 		assumption_verification_note=verified_assumption.verification_note,
 		assumption_review_date=str(verified_assumption.review_date),
@@ -443,6 +450,7 @@ def remove_report_fixture(run_id):
 		"Project Deliverable Category",
 		"Project Role",
 		"Requirement Kind",
+		"Project Scope Type",
 	):
 		for name in (prefix, f"{prefix} secondary", f"{prefix} hidden"):
 			if frappe.db.exists(doctype, name):

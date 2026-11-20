@@ -322,9 +322,13 @@
 		return holder;
 	}
 
-	function labelCell(row) {
+	function isResultTreeTask(row, resultTree) {
+		return resultTree && row?.document_type === "Task";
+	}
+
+	function labelCell(row, resultTree) {
 		const holder = node("span", "dinext-scope-label");
-		if (row.document) {
+		if (row.document && !isResultTreeTask(row, resultTree)) {
 			holder.append(
 				documentLink(
 					row.label || row.document,
@@ -433,13 +437,13 @@
 		};
 	}
 
-	function cellRenderer(column) {
+	function cellRenderer(column, resultTree) {
 		return (params) => {
 			const row = params.data || {};
 			const value = params.value;
 			switch (column.kind) {
 				case "label":
-					return labelCell(row);
+					return labelCell(row, resultTree);
 				case "raci":
 					return roleBadges(row.cells?.[column.fieldname]);
 				case "badges":
@@ -525,7 +529,7 @@
 		};
 	}
 
-	function tableColumns(columns) {
+	function tableColumns(columns, resultTree) {
 		const groups = new Map();
 		const result = [];
 		for (const column of columns) {
@@ -540,7 +544,7 @@
 				item.pinned = column.pinned;
 				item.lockPinned = true;
 			}
-			if (column.kind === "label") item.render = cellRenderer(column);
+			if (column.kind === "label") item.render = cellRenderer(column, resultTree);
 			else item.cellRenderer = cellRenderer(column);
 			if (column.kind === "trace_state") {
 				item.cellClassRules = Object.fromEntries(
@@ -606,7 +610,7 @@
 		const table = await window.DinextTable.create({
 			container: grid,
 			data: rows,
-			columns: tableColumns(columns),
+			columns: tableColumns(columns, options.resultTree),
 			expandedIds: expansionIds(rows, options.expand),
 			filter: { enabled: false },
 			edit: false,
@@ -631,8 +635,21 @@
 						: data?.context_only
 						? "dinext-scope-context-row"
 						: "",
+				onCellDoubleClicked({ data, event }) {
+					if (
+						isResultTreeTask(data, options.resultTree) &&
+						data.document &&
+						!event.target.closest("a, button, .dinext-table-tree-toggle")
+					) {
+						openDocument(data.document_type, data.document);
+					}
+				},
 				onCellClicked({ data, event }) {
-					if (!data || event.target.closest("a, button, .dinext-table-tree-toggle"))
+					if (
+						!data ||
+						isResultTreeTask(data, options.resultTree) ||
+						event.target.closest("a, button, .dinext-table-tree-toggle")
+					)
 						return;
 					if (data.document)
 						openDocument(
@@ -663,7 +680,8 @@
 						}
 						return;
 					}
-					if (event.key !== "Enter") return;
+					if (event.key !== "Enter" || isResultTreeTask(data, options.resultTree))
+						return;
 					if (data.cells?.[colDef.field]?.details) {
 						impactDetails(
 							data,

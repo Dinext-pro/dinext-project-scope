@@ -202,42 +202,6 @@
 		} else if (!result.missing_approver && frm.doc.status === "Acceptance") {
 			$("<p>").text(__("Work is ready for acceptance.")).appendTo(wrapper);
 		}
-		renderLinkedWork(frm, wrapper, result.work);
-	}
-
-	function renderLinkedWork(frm, wrapper, work) {
-		if (!work.length) return;
-		const slots = new Map(frm.doc.table_xuct.map((row) => [row.source_element_key, row]));
-		const details = $("<details>", { class: "mb-2" }).appendTo(wrapper);
-		$("<summary>").text(__("Linked work")).appendTo(details);
-		const list = $("<ul>", { class: "mt-2 mb-2" }).appendTo(details);
-		for (const item of work) {
-			const slot = slots.get(item.key);
-			if (!slot) continue;
-			const row = $("<li>").appendTo(list);
-			$("<a>", { href: frappe.utils.get_form_link(slot.element_type, slot.element) })
-				.text(slot.element_name)
-				.appendTo(row);
-			const state = [
-				__(item.status, null, slot.element_type),
-				format_number(item.progress || 0) + "%",
-			];
-			if (item.planned_end_date)
-				state.push(
-					__("Plan to {0}", [frappe.datetime.str_to_user(item.planned_end_date)])
-				);
-			if (item.expected_end_date)
-				state.push(
-					__("Expected on {0}", [frappe.datetime.str_to_user(item.expected_end_date)])
-				);
-			if (item.actual_end_date)
-				state.push(
-					__("Finished on {0}", [frappe.datetime.str_to_user(item.actual_end_date)])
-				);
-			$("<span>", { class: "text-muted" })
-				.text(" · " + state.join(" · "))
-				.appendTo(row);
-		}
 	}
 
 	function confirmStructure(frm, preview) {

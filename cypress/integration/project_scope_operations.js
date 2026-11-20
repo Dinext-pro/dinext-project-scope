@@ -470,9 +470,9 @@ describe("Project scope operations in Desk", () => {
 				readForm((doc) =>
 					expect(doc.deliverable_constraints[0].project_constraint).to.eq(assumption)
 				);
-				cy.get(`${fields("deliverable_constraints")} .tb-selected-value`).should(
-					"be.visible"
-				);
+				cy.get(
+					`${fields("deliverable_constraints")} .tb-selected-value .btn-link-to-form`
+				).should("have.text", `${fixture.label} availability`);
 				shot("operations-assumption-linked-to-result");
 			});
 	});
@@ -501,8 +501,10 @@ describe("Project scope operations in Desk", () => {
 			expect(doc.table_xuct[0].element).to.eq(fixture.baseline);
 			expect(doc.table_xuct[1].element).to.be.a("string");
 		});
-		cy.contains(`${fields("acceptance_html")} summary`, "Linked work").click();
-		cy.contains(`${fields("acceptance_html")} a`, "Nested work").click();
+		cy.get(`${grid("acceptance_html")} details`).should("not.exist");
+		editRow("table_xuct", 2);
+		cy.get(fields("element", rowForm)).find("input").focus();
+		cy.get(fields("element", rowForm)).find(".btn-open").click();
 		readForm((doc) => {
 			expect(doc.title).to.eq(`${fixture.label} template nested`);
 			expect(doc.project).to.eq(fixture.project);
