@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from io import BytesIO
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import frappe
 from openpyxl import load_workbook
@@ -159,6 +159,108 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual([row["children"][0]["document"] for row in tree], ["shared", "shared"])
 		self.assertNotEqual(tree[0]["children"][0]["id"], tree[1]["children"][0]["id"])
 		self.assertEqual(counts["deliverable_type"], [{"name": "Shared", "count": 1}])
+
+	def test_project_results_uses_only_readable_type_and_accountable_images(self):
+		deliverables = {
+			"review": {"title": "Review", "deliverable_type": "Document", "progress": 45},
+			"nested": {"title": "Nested review", "deliverable_type": "Restricted type"},
+			"untyped": {"title": "Untyped result"},
+		}
+		structure = {
+			"review": [
+				{"element_type": data.DELIVERABLE, "element": "nested"},
+				{"element_type": "Task", "element": "work"},
+			]
+		}
+		assignments = {
+			"review": [
+				{
+					"responsible_type": doctype,
+					"responsible": name,
+					"responsibility": data.ACCOUNTABLE_CODE,
+				}
+				for doctype, name in (
+					("User", "manager"),
+					("User", "without-image"),
+					("Contact", "customer"),
+					("Contact", "restricted"),
+				)
+			]
+		}
+		readable = {
+			"Project Deliverable Type": {"Document": {"icon": "/files/document.svg", "color": "#123456"}},
+			"User": {
+				"manager": {"full_name": "Project manager", "user_image": "/files/manager.png"},
+				"without-image": {"full_name": "Without image"},
+			},
+			"Contact": {"customer": {"full_name": "Customer", "image": "/files/customer.png"}},
+		}
+		with (
+			patch.object(data, "project_ids", return_value=["p1"]),
+			patch.object(data, "get_deliverables", return_value=deliverables),
+			patch.object(data, "load_structure", return_value=structure),
+			patch.object(data, "load_assignments", return_value=assignments),
+			patch.object(
+				data, "responsibility_definitions", return_value={data.ACCOUNTABLE_CODE: {"enabled": 1}}
+			),
+			patch.object(
+				data, "available_tasks", return_value={"work": {"subject": "Work", "type": "Task type"}}
+			),
+			patch.object(data, "getdate", return_value=date(2026, 11, 20)),
+			patch.object(data, "select_rows", side_effect=lambda doctype, *_: readable[doctype]) as select,
+		):
+			result = data.project_results("p1")
+
+		select.assert_has_calls(
+			[
+				call(
+					"Project Deliverable Type",
+					{"name": ["in", ["Document", "Restricted type"]]},
+					["name", "icon", "color"],
+				),
+				call(
+					"User",
+					{"name": ["in", ["manager", "without-image"]]},
+					["name", "full_name", "user_image"],
+				),
+				call("Contact", {"name": ["in", ["customer", "restricted"]]}, ["name", "full_name", "image"]),
+			],
+			any_order=True,
+		)
+		self.assertEqual(select.call_count, 3)
+		review, untyped = result["rows"]
+		self.assertEqual((review["document"], review["label"], review["progress"]), ("review", "Review", 45))
+		self.assertEqual(review["deliverable_type"], "Document")
+		self.assertEqual(review["deliverable_type_icon"], "/files/document.svg")
+		self.assertEqual(review["deliverable_type_color"], "#123456")
+		self.assertEqual(
+			review["accountable"],
+			[
+				{
+					"doctype": "Contact",
+					"name": "customer",
+					"label": "Customer",
+					"image": "/files/customer.png",
+				},
+				{"doctype": "Contact", "name": "restricted", "label": "restricted", "image": None},
+				{
+					"doctype": "User",
+					"name": "manager",
+					"label": "Project manager",
+					"image": "/files/manager.png",
+				},
+				{"doctype": "User", "name": "without-image", "label": "Without image", "image": None},
+			],
+		)
+		nested, work = review["children"]
+		self.assertEqual(nested["deliverable_type"], "Restricted type")
+		for row in (nested, untyped):
+			self.assertIsNone(row["deliverable_type_icon"])
+			self.assertIsNone(row["deliverable_type_color"])
+			self.assertEqual(row["accountable"], [])
+		self.assertEqual(work["deliverable_type"], "Task type")
+		self.assertNotIn("deliverable_type_icon", work)
+		self.assertNotIn("accountable", work)
 
 	def test_history_has_no_synthetic_actual_values(self):
 		events = [

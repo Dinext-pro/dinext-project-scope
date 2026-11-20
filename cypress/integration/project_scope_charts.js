@@ -13,6 +13,7 @@ const chartCard = ".dinext-scope-chart-card";
 const overview = "Project Scope Overview";
 const changes = "Project Change Request Register";
 const traceability = "Requirement Traceability Matrix";
+const responsibility = "Project Responsibility Matrix";
 const progressPicker = '.dinext-scope-progress-picker input[data-fieldname="deliverable"]';
 
 function chart(title) {
@@ -73,8 +74,111 @@ function resultFilter(title, fieldname) {
 		.find(`.frappe-control[data-fieldtype="Select"][data-fieldname="${fieldname}"] select`);
 }
 
+function resultCells(label) {
+	return rowLink(label)
+		.closest(".ag-row")
+		.invoke("attr", "row-id")
+		.then((id) => cy.get(`${resultHost} .ag-center-cols-container [row-id="${id}"]`));
+}
+
 describe("Project scope charts", () => {
 	const fixture = useReportFixture();
+
+	it("shows the configured type, accountable avatar and progress in the results tree", () => {
+		showResults(fixture.project);
+		const visibleHeaders = `${resultHost} .ag-header-cell[col-id] .ag-header-cell-label`;
+		cy.get(visibleHeaders).should(($headers) => {
+			expect($headers.length).to.be.greaterThan(1);
+			for (const header of $headers) {
+				const win = header.ownerDocument.defaultView;
+				expect(win.getComputedStyle(header).justifyContent).to.eq("center");
+			}
+		});
+		rowLink(`${fixture.title} result`)
+			.closest('[col-id="label"]')
+			.should("not.have.css", "text-align", "center");
+
+		resultCells(`${fixture.title} result`).within(() => {
+			cy.get(".ag-cell").should(($cells) => {
+				for (const cell of $cells) {
+					const win = cell.ownerDocument.defaultView;
+					expect(win.getComputedStyle(cell).textAlign).to.eq("center");
+				}
+			});
+			cy.get('[col-id="deliverable_type"]')
+				.should("not.contain.text", fixture.title)
+				.find(`[title="${fixture.title}"] img`)
+				.should(([icon]) => {
+					expect(new URL(icon.src).pathname).to.eq(fixture.type_icon);
+					expect(icon.naturalWidth).to.be.greaterThan(0);
+				});
+			cy.get('[col-id="deliverable_type"]')
+				.closest(".ag-row")
+				.should(([row]) => {
+					expect(row.style.getPropertyValue("--scope-result-type-color")).to.eq(
+						fixture.type_color
+					);
+					expect(
+						row.ownerDocument.defaultView.getComputedStyle(row).backgroundColor
+					).not.to.eq("rgba(0, 0, 0, 0)");
+				});
+			cy.get('[col-id="accountable"] .avatar[role="img"]')
+				.should(([avatar]) => expect(avatar.title).to.eq(fixture.title))
+				.find("img")
+				.should(([photo]) => {
+					expect(new URL(photo.src).pathname).to.eq(fixture.avatar_image);
+					expect(photo.naturalWidth).to.be.greaterThan(0);
+				});
+			cy.get('[col-id="progress"] .progress[role="progressbar"]')
+				.should(([meter]) => expect(meter.getAttribute("aria-valuenow")).to.eq("20"))
+				.find(".progress-bar")
+				.should("be.visible");
+		});
+		resultCells(`${fixture.title} shared component`)
+			.find('[col-id="accountable"] .avatar .standard-image')
+			.should("have.text", "C");
+		resultCells(`${fixture.title} shared component`)
+			.find('[col-id="deliverable_type"] svg')
+			.should("be.visible");
+		resultCells(`${fixture.title} peer`)
+			.find('[col-id="accountable"]')
+			.should("have.text", "—");
+	});
+
+	it("opens the current project's responsibility matrix from the results toolbar", () => {
+		cy.login(fixture.actor, fixture.password);
+		showResults(fixture.project);
+		resultFilter("Deliverables by type", "deliverable_type").select(fixture.title);
+		resultFilter("Deliverables by category", "category").select(`${fixture.title} secondary`);
+		cy.contains(`${resultHost} [role="status"]`, "No records match the filters.").should(
+			"be.visible"
+		);
+		cy.contains(`${resultHost} .dinext-table-toolbar button`, "Project Responsibility Matrix")
+			.should("be.visible")
+			.click();
+		reportShown(responsibility, { project: fixture.project });
+		cy.window().should(({ frappe }) => {
+			expect(frappe.query_report.get_filter_value("deliverable_type") || "").to.eq("");
+		});
+	});
+
+	it("keeps the result donuts compact and uses a brighter palette in the light theme", () => {
+		showResults(fixture.project);
+		const theme = (mode) => cy.window().then(({ frappe }) => frappe.ui.set_theme(mode));
+		const byCategory = chart("Deliverables by category");
+		theme("light");
+		cy.get(`${resultHost} .dinext-scope-charts`).should(([charts]) => {
+			const surface = charts.closest(".dinext-scope-analytics");
+			expect(
+				charts.getBoundingClientRect().top - surface.getBoundingClientRect().top
+			).to.be.at.most(1);
+		});
+		chartOption(byCategory, (option) => expect(option.color[0]).to.eq("#2868eb"));
+		theme("dark");
+		chartOption(byCategory, (option) => expect(option.color[0]).to.eq("#3976b7"));
+		theme("light");
+		chartOption(byCategory, (option) => expect(option.color[0]).to.eq("#2868eb"));
+	});
 
 	it("recounts unique results after an actual pie segment filters the two shared branches", () => {
 		showResults(fixture.project);

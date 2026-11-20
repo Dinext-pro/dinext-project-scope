@@ -17,6 +17,16 @@
 		"#c05f72",
 		"#5d73a5",
 	];
+	const resultLightPalette = [
+		"#2868eb",
+		"#088e72",
+		"#914be6",
+		"#d65a1c",
+		"#bc8708",
+		"#468936",
+		"#d94372",
+		"#4e66df",
+	];
 	let libraryRequest = null;
 
 	function node(tag, className, text) {
@@ -339,6 +349,90 @@
 		return holder;
 	}
 
+	function imageWithFallback(source, fallback) {
+		if (typeof source !== "string" || !source.trim()) return fallback;
+		let url;
+		try {
+			url = new URL(source, window.location.origin);
+		} catch {
+			return fallback;
+		}
+		if (url.protocol !== "https:" && url.protocol !== "http:") return fallback;
+		const image = node("img");
+		image.alt = "";
+		image.addEventListener("error", () => image.replaceWith(fallback), { once: true });
+		image.src = url.href;
+		return image;
+	}
+
+	function resultType(row, value) {
+		if (!value || row.document_type !== DELIVERABLE) return node("span", "", value);
+		const holder = node("span", "dinext-scope-result-type");
+		holder.title = value;
+		holder.setAttribute("role", "img");
+		holder.setAttribute("aria-label", value);
+		const icon = node("span");
+		icon.innerHTML = frappe.utils.icon("file", "sm");
+		holder.append(imageWithFallback(row.deliverable_type_icon, icon));
+		return holder;
+	}
+
+	function resultAvatars(row, members) {
+		if (row.document_type !== DELIVERABLE) return node("span");
+		if (!members?.length) {
+			const placeholder = node("span", "text-muted", "—");
+			placeholder.title = __("Responsible person not assigned");
+			placeholder.setAttribute("aria-label", placeholder.title);
+			return placeholder;
+		}
+		const holder = node("span", "dinext-scope-result-avatars");
+		for (const member of members) {
+			const avatar = node("span", "avatar avatar-small");
+			avatar.title = member.label;
+			avatar.setAttribute("role", "img");
+			avatar.setAttribute("aria-label", member.label);
+			const initials = node(
+				"span",
+				"avatar-frame standard-image",
+				frappe.get_abbr(member.label, 1)
+			);
+			const [background, text] = frappe.get_palette(member.label);
+			initials.style.backgroundColor = `var(${background})`;
+			initials.style.color = `var(${text})`;
+			avatar.append(imageWithFallback(member.image, initials));
+			holder.append(avatar);
+		}
+		return holder;
+	}
+
+	function resultProgress(value, label) {
+		if (value === null || value === undefined || !Number.isFinite(Number(value)))
+			return node("span");
+		const percent = Math.max(0, Math.min(100, Number(value)));
+		const progress = node("div", "progress dinext-scope-result-progress");
+		progress.title = formatProgress(percent);
+		progress.setAttribute("role", "progressbar");
+		progress.setAttribute("aria-label", label);
+		progress.setAttribute("aria-valuemin", "0");
+		progress.setAttribute("aria-valuemax", "100");
+		progress.setAttribute("aria-valuenow", String(percent));
+		const bar = node("div", "progress-bar progress-bar-success");
+		bar.style.width = `${percent}%`;
+		progress.append(bar);
+		return progress;
+	}
+
+	function resultRowStyle({ data }) {
+		const color = data?.deliverable_type_color;
+		if (data?.document_type !== DELIVERABLE || !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color))
+			return undefined;
+		return {
+			"--scope-result-type-color": color,
+			backgroundColor:
+				"color-mix(in srgb, var(--scope-result-type-color) var(--scope-result-type-tint), var(--ag-background-color))",
+		};
+	}
+
 	function cellRenderer(column) {
 		return (params) => {
 			const row = params.data || {};
@@ -381,6 +475,12 @@
 						"",
 						value === null || value === undefined ? "" : formatProgress(value)
 					);
+				case "result_progress":
+					return resultProgress(value, column.label);
+				case "result_type":
+					return resultType(row, value);
+				case "result_accountable":
+					return resultAvatars(row, value);
 				case "project":
 					return value ? documentLink(value, "Project", value) : node("span");
 				case "accountable": {
@@ -490,9 +590,17 @@
 		surface.table = null;
 		container.replaceChildren();
 		const available = rows.length > 0;
-		container.hidden = !available;
+		const toolbarItems = [...(options.toolbarItems || [])];
+		container.hidden = !available && !toolbarItems.length;
 		setMessage(surface, available ? null : __("No records match the filters."));
-		if (!available) return;
+		if (container.hidden) return;
+		if (options.export) {
+			toolbarItems.push({
+				id: "scope-export",
+				type: "custom",
+				render: () => button(__("Download Excel"), options.export),
+			});
+		}
 		const grid = node("div", "dinext-scope-grid-target");
 		container.append(grid);
 		const table = await window.DinextTable.create({
@@ -504,19 +612,15 @@
 			edit: false,
 			toolbar: {
 				presets: ["tree", "fullscreen"],
-				items: options.export
-					? [
-							{
-								id: "scope-export",
-								type: "custom",
-								render: () => button(__("Download Excel"), options.export),
-							},
-					  ]
-					: [],
+				items: toolbarItems,
 			},
 			fullscreen: { target: "shell", shell: options.fullscreenShell || surface.root },
 			layout: { height: "auto", minHeight: 76, maxHeight: "min(65vh, 660px)" },
 			gridOptions: {
+				...(options.resultTree && {
+					getRowStyle: resultRowStyle,
+					suppressNoRowsOverlay: true,
+				}),
 				rowHeight: 35,
 				headerHeight: 32,
 				groupHeaderHeight: 29,
@@ -603,7 +707,7 @@
 		container,
 		items,
 		onSelect,
-		{ legend = true, translate = false } = {}
+		{ legend = true, translate = false, palette = () => chartPalette } = {}
 	) {
 		if (!items.length) {
 			container.append(node("div", "dinext-scope-empty", __("No data")));
@@ -620,6 +724,7 @@
 		}));
 		container.append(chart);
 		if (legend) {
+			const colors = palette();
 			const labels = node("div", "dinext-scope-chart-legend");
 			for (const [index, item] of data.entries()) {
 				const label = `${item.name} · ${item.value}`;
@@ -627,10 +732,7 @@
 					? button(label, () => onSelect(items[index]), "dinext-scope-legend-item")
 					: node("span", "dinext-scope-legend-item", label);
 				const color = node("span", "dinext-scope-legend-dot");
-				color.style.setProperty(
-					"--scope-legend-color",
-					chartPalette[index % chartPalette.length]
-				);
+				color.style.setProperty("--scope-legend-color", colors[index % colors.length]);
 				action.prepend(color);
 				labels.append(action);
 			}
@@ -639,7 +741,7 @@
 		surface.registerChart(
 			chart,
 			() => ({
-				color: chartPalette,
+				color: palette(),
 				backgroundColor: "transparent",
 				animation: false,
 				aria: { enabled: describeChart },
@@ -818,10 +920,10 @@
 		return [
 			["label", __("Deliverable / Work"), "label", 285, "left"],
 			["status", __("Status"), "status", 155],
-			["deliverable_type", __("Deliverable type"), null, 150],
+			["deliverable_type", __("Deliverable type"), "result_type", 135],
 			["category", __("Category"), null, 150],
-			["progress", __("Progress"), "progress", 85],
-			["accountable", __("Accountable"), "accountable", 188],
+			["progress", __("Progress"), "result_progress", 105],
+			["accountable", __("Accountable"), "result_accountable", 155],
 			[
 				"planned_end_date",
 				__("Planned end", null, "Dinext.ProjectScope.Dates"),
@@ -849,11 +951,12 @@
 		if (!host || frm.is_new()) return;
 		const project = frm.doc.name;
 		const surface = createSurface(host, () => routeMatches("Form", "Project", project));
+		surface.root.classList.add("dinext-scope-results");
 		await libraries();
 		if (!surface.active()) return;
 		const charts = node("div", "dinext-scope-charts");
 		const actions = node("div", "dinext-scope-result-actions");
-		const table = node("div", "dinext-scope-table");
+		const table = node("div", "dinext-scope-table dinext-scope-results-table");
 		surface.root.append(charts, actions, table);
 		const profiles = [
 			["category", __("Category"), __("Deliverables by category")],
@@ -937,10 +1040,28 @@
 						control.set_input(item.name || EMPTY);
 						refresh();
 					},
-					{ legend: false, translate: key === "status" }
+					{
+						legend: false,
+						translate: key === "status",
+						palette: () =>
+							document.documentElement.dataset.theme === "dark"
+								? chartPalette
+								: resultLightPalette,
+					}
 				);
 			}
-			await drawGrid(surface, table, resultColumns(), result.rows, { expand: "roots" });
+			await drawGrid(surface, table, resultColumns(), result.rows, {
+				expand: "roots",
+				resultTree: true,
+				toolbarItems: [
+					{
+						id: "scope-responsibility-matrix",
+						type: "button",
+						label: __("Project Responsibility Matrix"),
+						onClick: () => toReport("Project Responsibility Matrix", { project }),
+					},
+				],
+			});
 		}
 
 		setMessage(surface, __("Loading"));

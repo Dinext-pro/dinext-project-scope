@@ -53,6 +53,65 @@
 	margin-block-end: 0.5rem;
 }
 
+.dinext-scope-results {
+	padding-block-start: 0;
+}
+
+.dinext-scope-results .dinext-scope-charts {
+	margin-block-start: 0;
+}
+
+.dinext-scope-results .dinext-scope-heading {
+	margin-block-end: 0.2rem;
+}
+
+.dinext-scope-results-table {
+	--scope-result-type-tint: 15%;
+}
+
+[data-theme="dark"] .dinext-scope-results-table {
+	--scope-result-type-tint: 23%;
+}
+
+.dinext-scope-results-table .ag-header-cell-label,
+.dinext-scope-results-table .ag-cell:not([col-id="label"]) > .ag-cell-wrapper {
+	justify-content: center;
+}
+
+.dinext-scope-results-table .ag-cell:not([col-id="label"]) {
+	text-align: center;
+}
+
+.dinext-scope-result-type,
+.dinext-scope-result-avatars {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.25rem;
+	vertical-align: middle;
+}
+
+.dinext-scope-result-type img {
+	width: 1.35rem;
+	height: 1.35rem;
+	object-fit: contain;
+}
+
+.dinext-scope-result-avatars .avatar > img {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.dinext-scope-result-progress.progress {
+	display: inline-flex;
+	width: min(4.75rem, 100%);
+	height: 0.45rem;
+	margin: 0;
+	vertical-align: middle;
+}
+
 .dinext-scope-result-filter .form-group {
 	margin-block: 0;
 }

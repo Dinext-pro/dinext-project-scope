@@ -12,6 +12,7 @@ CHANGE_REQUEST = "Project Change Request"
 CONSTRAINT = "Project Constraint"
 RESPONSIBILITY = "Project Deliverable Responsibility"
 ACCOUNTABLE_CODE = "\u041e"  # Cyrillic O in the responsibility catalog.
+PARTICIPANT_IMAGE_FIELDS = {"User": "user_image", "Contact": "image"}
 
 RESULT_FIELDS = [
 	"name",
@@ -168,18 +169,29 @@ def responsibility_definitions():
 	}
 
 
-def participant_names(assignments):
+def _participant_rows(assignments, *, include_images=False):
 	values = defaultdict(set)
 	for rows in assignments.values():
 		for row in rows:
-			kind = row.get("responsible_type") or "User"
-			if kind in {"User", "Contact"} and row.get("responsible"):
-				values[kind].add(row["responsible"])
-	return {
-		(doctype, name): row.get("full_name") or name
-		for doctype, names in values.items()
-		for name, row in select_rows(doctype, {"name": ["in", sorted(names)]}, ["name", "full_name"]).items()
-	}
+			doctype, name = participant(row)
+			if doctype in PARTICIPANT_IMAGE_FIELDS and name:
+				values[doctype].add(name)
+	participants = {}
+	for doctype, names in values.items():
+		fields = ["name", "full_name"]
+		if include_images:
+			fields.append(PARTICIPANT_IMAGE_FIELDS[doctype])
+		rows = select_rows(doctype, {"name": ["in", sorted(names)]}, fields)
+		participants.update({(doctype, name): row for name, row in rows.items()})
+	return participants
+
+
+def _participant_names(participants):
+	return {key: row.get("full_name") or key[1] for key, row in participants.items()}
+
+
+def participant_names(assignments):
+	return _participant_names(_participant_rows(assignments))
 
 
 def participant(row):
@@ -438,9 +450,27 @@ def project_results(project, filters=None):
 	filters = normalize_filters(filters)
 	projects = project_ids(project, required=True)
 	deliverables = get_deliverables(projects)
+	type_names = sorted(
+		{row["deliverable_type"] for row in deliverables.values() if row.get("deliverable_type")}
+	)
+	types = (
+		select_rows("Project Deliverable Type", {"name": ["in", type_names]}, ["name", "icon", "color"])
+		if type_names
+		else {}
+	)
+	for row in deliverables.values():
+		deliverable_type = types.get(row.get("deliverable_type"), {})
+		row["deliverable_type_icon"] = deliverable_type.get("icon") or None
+		row["deliverable_type_color"] = deliverable_type.get("color") or None
 	structure = load_structure(deliverables)
 	assignments = load_assignments(deliverables)
-	accountable = accountables(assignments, responsibility_definitions(), participant_names(assignments))
+	participants = _participant_rows(assignments, include_images=True)
+	accountable = accountables(assignments, responsibility_definitions(), _participant_names(participants))
+	for members in accountable.values():
+		for member in members:
+			doctype = member["doctype"]
+			profile = participants.get((doctype, member["name"]), {})
+			member["image"] = profile.get(PARTICIPANT_IMAGE_FIELDS.get(doctype)) or None
 	filters = {
 		(f"{key}_missing" if value == ONLY_EMPTY else key): (1 if value == ONLY_EMPTY else value)
 		for key, value in filters.items()

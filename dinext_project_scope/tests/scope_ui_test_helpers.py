@@ -69,6 +69,9 @@ def create_report_fixture(run_id):
 	rollout = make_project(f"{prefix} rollout", f"CYPRESS-SCOPE-REPORT-ROLLOUT-{run_id}", project.project_type)
 	person = frappe.get_doc(doctype="Contact", first_name=prefix).insert().name
 	other_category = f"{prefix} secondary"
+	type_icon = "/assets/frappe/images/frappe-favicon.svg"
+	type_color = "#2668bf"
+	avatar_image = "/assets/frappe/images/frappe-framework-logo.svg"
 	password = f"Qa9!{token_urlsafe(18)}"
 	actors = {language: _fixture_user(run_id, language) for language in ("en", "ru")}
 	for language, email in actors.items():
@@ -77,6 +80,7 @@ def create_report_fixture(run_id):
 			email=email,
 			first_name=prefix,
 			language=language,
+			user_image=avatar_image,
 			user_type="System User",
 			send_welcome_email=0,
 			new_password=password,
@@ -191,6 +195,8 @@ def create_report_fixture(run_id):
 	kind = _named(
 		"Project Deliverable Type",
 		prefix,
+		color=type_color,
+		icon=type_icon,
 		elements=[
 			{"element_key": "nested", "element_name": "Shared work", "element_type": "Project Deliverable"}
 		],
@@ -265,7 +271,6 @@ def create_report_fixture(run_id):
 		subject=f"{prefix} detail task",
 		parent_task=work.name,
 	).insert()
-	shared = _result(project.name, prefix, "shared component", other_category, leaf_kind, work=work.name)
 	assigned = [
 		{
 			"project_role": project_role,
@@ -280,6 +285,7 @@ def create_report_fixture(run_id):
 			(role, first_code, "Contact", person),
 		)
 	]
+	shared_accountable = []
 	if frappe.db.get_value(RESPONSIBILITY, ACCOUNTABLE_CODE, "enabled"):
 		assigned.append(
 			{
@@ -289,6 +295,23 @@ def create_report_fixture(run_id):
 				"responsible": actor,
 			}
 		)
+		shared_accountable.append(
+			{
+				"project_role": role,
+				"responsibility": ACCOUNTABLE_CODE,
+				"responsible_type": "Contact",
+				"responsible": person,
+			},
+		)
+	shared = _result(
+		project.name,
+		prefix,
+		"shared component",
+		other_category,
+		leaf_kind,
+		work=work.name,
+		deliverable_responsibles=shared_accountable,
+	)
 	result = _result(
 		project.name,
 		prefix,
@@ -352,6 +375,9 @@ def create_report_fixture(run_id):
 	return dict(
 		title=prefix,
 		project=project.name,
+		type_icon=type_icon,
+		type_color=type_color,
+		avatar_image=avatar_image,
 		ordinary=ordinary.name,
 		detached_specification=detached.name,
 		hidden_specification=hidden_specification.name,
