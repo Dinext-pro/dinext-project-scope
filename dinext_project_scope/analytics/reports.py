@@ -236,7 +236,7 @@ def responsibility_matrix(deliverables, assignments, definitions, participant_pr
 			cells_by_result[name] = cells
 
 	columns = [
-		column("label", _("Category / Deliverable"), kind="label", width=280),
+		dict(column("label", _("Category / Deliverable"), kind="label", width=280), pinned="left"),
 		column("deliverable_type", _("Deliverable type"), width=150),
 	]
 	fields = {}

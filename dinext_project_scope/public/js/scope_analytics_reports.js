@@ -48,6 +48,20 @@
 		}
 	}
 
+	function configureMatrixFilters(report) {
+		const matrix = report.report_name === responsibilityMatrix;
+		report.page.page_form.toggleClass("dinext-scope-raci-filters", matrix);
+		if (!matrix) return;
+		for (const field of report.filters) {
+			const list = field.awesomplete?.ul;
+			const host = field.input?.closest(".link-field");
+			if (!list || !host || list.parentElement === host) continue;
+			// Keep the Frappe menu in its filter when DinextTable adopts fullscreen overlays.
+			list.classList.add("dropdown-menu", "dinext-scope-raci-link-menu");
+			host.append(list);
+		}
+	}
+
 	async function download(report) {
 		if (!isActive(report) || !canExport(report)) return;
 		const name = report.report_name;
@@ -270,10 +284,7 @@
 
 		report.setup_filters = function (...args) {
 			const result = setupFilters.apply(this, args);
-			this.page.page_form.toggleClass(
-				"dinext-scope-raci-filters",
-				this.report_name === responsibilityMatrix
-			);
+			configureMatrixFilters(this);
 			return result;
 		};
 		report.refresh = function (...args) {
@@ -355,10 +366,7 @@
 			if (expectedReport !== report.report_name || !isActive(report)) return;
 			keepLinkValuesDuringTitleLookup(report);
 			install(report);
-			report.page.page_form.toggleClass(
-				"dinext-scope-raci-filters",
-				expectedReport === responsibilityMatrix
-			);
+			configureMatrixFilters(report);
 			report.page.clear_menu();
 			report.menu_items = report.get_menu_items();
 			report.set_menu_items();

@@ -569,6 +569,14 @@
 				cellDataType: false,
 			};
 			if (column.assignee) {
+				const width = 76;
+				Object.assign(item, {
+					width,
+					minWidth: width,
+					maxWidth: width,
+					resizable: false,
+					autoHeight: true,
+				});
 				item.headerComponentParams = {
 					innerHeaderComponent: ParticipantHeader,
 					innerHeaderComponentParams: { assignee: column.assignee },
@@ -686,6 +694,7 @@
 		container.append(grid);
 		const pendingFilters = new Map();
 		const filterKey = (row, field) => JSON.stringify([row._rowId, field]);
+		const layout = { height: "auto", minHeight: 76, maxHeight: "min(65vh, 660px)" };
 		const table = await window.DinextTable.create({
 			container: grid,
 			data: rows,
@@ -701,8 +710,15 @@
 				presets: ["tree", "fullscreen"],
 				items: toolbarItems,
 			},
-			fullscreen: { target: "shell", shell: options.fullscreenShell || surface.root },
-			layout: { height: "auto", minHeight: 76, maxHeight: "min(65vh, 660px)" },
+			fullscreen: {
+				target: "shell",
+				shell: options.fullscreenShell || surface.root,
+				...(options.responsibilityMatrix && {
+					onEnter: ({ table }) => table.setOption("layout", { height: "host" }),
+					onExit: ({ table }) => table.setOption("layout", layout),
+				}),
+			},
+			layout,
 			gridOptions: {
 				...(options.resultTree && { getRowStyle: resultRowStyle }),
 				suppressNoRowsOverlay: Boolean(options.resultTree || options.responsibilityMatrix),

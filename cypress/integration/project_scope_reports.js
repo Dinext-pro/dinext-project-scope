@@ -16,6 +16,13 @@ const overview = "Project Scope Overview";
 const deliverables = "Project Deliverable Register";
 const constraints = "Project Constraint Register";
 
+function assignmentRow(title) {
+	return rowLink(title)
+		.closest(".ag-row")
+		.invoke("attr", "row-id")
+		.then((id) => cy.get(`${table} .ag-center-cols-container [row-id="${id}"]`));
+}
+
 function clickFullscreenControl(title) {
 	cy.get(`${table} button[title="${title}"]`)
 		.should("be.visible")
@@ -327,22 +334,19 @@ describe("Project scope reports", () => {
 			.should(($button) => expect($button.text().trim()).to.eq("Excel"))
 			.find("svg use")
 			.should(($icon) => expect($icon.attr("href")).to.contain("download"));
-		rowLink(`${fixture.title} peer`)
-			.closest(".ag-row")
+		assignmentRow(`${fixture.title} peer`)
 			.find(`[title="${fixture.title} reviewer"]`)
 			.should("not.exist");
-		rowLink(`${fixture.title} result`)
-			.closest(".ag-row")
-			.within(() => {
-				cy.get(`[title="${fixture.title} contributor"]`)
-					.first()
-					.should("have.css", "background-color", "rgb(44, 124, 112)");
-				cy.get(`[title="${fixture.title} reviewer"]`).should(
-					"have.css",
-					"background-color",
-					"rgb(120, 44, 196)"
-				);
-			});
+		assignmentRow(`${fixture.title} result`).within(() => {
+			cy.get(`[title="${fixture.title} contributor"]`)
+				.first()
+				.should("have.css", "background-color", "rgb(44, 124, 112)");
+			cy.get(`[title="${fixture.title} reviewer"]`).should(
+				"have.css",
+				"background-color",
+				"rgb(120, 44, 196)"
+			);
+		});
 		cy.screenshot("responsibility-matrix");
 		rowLink(`${fixture.title} result`).click();
 		cy.location("pathname").should("eq", `/app/project-deliverable/${fixture.result}`);
@@ -359,8 +363,7 @@ describe("Project scope reports", () => {
 			responsible: fixture.actor,
 		};
 		openReport(responsibility, filters);
-		rowLink(`${fixture.title} result`)
-			.closest(".ag-row")
+		assignmentRow(`${fixture.title} result`)
 			.find(".dinext-scope-badge")
 			.should("have.length", 1)
 			.and("have.attr", "title", `${fixture.title} reviewer`);
@@ -390,8 +393,27 @@ describe("Project scope reports", () => {
 			expect(new Set(tops).size).to.eq(1);
 		});
 
+		const label = '.ag-pinned-left-header .ag-header-cell[col-id="label"]';
+		cy.get(`${table} ${label}`).should("be.visible");
+		cy.get(`${table} .ag-header-cell[col-id^="assignment_"]`).should(($headers) => {
+			expect($headers.length).to.be.at.least(2);
+			const widths = [...$headers].map((header) => header.getBoundingClientRect().width);
+			expect(new Set(widths).size).to.eq(1);
+			expect(widths[0]).to.be.lessThan(100);
+		});
+
 		clickFullscreenControl("Fullscreen");
-		cy.document().should((doc) => expect(doc.fullscreenElement).to.exist);
+		cy.document().should((doc) => {
+			const shell = doc.fullscreenElement;
+			expect(shell).to.exist;
+			const grid = shell.querySelector(".dinext-scope-raci-table .ag-root-wrapper");
+			expect(grid).to.exist;
+			expect(
+				shell.getBoundingClientRect().bottom - grid.getBoundingClientRect().bottom
+			).to.be.within(0, 4);
+			expect(shell.scrollHeight - shell.clientHeight).to.be.at.most(1);
+		});
+		cy.get(`${table} ${label}`).should("be.visible");
 		const picker = '.page-form:visible .multiselect-list[data-fieldname="responsibility"]';
 		const toggle = `${picker} [data-toggle="dropdown"]`;
 		cy.intercept("GET", "**/api/method/frappe.desk.query_report.run?*").as("matrixFilter");
@@ -445,6 +467,27 @@ describe("Project scope reports", () => {
 		cy.wait("@matrixFilter");
 		cy.get(toggle).click();
 		rowLink(`${fixture.title} result`).should("be.visible");
+		const category = '.page-form:visible .frappe-control[data-fieldname="category"]';
+		cy.get(`${category} input`).type(fixture.title);
+		cy.get(`${category} [role="listbox"]`).should(($list) => {
+			const list = $list[0];
+			const field = list.closest(".frappe-control").querySelector("input");
+			const menu = list.getBoundingClientRect();
+			const input = field.getBoundingClientRect();
+			expect(menu.top - input.bottom).to.be.within(-1, 8);
+			expect(Math.abs(menu.left - input.left)).to.be.at.most(2);
+			const option = [...list.querySelectorAll('[role="option"]')].find(
+				(candidate) => candidate.textContent.trim() === fixture.title
+			);
+			expect(option).to.exist;
+			const { x, y, width, height } = option.getBoundingClientRect();
+			expect(
+				option.contains(list.ownerDocument.elementFromPoint(x + width / 2, y + height / 2))
+			).to.eq(true);
+		});
+		cy.contains(`${category} [role="option"]`, exact(fixture.title)).click();
+		cy.wait("@matrixFilter");
+		reportShown(responsibility, { category: fixture.title });
 		clickFullscreenControl("Exit fullscreen");
 		cy.document().should((doc) => expect(doc.fullscreenElement).to.be.null);
 	});
