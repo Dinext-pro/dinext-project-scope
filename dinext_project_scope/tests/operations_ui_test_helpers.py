@@ -75,6 +75,8 @@ def create_fixture(run_id: str) -> dict:
 	responsibility = frappe.get_doc(
 		doctype="Project Deliverable Responsibility", enabled=1, responsibility=f"R-{run_id}"
 	).insert(set_name=label)
+	category.append("responsibilities", {"responsibility": responsibility.name, "project_role": role.name})
+	category.save()
 	task_type = frappe.get_doc(doctype="Task Type", name=label).insert(set_name=label)
 	work_type = frappe.get_doc(
 		doctype="Project Deliverable Type",
@@ -141,22 +143,7 @@ def create_fixture(run_id: str) -> dict:
 	foreign_result = result(work_type, "restricted result", {"main": foreign_task}, target=other)
 	leaf = result(work_type, "nested result", {"main": partial})
 	parent = result(parent_type, "existing parent", {"baseline": baseline, "child": leaf})
-	acceptance = result(
-		work_type,
-		"acceptance result",
-		{"main": baseline, "optional": cancelled},
-		[
-			dict(
-				responsibility=name,
-				project_role=role.name,
-				responsible_type="User",
-				responsible=actors["author"],
-			)
-			for name in frappe.get_all(
-				"Project Deliverable Responsibility", filters={"enabled": 1, "required": 1}, pluck="name"
-			)
-		],
-	)
+	acceptance = result(work_type, "acceptance result", {"main": baseline, "optional": cancelled})
 	accepted_result = frappe.get_doc("Project Deliverable", acceptance)
 	accepted_result.append("deliverable_requirements", {"project_requirement": requirement.name})
 	accepted_result.save()
@@ -213,6 +200,7 @@ def create_fixture(run_id: str) -> dict:
 		password=password,
 		actors=actors,
 		role=role.name,
+		excluded_role=manager_role,
 		contact=contact.name,
 		category=category.name,
 		responsibility=responsibility.name,

@@ -273,7 +273,7 @@ describe("Project scope reports", () => {
 		});
 	});
 
-	it("shows RACI roles, same-name participants, multiple colors and results without assignments", () => {
+	it("shows RACI roles, same-name participants and multiple colors", () => {
 		openReport(responsibility, { project: fixture.project });
 		cy.contains(`${table} .ag-header-group-text`, exact(fixture.title)).should("be.visible");
 		cy.contains(`${table} .ag-header-group-text`, exact(`${fixture.title} secondary`)).should(
@@ -287,7 +287,7 @@ describe("Project scope reports", () => {
 		);
 		rowLink(`${fixture.title} peer`)
 			.closest(".ag-row")
-			.find(".dinext-scope-badge")
+			.find(`[title="${fixture.title} reviewer"]`)
 			.should("not.exist");
 		rowLink(`${fixture.title} result`)
 			.closest(".ag-row")

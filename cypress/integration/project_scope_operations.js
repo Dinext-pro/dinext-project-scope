@@ -286,6 +286,21 @@ describe("Project scope operations in Desk", () => {
 		]) {
 			addRow("deliverable_responsibles", idx);
 			chooseLink("responsibility", fixture.responsibility, rowForm);
+			if (idx === 1) {
+				cy.intercept("POST", "**/api/method/frappe.desk.search.search_link", (request) => {
+					const params = new URLSearchParams(request.body);
+					if (
+						params.get("doctype") === "Project Role" &&
+						params.get("txt") === fixture.excluded_role
+					) {
+						request.alias = "excludedRole";
+					}
+				});
+				const roleInput = `${fields("project_role", rowForm)} input:visible`;
+				cy.get(roleInput).type(fixture.excluded_role, { delay: 0 });
+				cy.wait("@excludedRole").its("response.body.message").should("deep.eq", []);
+				cy.get(roleInput).clear();
+			}
 			chooseLink("project_role", fixture.role, rowForm);
 			select("responsible_type", kind, rowForm);
 			chooseLink("responsible", name, rowForm);
@@ -494,7 +509,10 @@ describe("Project scope operations in Desk", () => {
 		cy.contains(`${modal} button.btn-primary`, "Create results").click();
 		readForm((doc) => expect(doc.name).to.eq(fixture.project));
 		cy.get('button[data-fieldname="custom_результаты"]').click();
-		cy.contains(".dinext-scope-table a", `${fixture.label} template parent`).click();
+		cy.contains(
+			".dinext-scope-table .dinext-scope-link",
+			`${fixture.label} template parent`
+		).dblclick();
 		readForm((doc) => {
 			expect(doc.project).to.eq(fixture.project);
 			expect(doc.status).to.eq("Not Started");

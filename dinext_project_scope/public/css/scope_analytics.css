@@ -100,6 +100,15 @@
 	text-align: center;
 }
 
+.dinext-scope-results-table .dinext-scope-link,
+.dinext-scope-result-filter-cell {
+	cursor: pointer;
+}
+
+.dinext-scope-result-filter-cell:hover {
+	box-shadow: inset 0 0 0 1px var(--border-color);
+}
+
 .dinext-scope-result-type,
 .dinext-scope-result-avatars {
 	display: inline-flex;

@@ -37,6 +37,19 @@ def responsibility_definitions():
 	}
 
 
+def configured_roles(categories):
+	pairs = defaultdict(set)
+	categories = sorted({category for category in categories if category})
+	if categories:
+		for row in frappe.get_all(
+			"Project Deliverable Category Responsibility",
+			filters={"parent": ("in", categories), "parenttype": CATEGORY, "parentfield": "responsibilities"},
+			fields=["parent", "responsibility", "project_role"],
+		):
+			pairs[row.parent].add((row.responsibility, row.project_role))
+	return pairs
+
+
 def validate_category(doc):
 	seen = set()
 	for row in doc.responsibilities:
@@ -104,13 +117,18 @@ def validate_assignments(doc, before):
 		current_members(doc.project, current=True) if doc.project and doc.status != "Template" else set()
 	)
 	definitions = responsibility_definitions()
+	allowed = configured_roles([doc.category])[doc.category]
 	if not before and doc.project and doc.status != "Template":
 		category = category_suggestions(doc.project, doc.category, members=members, definitions=definitions)
 		doc.extend(
 			"deliverable_responsibles",
 			default_assignments(category, doc.deliverable_responsibles, definitions),
 		)
-	prior = {assignment_key(row) for row in before.deliverable_responsibles} if before else set()
+	prior = (
+		{assignment_key(row) for row in before.deliverable_responsibles}
+		if before and before.category == doc.category
+		else set()
+	)
 	seen = set()
 	people = defaultdict(set)
 	for row in list(doc.deliverable_responsibles):
@@ -131,6 +149,10 @@ def validate_assignments(doc, before):
 				frappe.throw(_("Choose a current project participant in the selected role."))
 			if not definition or not definition.enabled:
 				frappe.throw(_("Choose an active responsibility."))
+			if (responsibility, role) not in allowed:
+				frappe.throw(
+					_("Choose a project role configured for this responsibility in the result category.")
+				)
 			access.check_document("Project Role", role, "select")
 			access.check_document(doctype, name, "select")
 		if definition and definition.single:
@@ -141,14 +163,28 @@ def validate_assignments(doc, before):
 						frappe.bold(escape_html(responsibility))
 					)
 				)
-	return missing_responsibilities(doc.deliverable_responsibles, members, definitions)
+	return (
+		missing_responsibilities(doc.deliverable_responsibles, allowed, definitions, members=members)
+		if doc.project and doc.status != "Template"
+		else []
+	)
 
 
-def missing_responsibilities(rows, members, definitions=None):
+def missing_responsibilities(rows, allowed, definitions=None, *, members=None):
 	definitions = responsibility_definitions() if definitions is None else definitions
-	assigned = {key[0] for row in rows if (key := assignment_key(row))[1:] in members}
+	assigned = {
+		key[0]
+		for row in rows
+		if (key := assignment_key(row))[:2] in allowed
+		and key[2] in ("User", "Contact")
+		and key[3]
+		and (members is None or key[1:] in members)
+	}
 	return sorted(
 		name
-		for name, definition in definitions.items()
-		if definition.enabled and definition.required and name not in assigned
+		for name in {responsibility for responsibility, _role in allowed}
+		if (definition := definitions.get(name))
+		and definition.get("enabled")
+		and definition.get("required")
+		and name not in assigned
 	)

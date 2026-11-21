@@ -5,6 +5,7 @@
 	const API = "dinext_project_scope.analytics.data";
 	const EMPTY = "__dinext_scope_no_value__";
 	const DELIVERABLE = "Project Deliverable";
+	const RESULT_FILTER_FIELDS = new Set(["status", "deliverable_type", "category"]);
 	const tones = ["red", "yellow", "green", "light-green", "cyan", "blue", "gray"];
 	const surfaces = new Map();
 	let projectProgressView = null;
@@ -326,13 +327,17 @@
 		return holder;
 	}
 
-	function isResultTreeTask(row, resultTree) {
-		return resultTree && row?.document_type === "Task";
+	function isResultRow(row) {
+		return row?.document_type === DELIVERABLE && !row.is_other;
+	}
+
+	function opensOnDoubleClick(row, resultTree) {
+		return resultTree && (row?.document_type === "Task" || isResultRow(row));
 	}
 
 	function labelCell(row, resultTree) {
 		const holder = node("span", "dinext-scope-label");
-		if (row.document && !isResultTreeTask(row, resultTree)) {
+		if (row.document && !opensOnDoubleClick(row, resultTree)) {
 			holder.append(
 				documentLink(
 					row.label || row.document,
@@ -351,7 +356,13 @@
 				)
 			);
 		} else {
-			holder.append(node("span", "", row.label || ""));
+			holder.append(
+				node(
+					"span",
+					isResultRow(row) && resultTree ? "dinext-scope-link" : "",
+					row.label || ""
+				)
+			);
 		}
 		if (row.slot_label) holder.append(node("span", "dinext-scope-note", row.slot_label));
 		return holder;
@@ -550,6 +561,11 @@
 				item.lockPinned = true;
 			}
 			if (column.kind === "result_assignment") item.autoHeight = true;
+			if (resultTree && RESULT_FILTER_FIELDS.has(column.fieldname)) {
+				item.cellClassRules = {
+					"dinext-scope-result-filter-cell": ({ data }) => isResultRow(data),
+				};
+			}
 			if (column.kind === "label") item.render = cellRenderer(column, resultTree);
 			else item.cellRenderer = cellRenderer(column);
 			if (column.kind === "trace_state") {
@@ -622,6 +638,8 @@
 		}
 		const grid = node("div", "dinext-scope-grid-target");
 		container.append(grid);
+		const pendingFilters = new Map();
+		const filterKey = (row, field) => JSON.stringify([row._rowId, field]);
 		const table = await window.DinextTable.create({
 			container: grid,
 			data: rows,
@@ -654,22 +672,45 @@
 						: data?.context_only
 						? "dinext-scope-context-row"
 						: "",
-				onCellDoubleClicked({ data, event }) {
+				onCellDoubleClicked({ data, event, colDef }) {
 					if (
-						isResultTreeTask(data, options.resultTree) &&
-						data.document &&
-						!event.target.closest("a, button, input, .dinext-table-tree-toggle")
-					) {
-						openDocument(data.document_type, data.document);
-					}
-				},
-				onCellClicked({ data, event }) {
-					if (
-						!data ||
-						isResultTreeTask(data, options.resultTree) ||
+						!opensOnDoubleClick(data, options.resultTree) ||
+						!data.document ||
 						event.target.closest("a, button, input, .dinext-table-tree-toggle")
 					)
 						return;
+					const key = filterKey(data, colDef.field);
+					clearTimeout(pendingFilters.get(key));
+					pendingFilters.delete(key);
+					openDocument(data.document_type, data.document);
+				},
+				onCellClicked({ data, event, colDef }) {
+					if (
+						!data ||
+						event.target.closest("a, button, input, .dinext-table-tree-toggle")
+					)
+						return;
+					if (opensOnDoubleClick(data, options.resultTree)) {
+						const field = colDef.field;
+						if (
+							isResultRow(data) &&
+							RESULT_FILTER_FIELDS.has(field) &&
+							event.detail < 2
+						) {
+							const key = filterKey(data, field);
+							clearTimeout(pendingFilters.get(key));
+							// Give a double click priority over the filter on the same cell.
+							pendingFilters.set(
+								key,
+								setTimeout(() => {
+									pendingFilters.delete(key);
+									if (surface.active())
+										options.toggleResultFilter(field, data[field]);
+								}, 300)
+							);
+						}
+						return;
+					}
 					if (data.document)
 						openDocument(
 							data.document_type,
@@ -699,7 +740,7 @@
 						}
 						return;
 					}
-					if (event.key !== "Enter" || isResultTreeTask(data, options.resultTree))
+					if (event.key !== "Enter" || opensOnDoubleClick(data, options.resultTree))
 						return;
 					if (data.cells?.[colDef.field]?.details) {
 						impactDetails(
@@ -1041,7 +1082,7 @@
 				id: "scope-responsibility-matrix",
 				type: "button",
 				label: __("Responsibility Matrix"),
-				iconSvg: frappe.utils.icon("table", "sm"),
+				iconSvg: frappe.utils.icon("dashboard-list", "sm"),
 				onClick: () => toReport("Project Responsibility Matrix", { project }),
 			},
 		];
@@ -1112,10 +1153,17 @@
 		const tableOptions = {
 			expand: "roots",
 			resultTree: true,
-			canCheckRow: ({ row }) =>
-				canDelete && row.document_type === DELIVERABLE && !row.is_other,
+			canCheckRow: ({ row }) => canDelete && isResultRow(row),
+			toggleResultFilter,
 			toolbarItems: resultToolbar(frm, surface, { refresh, clearFilters, canDelete }),
 		};
+
+		function toggleResultFilter(field, value) {
+			const { control } = panels.find(({ key }) => key === field);
+			const next = value || EMPTY;
+			control.set_input(control.get_value() === next ? "" : next);
+			return refresh();
+		}
 
 		function clearFilters() {
 			for (const { control } of panels) control.set_input("");

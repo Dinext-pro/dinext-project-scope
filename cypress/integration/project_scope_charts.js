@@ -405,7 +405,26 @@ describe("Project scope charts", () => {
 			.should(([button]) =>
 				expect(button.textContent.trim()).to.eq("Responsibility Matrix")
 			);
-		cy.get(matrix).find("svg use").should("have.attr", "href", "#icon-table");
+		for (const theme of ["dark", "light"]) {
+			cy.window().then(({ frappe }) => frappe.ui.set_theme(theme));
+			cy.get(matrix)
+				.find("svg use")
+				.should(([icon]) => {
+					const symbol = icon.ownerDocument.getElementById(
+						icon.getAttribute("href").slice(1)
+					);
+					expect(symbol.id).to.eq("icon-dashboard-list");
+					expect(symbol.querySelector("path").getAttribute("stroke")).to.eq(
+						"var(--icon-stroke)"
+					);
+					expect(
+						icon.ownerDocument.defaultView
+							.getComputedStyle(icon)
+							.getPropertyValue("--icon-stroke")
+							.trim()
+					).not.to.eq("");
+				});
+		}
 		cy.get(matrix).click();
 		reportShown(responsibility, { project: fixture.project });
 		cy.window().should(({ frappe }) => {
@@ -466,6 +485,8 @@ describe("Project scope charts", () => {
 		}
 		cy.screenshot("project-results-charts");
 		rowLink(child).first().click();
+		cy.location("pathname").should("eq", `/app/project/${fixture.project}`);
+		rowLink(child).first().dblclick();
 		cy.location("pathname").should("eq", `/app/project-deliverable/${fixture.shared}`);
 	});
 
@@ -510,6 +531,22 @@ describe("Project scope charts", () => {
 		chartOption(chart("Deliverables by status"), (option) => {
 			expect(option.series[0].data).to.deep.eq([{ name: "Not Started", value: 3 }]);
 		});
+	});
+
+	it("toggles result status, type and category filters from their cells", () => {
+		showResults(fixture.project);
+		for (const [field, label, value] of [
+			["status", "Deliverables by status", "Not Started"],
+			["deliverable_type", "Deliverables by type", fixture.title],
+			["category", "Deliverables by category", fixture.title],
+		]) {
+			const cell = () => resultCells(`${fixture.title} result`).find(`[col-id="${field}"]`);
+			cell().click();
+			resultFilter(label, field).should("have.value", value);
+			cy.location("pathname").should("eq", `/app/project/${fixture.project}`);
+			cell().click();
+			resultFilter(label, field).should("have.value", "");
+		}
 	});
 
 	it("keeps the result tree's first column visible during horizontal scrolling", () => {

@@ -43,7 +43,7 @@ export function openReport(name, filters = {}) {
 }
 
 export function rowLink(title) {
-	return cy.contains(`${table} a.dinext-scope-link`, exact(title));
+	return cy.contains(`${table} .dinext-scope-link:not(button)`, exact(title));
 }
 
 export function exact(text) {

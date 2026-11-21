@@ -732,7 +732,21 @@ def seed():
 			secondary.name, template.name, "scope-demo-integration-v1", preview["digest"]
 		)
 	add_constraints(project, categories)
-	results = create_results(project, requirements, categories, responsibility_rows(roles, contact.name))
+	assignments = responsibility_rows(roles, contact.name)
+	for name in categories.values():
+		category = frappe.get_doc("Project Deliverable Category", name)
+		existing = {(row.responsibility, row.project_role) for row in category.responsibilities}
+		for row in assignments:
+			if (row["responsibility"], row["project_role"]) not in existing:
+				category.append(
+					"responsibilities",
+					{
+						"responsibility": row["responsibility"],
+						"project_role": row["project_role"],
+					},
+				)
+		category.save()
+	results = create_results(project, requirements, categories, assignments)
 	with actor(ANALYST):
 		for key, status in (("form", "Done"), ("queue", "In Progress"), ("chat", "Cancelled")):
 			requirements[key].reload().update({"status": status}).save()

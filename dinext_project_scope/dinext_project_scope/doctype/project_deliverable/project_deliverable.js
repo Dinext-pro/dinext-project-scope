@@ -27,8 +27,12 @@
 		frm.set_query("responsibility", "deliverable_responsibles", () => ({
 			filters: { enabled: 1 },
 		}));
-		frm.set_query("project_role", "deliverable_responsibles", () => ({
-			filters: { enabled: 1 },
+		frm.set_query("project_role", "deliverable_responsibles", (_doc, cdt, cdn) => ({
+			query: api + "responsibility_role_query",
+			filters: {
+				category: frm.doc.category,
+				responsibility: locals[cdt][cdn].responsibility,
+			},
 		}));
 		frm.set_query("element", "table_xuct", (_doc, cdt, cdn) => ({
 			query: api + "work_query",
@@ -346,6 +350,9 @@
 	});
 
 	frappe.ui.form.on("Project Deliverable Responsible", {
+		responsibility(_frm, cdt, cdn) {
+			return frappe.model.set_value(cdt, cdn, { project_role: null, responsible: null });
+		},
 		responsible_type(_frm, cdt, cdn) {
 			return frappe.model.set_value(cdt, cdn, "responsible", null);
 		},

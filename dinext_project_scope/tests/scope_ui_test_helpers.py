@@ -66,7 +66,9 @@ def create_report_fixture(run_id):
 	_prefix(run_id)
 	prefix = f"Cypress report {run_id}"
 	project = make_project(prefix, f"CYPRESS-SCOPE-REPORT-{run_id}")
-	rollout = make_project(f"{prefix} rollout", f"CYPRESS-SCOPE-REPORT-ROLLOUT-{run_id}", project.project_type)
+	rollout = make_project(
+		f"{prefix} rollout", f"CYPRESS-SCOPE-REPORT-ROLLOUT-{run_id}", project.project_type
+	)
 	empty = make_project(f"{prefix} empty", f"CYPRESS-SCOPE-REPORT-EMPTY-{run_id}", project.project_type)
 	person = frappe.get_doc(doctype="Contact", first_name=prefix).insert().name
 	other_category = f"{prefix} secondary"
@@ -100,7 +102,11 @@ def create_report_fixture(run_id):
 	rollout.append("users", {"user": actor, "welcome_email_sent": 1})
 	rollout.save()
 	frappe.get_doc(
-		doctype="User Permission", user=actor, allow="Project", for_value=rollout.name, apply_to_all_doctypes=1
+		doctype="User Permission",
+		user=actor,
+		allow="Project",
+		for_value=rollout.name,
+		apply_to_all_doctypes=1,
 	).insert()
 
 	_named("Requirement Kind", prefix)
@@ -240,7 +246,10 @@ def create_report_fixture(run_id):
 	project.append("custom_contact_list", {"contact": person, "project_role": role})
 	scope = project.append(
 		"project_scopes",
-		{"scope_title": f"{prefix} warehouse operations", "scope_type": _named("Project Scope Type", prefix).name},
+		{
+			"scope_title": f"{prefix} warehouse operations",
+			"scope_type": _named("Project Scope Type", prefix).name,
+		},
 	)
 	assumption = project.append(
 		"project_constraints",
@@ -302,23 +311,28 @@ def create_report_fixture(run_id):
 		)
 	]
 	shared_accountable = []
+	configured = {(row["responsibility"], row["project_role"]) for row in assigned}
 	if frappe.db.get_value(RESPONSIBILITY, ACCOUNTABLE_CODE, "enabled"):
-		assigned.append(
-			{
-				"project_role": role,
-				"responsibility": ACCOUNTABLE_CODE,
-				"responsible_type": "User",
-				"responsible": actor,
-			}
-		)
+		configured.add((ACCOUNTABLE_CODE, second_role))
 		shared_accountable.append(
 			{
 				"project_role": role,
 				"responsibility": ACCOUNTABLE_CODE,
 				"responsible_type": "Contact",
 				"responsible": person,
-			},
+			}
 		)
+		for target in (hidden, rollout):
+			target.append("custom_contact_list", {"contact": person, "project_role": role})
+			target.save()
+	for name, pairs in (
+		(category, configured),
+		(other_category, {(row["responsibility"], row["project_role"]) for row in shared_accountable}),
+	):
+		doc = frappe.get_doc("Project Deliverable Category", name)
+		for responsibility, project_role in sorted(pairs):
+			doc.append("responsibilities", {"responsibility": responsibility, "project_role": project_role})
+		doc.save()
 	shared = _result(
 		project.name,
 		prefix,

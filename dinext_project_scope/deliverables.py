@@ -20,8 +20,10 @@ from dinext_project_scope.deliverable_calculations import (
 )
 from dinext_project_scope.deliverable_responsibility import (
 	CATEGORY,
+	RESPONSIBILITY,
 	assignment_key,
 	category_suggestions,
+	configured_roles,
 	current_members,
 	default_assignments,
 	missing_responsibilities,
@@ -521,10 +523,17 @@ def get_deliverable_details(deliverable: str):
 	graph = ProjectWork(doc.project)
 	state = graph.evaluate({doc.name})[doc.name]
 	members = current_members(doc.project)
-	stale = [row.name for row in doc.deliverable_responsibles if assignment_key(row)[1:] not in members]
+	allowed = configured_roles([doc.category])[doc.category]
+	stale = [
+		row.name
+		for row in doc.deliverable_responsibles
+		if (key := assignment_key(row))[1:] not in members or key[:2] not in allowed
+	]
 	return {
 		"blocked_work": work_blockers(state["work"]),
-		"missing_responsibilities": missing_responsibilities(doc.deliverable_responsibles, members),
+		"missing_responsibilities": missing_responsibilities(
+			doc.deliverable_responsibles, allowed, members=members
+		),
 		"accepted_at": state["accepted_at"],
 		"zero_weight": state["zero_weight"],
 		"stale_assignments": stale,
@@ -573,6 +582,31 @@ def work_query(doctype, txt, searchfield, start, page_len, filters):
 		page_length=cint(page_len),
 		as_list=True,
 		order_by="name asc",
+	)
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def responsibility_role_query(doctype, txt, searchfield, start, page_len, filters):
+	filters = frappe.parse_json(filters) or {}
+	category, responsibility = filters.get("category"), filters.get("responsibility")
+	if doctype != "Project Role" or not category or not responsibility:
+		return []
+	access.check_document(CATEGORY, category)
+	if not frappe.db.get_value(RESPONSIBILITY, responsibility, "enabled"):
+		return []
+	roles = sorted(role for code, role in configured_roles([category])[category] if code == responsibility)
+	if not roles:
+		return []
+	return frappe.get_list(
+		doctype,
+		filters={"name": ("in", roles), "enabled": 1},
+		or_filters={"name": ("like", f"%{txt}%"), "role_name": ("like", f"%{txt}%")},
+		fields=["name", "role_name"],
+		start=cint(start),
+		page_length=cint(page_len),
+		as_list=True,
+		order_by="role_name asc, name asc",
 	)
 
 

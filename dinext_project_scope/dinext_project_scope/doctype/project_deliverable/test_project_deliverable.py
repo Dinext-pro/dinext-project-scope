@@ -213,6 +213,72 @@ class TestProjectDeliverable(FrappeTestCase):
 			{"pt_role": role, "pt_participant_type": "User", "pt_participant": "Administrator", **kwargs},
 		)
 
+	def test_save_requires_a_current_assignment_for_configured_required_responsibility(self):
+		role = self.project_role()
+		self.team_member(role)
+		contact = frappe.get_doc(doctype="Contact", first_name="Required participant").insert()
+		self.project.append("custom_contact_list", {"contact": contact.name, "project_role": role})
+		self.project.save()
+		responsibility = (
+			frappe.get_doc(
+				doctype="Project Deliverable Responsibility",
+				name=frappe.generate_hash(length=8),
+				responsibility=f"Required {frappe.generate_hash(length=8)}",
+				enabled=1,
+				required=1,
+			)
+			.insert()
+			.name
+		)
+		self.category.append("responsibilities", {"responsibility": responsibility, "project_role": role})
+		self.category.save()
+		kind = self.kind()
+		with self.assertRaisesRegex(frappe.ValidationError, "required responsibilities"):
+			self.result(kind)
+		result = self.result(kind, deliverable_responsibles=[self.user_assignment(responsibility, role)])
+		result.set("deliverable_responsibles", [])
+		with self.assertRaisesRegex(frappe.ValidationError, "required responsibilities"):
+			result.save()
+
+	def test_role_must_be_configured_for_the_responsibility_and_category(self):
+		allowed, excluded = self.project_role(), self.project_role()
+		self.team_member(allowed)
+		self.team_member(excluded)
+		self.project.save()
+		responsibility = (
+			frappe.get_doc(
+				doctype="Project Deliverable Responsibility",
+				name=frappe.generate_hash(length=8),
+				responsibility=f"Configured {frappe.generate_hash(length=8)}",
+				enabled=1,
+			)
+			.insert()
+			.name
+		)
+		self.category.append("responsibilities", {"responsibility": responsibility, "project_role": allowed})
+		self.category.save()
+		self.assertSequenceEqual(
+			deliverables.responsibility_role_query(
+				"Project Role",
+				"",
+				"name",
+				0,
+				20,
+				{"category": self.category.name, "responsibility": responsibility},
+			),
+			[(allowed, allowed)],
+		)
+		kind = self.kind()
+		with self.assertRaisesRegex(frappe.ValidationError, "configured for this responsibility"):
+			self.result(kind, deliverable_responsibles=[self.user_assignment(responsibility, excluded)])
+		result = self.result(kind, deliverable_responsibles=[self.user_assignment(responsibility, allowed)])
+		other = frappe.get_doc(
+			doctype="Project Deliverable Category", name=frappe.generate_hash(length=8), enabled=1
+		).insert()
+		result.category = other.name
+		with self.assertRaisesRegex(frappe.ValidationError, "configured for this responsibility"):
+			result.save()
+
 	def test_single_responsibility_allows_one_person_in_multiple_roles(self):
 		role = self.project_role()
 		another_role = self.project_role()
@@ -233,6 +299,11 @@ class TestProjectDeliverable(FrappeTestCase):
 			.name
 		)
 
+		for option in (role, another_role):
+			self.category.append(
+				"responsibilities", {"responsibility": responsibility, "project_role": option}
+			)
+		self.category.save()
 		first = self.user_assignment(responsibility, role)
 		result = self.result(
 			self.kind(),
@@ -266,6 +337,8 @@ class TestProjectDeliverable(FrappeTestCase):
 			.insert()
 			.name
 		)
+		self.category.append("responsibilities", {"responsibility": responsibility, "project_role": role})
+		self.category.save()
 		assignment = self.user_assignment(responsibility, role)
 		kind = self.kind()
 		existing = self.result(kind, deliverable_responsibles=[assignment])
@@ -399,6 +472,15 @@ class TestProjectDeliverable(FrappeTestCase):
 				"Project Deliverable Responsibility", filters={"enabled": 1, "required": 1}, pluck="name"
 			)
 		]
+		for row in assignments:
+			self.category.append(
+				"responsibilities",
+				{
+					"responsibility": row["responsibility"],
+					"project_role": manager_role,
+				},
+			)
+		self.category.save()
 		kind = self.kind(("main", "Task", {}), ("cancelled", "Task", {"is_optional": 1, "weight": 0}))
 		finished_on = add_days(today(), -2)
 		task = self.task(100, status="Completed", completed_on=finished_on)

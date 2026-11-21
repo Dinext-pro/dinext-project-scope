@@ -126,6 +126,7 @@ You need read access to the full requirement composition.,Нужен досту�
 A category can suggest a responsibility only once per project role.,Укажите каждый вид ответственности в категории один раз для каждой проектной роли.,
 Choose a current project participant in the selected role.,Выберите действующего участника проекта в указанной роли.,
 Choose an active responsibility.,Выберите действующий вид ответственности.,
+Choose a project role configured for this responsibility in the result category.,Выберите проектную роль для этого вида ответственности из категории результата.,
 Responsibility {0} can have only one participant.,Назначьте одного участника для вида ответственности {0}.,
 A result cannot be included in its own structure.,Результат нельзя включить в его собственную структуру.,
 A result template cannot link to project records.,Шаблон результата не может ссылаться на записи проекта.,

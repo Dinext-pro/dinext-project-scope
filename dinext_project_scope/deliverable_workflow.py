@@ -11,7 +11,11 @@ from frappe.utils import cstr, escape_html, now_datetime
 
 from dinext_project_scope import approvers
 from dinext_project_scope.deliverable_calculations import DELIVERABLE, work_blockers
-from dinext_project_scope.deliverable_responsibility import current_members, missing_responsibilities
+from dinext_project_scope.deliverable_responsibility import (
+	configured_roles,
+	current_members,
+	missing_responsibilities,
+)
 
 DEFAULT_WORKFLOW = "Dinext Project Deliverable"
 COMPLETED = "Completed"
@@ -118,14 +122,20 @@ def validate_workflow_vote(doc, next_state):
 		_validate_manager(doc, workflow, decision=True)
 		state = ProjectWork(doc.project, current=True).evaluate({doc.name})[doc.name]
 		missing = missing_responsibilities(
-			doc.deliverable_responsibles, current_members(doc.project, current=True)
+			doc.deliverable_responsibles,
+			configured_roles([doc.category])[doc.category],
+			members=current_members(doc.project, current=True),
 		)
 		_validate_ready(state, missing)
 	elif target == ACCEPTANCE:
 		_validate_manager(doc, workflow, decision=doc.status == COMPLETED)
 	elif target == "In Progress":
 		_validate_responsibilities(
-			missing_responsibilities(doc.deliverable_responsibles, current_members(doc.project, current=True))
+			missing_responsibilities(
+				doc.deliverable_responsibles,
+				configured_roles([doc.category])[doc.category],
+				members=current_members(doc.project, current=True),
+			)
 		)
 
 
@@ -164,12 +174,15 @@ def validate_save(doc, before, state, missing):
 		if doc.project and doc.status != "Template"
 		else None
 	)
+	finalizing = bool(getattr(frappe.flags, "in_dinext_workflow_finalization", False))
+	_validate_responsibilities(
+		missing, engine.WorkflowDomainRollbackError if finalizing else frappe.ValidationError
+	)
 	if not before:
 		if doc.status not in ("Not Started", "Template"):
 			frappe.throw(_("Create a working result in Not Started status."))
 		return
 
-	finalizing = bool(getattr(frappe.flags, "in_dinext_workflow_finalization", False))
 	workflow = _workflow(doc) if finalizing else None
 	next_state = doc.get(workflow.workflow_state_field) if workflow else None
 	status = _destination_status(workflow, next_state) if next_state else None
@@ -179,8 +192,6 @@ def validate_save(doc, before, state, missing):
 		return
 	if status:
 		doc.status = status
-	if doc.status == "In Progress" and before.status != "In Progress":
-		_validate_responsibilities(missing, engine.WorkflowDomainRollbackError)
 	if doc.status == ACCEPTANCE and before.status != ACCEPTANCE:
 		_validate_manager(
 			doc, workflow, decision=before.status == COMPLETED, error=engine.WorkflowDomainRollbackError

@@ -6,6 +6,7 @@ from frappe import _
 from frappe.utils import cint, getdate
 
 from dinext_project_scope.analytics import data
+from dinext_project_scope.deliverable_responsibility import configured_roles, missing_responsibilities
 
 TRACEABILITY = "Requirement Traceability Matrix"
 RESPONSIBILITY = "Project Responsibility Matrix"
@@ -521,16 +522,14 @@ def change_register(filters):
 	]
 
 
-def missing_required(assignments, definitions):
-	present = {
-		row.get("responsibility")
-		for row in assignments
-		if row.get("responsible") and data.participant(row)[0] in {"User", "Contact"}
-	}
+def missing_required(assignments, definitions, allowed):
 	return [
-		{"code": code, "label": values.get("responsibility") or code, "color": values.get("color")}
-		for code, values in sorted(definitions.items())
-		if values.get("enabled") and values.get("required") and code not in present
+		{
+			"code": code,
+			"label": definitions[code].get("responsibility") or code,
+			"color": definitions[code].get("color"),
+		}
+		for code in missing_responsibilities(assignments, allowed, definitions)
 	]
 
 
@@ -574,11 +573,12 @@ def deliverable_register(filters):
 	definitions = data.responsibility_definitions()
 	accountable = data.accountables(assignments, definitions, data.participant_names(assignments))
 	today = getdate()
+	allowed = configured_roles(row.get("category") for row in deliverables.values())
 	overdue = cint(filters.get("overdue"))
 	missing = cint(filters.get("missing_responsibility"))
 	rows = []
 	for name, row in deliverables.items():
-		lacks = missing_required(assignments.get(name, []), definitions)
+		lacks = missing_required(assignments.get(name, []), definitions, allowed[row.get("category")])
 		if (
 			not data.matches(row, filters, data.RESULT_FILTERS)
 			or (overdue and not data.is_late(row, today))
@@ -689,10 +689,11 @@ def overview(filters):
 		DELIVERABLE_REGISTER,
 		overdue=1,
 	)
+	allowed = configured_roles(row.get("category") for row in deliverables.values())
 	metric(
 		_("Deliverables missing required responsibility"),
 		sum(
-			bool(missing_required(assignments.get(name, ()), definitions))
+			bool(missing_required(assignments.get(name, ()), definitions, allowed[row.get("category")]))
 			for name, row in deliverables.items()
 			if row.get("status") != "Cancelled"
 		),
