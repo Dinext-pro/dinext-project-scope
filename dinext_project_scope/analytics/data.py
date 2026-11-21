@@ -375,9 +375,13 @@ def results_view(
 		for name, row in deliverables.items()
 		if matches(row, filters, RESULT_FILTERS) and (not cint(filters.get("overdue")) or is_late(row, today))
 	}
+	visible_structure = {
+		name: [slot for slot in slots if slot.get("element") or not cint(slot.get("is_optional"))]
+		for name, slots in structure.items()
+	}
 	tree = StructureTree(
 		deliverables,
-		structure,
+		visible_structure,
 		tasks,
 		responsibles,
 		today,

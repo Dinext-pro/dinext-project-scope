@@ -148,6 +148,23 @@ class TestScopeAnalytics(TestCase):
 			data.root_progress({"template": deliverables["template"]}, {}), {"count": 0, "progress": None}
 		)
 
+	def test_result_tree_hides_only_unlinked_optional_slots(self):
+		deliverables = {"D": {"title": "Result", "progress": 75}}
+		slots = [
+			{"element_name": "Optional", "element_type": "Task", "is_optional": 1},
+			{"element_name": "Required", "element_type": "Task", "is_optional": 0},
+			{"element_name": "Selected", "element_type": "Task", "is_optional": 1, "element": "T"},
+			{"element_name": "Restricted", "element_type": "Task", "is_optional": 1, "element": "H"},
+		]
+		tree, _ = data.results_view(
+			deliverables, {"D": slots}, {"T": {"subject": "Selected", "type": "Bug"}}, {}, {}
+		)
+		self.assertEqual(tree[0]["progress"], 75)
+		children = {row["label"]: row for row in tree[0]["children"]}
+		self.assertEqual(set(children), {"Required", "Selected", "Restricted"})
+		self.assertEqual(children["Selected"]["deliverable_type"], "Bug")
+		self.assertEqual(children["Restricted"]["status_note"], "Work is unavailable")
+
 	def test_result_tree_repeats_shared_result_but_charts_count_one(self):
 		deliverables = {
 			"early": {"name": "early", "title": "Early", "planned_end_date": "2026-11-09"},

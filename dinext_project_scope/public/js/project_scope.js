@@ -610,7 +610,13 @@
 		async refresh(frm) {
 			await frappe.require("/assets/dinext_project_scope/css/project_scope.css");
 			placeScopeGrids(frm);
-			await Promise.all([showRequirements(frm), showChanges(frm)]);
+			const analytics =
+				!frm.is_new() &&
+				frappe.require("/assets/dinext_project_scope/js/scope_analytics.js").then(() => {
+					window.DinextScopeAnalytics?.renderResults(frm);
+					window.DinextScopeAnalytics?.renderProjectProgress(frm);
+				});
+			await Promise.all([showRequirements(frm), showChanges(frm), analytics]);
 			gridRowRoute(frm);
 			if (frm.is_new()) return;
 			if (writable(frm) && frappe.route_options?.scope_constraint_template) {
@@ -632,9 +638,6 @@
 						),
 					__("Scope")
 				);
-			await frappe.require("/assets/dinext_project_scope/js/scope_analytics.js");
-			window.DinextScopeAnalytics?.renderResults(frm);
-			window.DinextScopeAnalytics?.renderProjectProgress(frm);
 		},
 	});
 

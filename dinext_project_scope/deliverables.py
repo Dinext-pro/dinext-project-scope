@@ -413,6 +413,52 @@ def on_deliverable_update(doc):
 
 
 @frappe.whitelist(methods=["POST"])
+def delete_project_results(project: str, results):
+	names = frappe.parse_json(results)
+	if (
+		not isinstance(names, list)
+		or not names
+		or any(not isinstance(name, str) or not name for name in names)
+	):
+		frappe.throw(_("Select at least one project result to delete."))
+	access.check_project(project, "write")
+	access.lock_project(project)
+	selected = {}
+	for name in dict.fromkeys(names):
+		if not frappe.db.exists(
+			DELIVERABLE, {"name": name, "project": project, "status": ("!=", "Template")}
+		):
+			frappe.throw(_("Select results from the current project."))
+		selected[name] = access.check_document(DELIVERABLE, name, "delete")
+
+	dependencies = {
+		name: [
+			slot.element
+			for slot in doc.table_xuct
+			if structure.element_doctype(slot) == DELIVERABLE and slot.element in selected
+		]
+		for name, doc in selected.items()
+	}
+	# A selected parent must be deleted before its selected children.
+	deleted = list(reversed(structure.child_first_order(dependencies)))
+	savepoint = f"delete_scope_results_{frappe.generate_hash(length=8)}"
+	frappe.db.savepoint(savepoint)
+	try:
+		for name in deleted:
+			if selected[name].last_acceptance_log:
+				frappe.db.set_value(DELIVERABLE, name, "last_acceptance_log", None, update_modified=False)
+			for log in frappe.get_all(LOG, filters={"deliverable": name}, pluck="name"):
+				# The immutable journal follows its parent into Frappe's Deleted Document.
+				frappe.delete_doc(LOG, log, ignore_permissions=True, ignore_on_trash=True)
+			frappe.delete_doc(DELIVERABLE, name)
+	except Exception:
+		frappe.db.rollback(save_point=savepoint)
+		raise
+	frappe.db.release_savepoint(savepoint)
+	return deleted
+
+
+@frappe.whitelist(methods=["POST"])
 def rebuild_project(project: str):
 	access.check_project(project, "write")
 	access.lock_project(project)

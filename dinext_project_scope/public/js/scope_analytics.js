@@ -590,6 +590,15 @@
 
 	async function drawGrid(surface, container, columns, rows, options = {}) {
 		if (!surface.active()) return;
+		if (options.resultTree && surface.table) {
+			const table = surface.table;
+			table.clearRowCheck();
+			for (const id of expansionIds(rows, options.expand)) table.expandedIds.add(id);
+			table.refresh(rows);
+			table.refreshToolbar();
+			setMessage(surface, rows.length ? null : __("No records match the filters."));
+			return;
+		}
 		const generation = (surface.gridGeneration || 0) + 1;
 		surface.gridGeneration = generation;
 		surface.table?.destroy();
@@ -616,6 +625,10 @@
 			expandedIds: expansionIds(rows, options.expand),
 			filter: { enabled: false },
 			edit: false,
+			...(options.resultTree && {
+				rowCheck: { enabled: true, selectAll: false },
+				canCheckRow: options.canCheckRow,
+			}),
 			toolbar: {
 				presets: ["tree", "fullscreen"],
 				items: toolbarItems,
@@ -641,7 +654,7 @@
 					if (
 						isResultTreeTask(data, options.resultTree) &&
 						data.document &&
-						!event.target.closest("a, button, .dinext-table-tree-toggle")
+						!event.target.closest("a, button, input, .dinext-table-tree-toggle")
 					) {
 						openDocument(data.document_type, data.document);
 					}
@@ -650,7 +663,7 @@
 					if (
 						!data ||
 						isResultTreeTask(data, options.resultTree) ||
-						event.target.closest("a, button, .dinext-table-tree-toggle")
+						event.target.closest("a, button, input, .dinext-table-tree-toggle")
 					)
 						return;
 					if (data.document)
@@ -664,7 +677,7 @@
 				},
 				onCellKeyDown(params) {
 					const { data, event, colDef } = params;
-					if (!data || event.target.closest("a, button")) return;
+					if (!data || event.target.closest("a, button, input")) return;
 					if (
 						colDef.field === "label" &&
 						data._hasChildren &&
@@ -940,7 +953,7 @@
 		return [
 			["label", __("Deliverable / Work"), "label", 285, "left"],
 			["status", __("Status"), "status", 155],
-			["deliverable_type", __("Deliverable type"), "result_type", 135],
+			["deliverable_type", __("Type"), "result_type", 135],
 			["category", __("Category"), null, 150],
 			["progress", __("Progress"), "result_progress", 105],
 			["assignment", __("Assignment"), "result_assignment", 155],
@@ -966,14 +979,90 @@
 		}));
 	}
 
+	function resultToolbar(frm, surface, refresh, canDelete) {
+		const project = frm.doc.name;
+		let deleting = false;
+		return [
+			{
+				id: "scope-add-result",
+				type: "button",
+				title: __("Add Project Deliverable"),
+				iconSvg: frappe.utils.icon("add", "sm"),
+				disabled: !frm.has_perm("write") || !frappe.model.can_create(DELIVERABLE),
+				onClick: () => frappe.new_doc(DELIVERABLE, { project }),
+			},
+			{
+				id: "scope-delete-results",
+				type: "button",
+				title: __("Delete selected results"),
+				iconSvg: frappe.utils.icon("delete", "sm"),
+				disabled: ({ table }) => !canDelete || deleting || !table.getCheckedRows().length,
+				onClick({ table }) {
+					const names = [...new Set(table.getCheckedRows().map((row) => row.document))];
+					if (!names.length || deleting) return;
+					frappe.confirm(
+						__("Delete selected project results ({0})?", [names.length]),
+						async () => {
+							deleting = true;
+							table.refreshToolbar();
+							try {
+								await frappe.xcall(
+									"dinext_project_scope.deliverables.delete_project_results",
+									{
+										project,
+										results: names,
+									}
+								);
+								if (surface.active()) {
+									await Promise.all([refresh(), renderProjectProgress(frm)]);
+								}
+							} catch {
+								// Frappe displays the server's permission or link error.
+							} finally {
+								deleting = false;
+								if (surface.active()) table.refreshToolbar();
+							}
+						}
+					);
+				},
+			},
+			{
+				id: "scope-responsibility-matrix",
+				type: "button",
+				label: __("Project Responsibility Matrix"),
+				onClick: () => toReport("Project Responsibility Matrix", { project }),
+			},
+		];
+	}
+
 	async function renderResults(frm) {
 		const host = formHost(frm, "custom_scope_results_html");
 		if (!host || frm.is_new()) return;
 		const project = frm.doc.name;
 		const surface = createSurface(host, () => routeMatches("Form", "Project", project));
 		surface.root.classList.add("dinext-scope-results");
-		await libraries();
-		if (!surface.active()) return;
+		surface.root.setAttribute("aria-busy", "true");
+		const loader = node("div", "dinext-scope-results-loader");
+		const spinner = node("span", "dinext-scope-results-spinner");
+		spinner.setAttribute("role", "status");
+		spinner.setAttribute("aria-label", __("Loading"));
+		loader.append(spinner);
+		surface.root.append(loader);
+		try {
+			await libraries();
+			await window.DinextCharts.load();
+			if (surface.active()) await mountResults(frm, surface);
+		} catch {
+			if (surface.active()) setMessage(surface, __("Could not load project results."));
+		} finally {
+			loader.remove();
+			surface.root.removeAttribute("aria-busy");
+		}
+	}
+
+	async function mountResults(frm, surface) {
+		const project = frm.doc.name;
+		const canDelete = frm.has_perm("write") && frappe.model.can_delete(DELIVERABLE);
 		const charts = node("div", "dinext-scope-charts");
 		const actions = node("div", "dinext-scope-result-actions");
 		const table = node("div", "dinext-scope-table dinext-scope-results-table");
@@ -1015,6 +1104,13 @@
 			})
 		);
 		let revision = 0;
+		const tableOptions = {
+			expand: "roots",
+			resultTree: true,
+			canCheckRow: ({ row }) =>
+				canDelete && row.document_type === DELIVERABLE && !row.is_other,
+			toolbarItems: resultToolbar(frm, surface, refresh, canDelete),
+		};
 
 		async function refresh() {
 			const request = ++revision;
@@ -1029,11 +1125,10 @@
 				});
 			} catch {
 				if (surface.active() && request === revision) {
-					surface.table?.destroy();
-					surface.table = null;
+					surface.table?.clearRowCheck();
+					surface.table?.refresh([]);
 					surface.clearCharts();
 					for (const { chart } of panels) chart.replaceChildren();
-					table.replaceChildren();
 					setMessage(surface, __("Could not load project results."));
 				}
 				return;
@@ -1070,23 +1165,10 @@
 					}
 				);
 			}
-			await drawGrid(surface, table, resultColumns(), result.rows, {
-				expand: "roots",
-				resultTree: true,
-				toolbarItems: [
-					{
-						id: "scope-responsibility-matrix",
-						type: "button",
-						label: __("Project Responsibility Matrix"),
-						onClick: () => toReport("Project Responsibility Matrix", { project }),
-					},
-				],
-			});
+			await drawGrid(surface, table, resultColumns(), result.rows, tableOptions);
 		}
 
-		setMessage(surface, __("Loading"));
-		await window.DinextCharts.load();
-		if (surface.active()) await refresh();
+		await refresh();
 	}
 
 	async function renderProjectProgress(frm) {

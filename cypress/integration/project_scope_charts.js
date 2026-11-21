@@ -94,6 +94,82 @@ function workCells(label) {
 describe("Project scope charts", () => {
 	const fixture = useReportFixture();
 
+	it("shows the results loader until data arrives and keeps fullscreen through donut filters", () => {
+		let release;
+		const incoming = new Cypress.Promise((resolve) => {
+			release = resolve;
+		});
+		cy.intercept(
+			{
+				method: "GET",
+				pathname: "/api/method/dinext_project_scope.analytics.data.project_results",
+			},
+			() => incoming
+		).as("loadResults");
+		showResults(fixture.project);
+		const spinner = `${resultHost} .dinext-scope-results-spinner`;
+		cy.get(spinner)
+			.should("be.visible")
+			.and("have.css", "animation-name", "dinext-scope-results-spin");
+		cy.then(() => release());
+		cy.wait("@loadResults");
+		cy.get(spinner).should("not.exist");
+
+		// Cypress clicks do not grant the transient activation required by the Fullscreen API.
+		cy.window().then((view) => {
+			const { document } = view;
+			let fullscreenElement = null;
+			Object.defineProperty(document, "fullscreenElement", {
+				configurable: true,
+				get: () => fullscreenElement,
+			});
+			cy.stub(view.Element.prototype, "requestFullscreen").callsFake(function () {
+				fullscreenElement = this;
+				document.dispatchEvent(new view.Event("fullscreenchange"));
+				return Promise.resolve();
+			});
+			cy.stub(document, "exitFullscreen").callsFake(() => {
+				fullscreenElement = null;
+				document.dispatchEvent(new view.Event("fullscreenchange"));
+				return Promise.resolve();
+			});
+		});
+		cy.get(`${resultHost} button[title="Fullscreen"]`).click();
+		let fullscreenTable;
+		const grid = `${resultHost} .dinext-table--fullscreen`;
+		cy.get(grid).then(([$element]) => {
+			fullscreenTable = $element;
+		});
+		clickPieSegment("Deliverables by category", `${fixture.title} secondary`);
+		resultFilter("Deliverables by category", "category").should(
+			"have.value",
+			`${fixture.title} secondary`
+		);
+		rowLink(`${fixture.title} shared component`).should("exist");
+		cy.get(grid).should(([$element]) => expect($element).to.eq(fullscreenTable));
+		resultFilter("Deliverables by type", "deliverable_type").select(fixture.title);
+		cy.contains(`${resultHost} [role="status"]`, "No records match the filters.").should(
+			"be.visible"
+		);
+		cy.get(grid).should(([$element]) => expect($element).to.eq(fullscreenTable));
+	});
+
+	it("shows the Task type and omits empty optional work in the expanded results tree", () => {
+		showResults(fixture.project);
+		cy.get(
+			`${resultHost} .ag-header-cell[col-id="deliverable_type"] .ag-header-cell-text`
+		).should("have.text", "Type");
+		rowLink(`${fixture.title} shared component`)
+			.first()
+			.closest(".ag-cell")
+			.find(".dinext-table-tree-toggle")
+			.click();
+		workCells(`${fixture.title} work group`)
+			.find('[col-id="deliverable_type"]')
+			.should("have.text", fixture.title);
+		cy.contains(`${resultHost} .dinext-scope-label`, "Contact reference").should("not.exist");
+	});
+
 	it("shows the configured type, accountable avatar and progress in the results tree", () => {
 		showResults(fixture.project);
 		const visibleHeaders = `${resultHost} .ag-header-cell[col-id] .ag-header-cell-label`;
@@ -298,6 +374,9 @@ describe("Project scope charts", () => {
 		workCells("Contact reference")
 			.find('[col-id="assignment"] .avatar')
 			.should("have.attr", "title", fixture.title);
+		workCells("Contact reference")
+			.find('[col-id="deliverable_type"]')
+			.should("have.text", "Contact");
 	});
 
 	it("opens the current project's responsibility matrix from the results toolbar", () => {
@@ -787,5 +866,46 @@ describe("Project scope charts", () => {
 			expect(plan.data).to.deep.include([Date.parse(fixture.later_planned_end), 100]);
 			expect(actual.data).to.deep.eq(recorded);
 		});
+	});
+
+	it("creates in the current project and deletes a result selected in the first column", () => {
+		showResults(fixture.project);
+		const toolbar = `${resultHost} .dinext-table-toolbar`;
+		const addButton = `${toolbar} button[title="Add Project Deliverable"]`;
+		const deleteButton = `${toolbar} button[title="Delete selected results"]`;
+		const title = `${fixture.title} toolbar result`;
+		cy.get(deleteButton).should("be.disabled");
+		cy.get(addButton).click();
+		cy.window().should(({ cur_frm }) => {
+			expect(cur_frm?.doctype).to.eq("Project Deliverable");
+			expect(cur_frm.is_new()).to.be.ok;
+			expect(cur_frm.doc.project).to.eq(fixture.project);
+		});
+		const page = ".page-container:visible";
+		cy.get(`${page} input[data-fieldname="title"]:visible`).type(title);
+		for (const fieldname of ["category", "deliverable_type"]) {
+			const field = `${page} .frappe-control[data-fieldname="${fieldname}"]`;
+			cy.get(field).find("input:visible").type(fixture.title, { delay: 0 });
+			linkOption(field, fixture.title).click();
+		}
+		cy.get(`${page} .page-actions .primary-action:visible`).click();
+		cy.window().should(({ cur_frm }) => {
+			expect(Boolean(cur_frm.is_new())).to.be.false;
+			expect(cur_frm.doc.title).to.eq(title);
+		});
+		showResults(fixture.project);
+		rowLink(title)
+			.closest(".ag-row")
+			.within(() => {
+				cy.get(".ag-cell")
+					.first()
+					.should("have.attr", "col-id", "__dinext_row_check")
+					.find('input[type="checkbox"]')
+					.check();
+			});
+		cy.get(deleteButton).should("be.enabled").click();
+		cy.contains(".modal:visible button", "Yes").click();
+		cy.contains(`${resultHost} .dinext-scope-label`, title).should("not.exist");
+		cy.get(deleteButton).should("be.disabled");
 	});
 });

@@ -86,3 +86,39 @@
 	align-items: center;
 	gap: var(--margin-xs);
 }
+
+.dinext-scope-results[aria-busy="true"] {
+	position: relative;
+	min-height: 8rem;
+}
+
+.dinext-scope-results-loader {
+	position: absolute;
+	inset: 0;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--card-bg, var(--bg-color, #fff));
+}
+
+.dinext-scope-results-spinner {
+	width: 28px;
+	height: 28px;
+	border: 2px solid color-mix(in srgb, currentColor 28%, transparent);
+	border-top-color: var(--blue-500, #2490ef);
+	border-radius: 50%;
+	animation: dinext-scope-results-spin 0.7s linear infinite;
+}
+
+@keyframes dinext-scope-results-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dinext-scope-results-spinner {
+		animation: none;
+	}
+}

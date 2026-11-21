@@ -58,6 +58,41 @@ class TestProjectDeliverable(FrappeTestCase):
 			**kwargs,
 		).insert()
 
+	def test_delete_results_checks_links_and_removes_a_selected_parent_first(self):
+		kind = self.kind()
+		unlinked = self.result(kind)
+		child = self.result(kind)
+		parent = self.result(
+			self.kind(("child", "Project Deliverable", {})),
+			table_xuct=[{"source_element_key": "child", "element": child.name}],
+		)
+		with self.assertRaises(frappe.LinkExistsError):
+			deliverables.delete_project_results(self.project.name, [child.name, unlinked.name])
+		self.assertTrue(frappe.db.exists("Project Deliverable", unlinked.name))
+		self.assertTrue(frappe.db.exists("Project Deliverable Log", {"deliverable": unlinked.name}))
+
+		deleted = deliverables.delete_project_results(
+			self.project.name, [child.name, parent.name, unlinked.name, child.name]
+		)
+		self.assertEqual(set(deleted), {parent.name, child.name, unlinked.name})
+		for name in deleted:
+			self.assertFalse(frappe.db.exists("Project Deliverable", name))
+			self.assertFalse(frappe.db.exists("Project Deliverable Log", {"deliverable": name}))
+
+	def test_delete_results_rejects_cross_project_selection_and_read_only_access(self):
+		doc = self.result(self.kind())
+		foreign = self.new_project()
+		with self.assertRaises(frappe.ValidationError):
+			deliverables.delete_project_results(foreign.name, [doc.name])
+		actor = frappe.session.user
+		try:
+			frappe.set_user("Guest")
+			with self.assertRaises(frappe.PermissionError):
+				deliverables.delete_project_results(self.project.name, [doc.name])
+		finally:
+			frappe.set_user(actor)
+		self.assertTrue(frappe.db.exists("Project Deliverable", doc.name))
+
 	def test_task_save_recalculates_shared_ancestors_without_duplicate_log(self):
 		work_type = self.kind(("task", "Task", {}))
 		parent_type = self.kind(("result", "Project Deliverable", {}))

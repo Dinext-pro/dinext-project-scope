@@ -267,9 +267,11 @@ def create_report_fixture(run_id):
 	project.save()
 
 	planned_end = add_days(getdate(), -2)
+	task_type = frappe.get_doc(doctype="Task Type", name=prefix).insert(set_name=prefix)
 	work = frappe.get_doc(
 		doctype="Task",
 		project=project.name,
+		type=task_type.name,
 		subject=f"{prefix} work group",
 		status="Working",
 		is_group=1,
@@ -470,6 +472,7 @@ def remove_report_fixture(run_id):
 		"Project Role",
 		"Requirement Kind",
 		"Project Scope Type",
+		"Task Type",
 	):
 		for name in (prefix, f"{prefix} secondary", f"{prefix} hidden"):
 			if frappe.db.exists(doctype, name):
