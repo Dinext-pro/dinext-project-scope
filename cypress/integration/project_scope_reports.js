@@ -488,7 +488,7 @@ describe("Project scope reports", () => {
 		cy.contains(`${category} [role="option"]`, exact(fixture.title)).click();
 		cy.wait("@matrixFilter");
 		reportShown(responsibility, { category: fixture.title });
-		clickFullscreenControl("Exit fullscreen");
+		cy.get(`${table} button[title="Exit fullscreen"]`).click();
 		cy.document().should((doc) => expect(doc.fullscreenElement).to.be.null);
 	});
 
