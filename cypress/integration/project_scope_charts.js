@@ -174,7 +174,7 @@ describe("Project scope charts", () => {
 	});
 
 	context("configured result tree responsibilities", () => {
-		const url = "/app/project-scope-settings/Project%20Scope%20Settings";
+		const url = "/app/project-scope-settings";
 		const field = "result_tree_responsibilities";
 		const control = `.page-container:visible [data-fieldname="${field}"]`;
 		let original;
@@ -208,17 +208,19 @@ describe("Project scope charts", () => {
 				expect(original).to.deep.eq(["О"]);
 			});
 			cy.get(`${control} .tb-selected-value .btn-remove`).click();
-			for (const value of [`${fixture.title} secondary`, fixture.title]) {
-				cy.get(`${control} input:visible`).type(value);
+			for (const [value, query] of [
+				[`${fixture.title} secondary`, `${fixture.title} review`],
+				[fixture.title, `${fixture.title} contribut`],
+			]) {
+				cy.get(`${control} input:visible`).type(query);
 				linkOption(control, value).click();
 			}
 			saveSettings();
 
 			showResults(fixture.project);
-			cy.get(`${resultHost} .ag-header-cell[col-id="assignment"]`).should(
-				"have.text",
-				"Assignment"
-			);
+			cy.get(
+				`${resultHost} .ag-header-cell[col-id="assignment"] .ag-header-cell-text`
+			).should("have.text", "Assignment");
 			resultCells(`${fixture.title} result`)
 				.find('[col-id="assignment"] .avatar')
 				.should("have.length", 2);
@@ -253,10 +255,13 @@ describe("Project scope charts", () => {
 		const kind = '.grid-row-open .form-in-grid [data-fieldname="element_type"] select';
 		cy.get(kind).select("Task");
 		cy.get(kind).select("Other");
+		cy.window().then(({ frappe }) => frappe.after_ajax());
 		const filter =
 			'.grid-row-open .form-in-grid [data-fieldname="filter_type"].frappe-control';
-		cy.get(`${filter} input:visible`).type("Contact");
+		cy.get(`${filter} input:visible`).type("Contac");
 		linkOption(filter, "Contact").click();
+		cy.window().its("cur_frm.doc.elements.1.filter_type").should("eq", "Contact");
+		cy.get(".grid-row-open .grid-collapse-row").click();
 		cy.window().then(({ cur_frm }) => cur_frm.save());
 
 		cy.visit(`/app/project-deliverable/${fixture.shared}`);
@@ -275,8 +280,10 @@ describe("Project scope charts", () => {
 			});
 		cy.get('[data-fieldname="table_xuct"] .grid-row[data-idx="2"] .btn-open-row').click();
 		const field = '.grid-row-open .form-in-grid [data-fieldname="element"].frappe-control';
-		cy.get(`${field} input:visible`).type(fixture.title);
+		cy.get(`${field} input:visible`).type(fixture.title.slice(0, -1));
 		linkOption(field, fixture.contact).click();
+		cy.window().its("cur_frm.doc.table_xuct.1.element").should("eq", fixture.contact);
+		cy.get(".grid-row-open .grid-collapse-row").click();
 		cy.window().then(({ cur_frm }) => cur_frm.save());
 		cy.window().should(({ cur_frm }) => {
 			expect(cur_frm.doc.table_xuct[1].element).to.eq(fixture.contact);
