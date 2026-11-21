@@ -400,7 +400,11 @@ describe("Project scope charts", () => {
 			"be.visible"
 		);
 		const matrix = `${resultHost} .dinext-table-toolbar button[title="Responsibility Matrix"]`;
-		cy.get(matrix).should("have.text", "Responsibility Matrix").and("be.visible");
+		cy.get(matrix)
+			.should("be.visible")
+			.should(([button]) =>
+				expect(button.textContent.trim()).to.eq("Responsibility Matrix")
+			);
 		cy.get(matrix).find("svg use").should("have.attr", "href", "#icon-table");
 		cy.get(matrix).click();
 		reportShown(responsibility, { project: fixture.project });
@@ -496,7 +500,7 @@ describe("Project scope charts", () => {
 		cy.get(`${resultHost} select`).should("have.length", 3);
 		const clear = `${resultHost} .dinext-table-toolbar button[title="Clear filters"]`;
 		cy.get(clear)
-			.should("have.text", "")
+			.should(([button]) => expect(button.textContent.trim()).to.eq(""))
 			.find("svg use")
 			.should("have.attr", "href", "#icon-filter-x");
 		cy.get(clear).click();
