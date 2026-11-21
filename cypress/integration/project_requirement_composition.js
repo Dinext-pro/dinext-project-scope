@@ -44,9 +44,6 @@ function changeApprovalInPlace(action, status, comment) {
 
 function openProjectScope(project) {
 	cy.visit(`/app/project/${project}`);
-	cy.get(
-		'[data-fieldname="custom_scope_deliverables_progress_html"] .dinext-scope-heading'
-	).should("exist");
 	cy.get('button[data-fieldname="custom_объем"]').click();
 	cy.get(projectTree).should("be.visible");
 }

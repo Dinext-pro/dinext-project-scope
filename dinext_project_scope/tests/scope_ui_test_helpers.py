@@ -67,6 +67,7 @@ def create_report_fixture(run_id):
 	prefix = f"Cypress report {run_id}"
 	project = make_project(prefix, f"CYPRESS-SCOPE-REPORT-{run_id}")
 	rollout = make_project(f"{prefix} rollout", f"CYPRESS-SCOPE-REPORT-ROLLOUT-{run_id}", project.project_type)
+	empty = make_project(f"{prefix} empty", f"CYPRESS-SCOPE-REPORT-EMPTY-{run_id}", project.project_type)
 	person = frappe.get_doc(doctype="Contact", first_name=prefix).insert().name
 	other_category = f"{prefix} secondary"
 	type_icon = "/assets/frappe/images/frappe-favicon.svg"
@@ -427,6 +428,7 @@ def create_report_fixture(run_id):
 		assumption_review_date=str(verified_assumption.review_date),
 		assumption_verified_at=str(verified_assumption.verified_at),
 		hidden_project=hidden.name,
+		empty_project=empty.name,
 		hidden_result=foreign.name,
 	)
 
@@ -438,7 +440,8 @@ def remove_report_fixture(run_id):
 	project = frappe.db.get_value("Project", {"project_name": prefix}, "name")
 	hidden = frappe.db.get_value("Project", {"project_name": f"{prefix} secondary"}, "name")
 	rollout = frappe.db.get_value("Project", {"project_name": f"{prefix} rollout"}, "name")
-	projects = [name for name in (project, hidden, rollout) if name]
+	empty = frappe.db.get_value("Project", {"project_name": f"{prefix} empty"}, "name")
+	projects = [name for name in (project, hidden, rollout, empty) if name]
 	for doctype, order in (
 		("Project Change Request", "creation desc"),
 		("Project Deliverable", "creation desc"),

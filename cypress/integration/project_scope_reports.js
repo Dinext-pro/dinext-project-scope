@@ -68,9 +68,7 @@ describe("Project scope reports", () => {
 
 	it("opens the responsibility matrix from the Project Scope Reports menu with its project", () => {
 		cy.visit(`/app/project/${fixture.project}`);
-		cy.get('[data-fieldname="custom_scope_deliverables_progress_html"] progress').should(
-			"be.visible"
-		);
+		cy.get('.form-graph [data-pwa-bar="deliverables"] progress').should("be.visible");
 		cy.get('.inner-group-button[data-label="Scope%20Reports"] > button:visible').click({
 			scrollBehavior: "center",
 		});
@@ -79,17 +77,54 @@ describe("Project scope reports", () => {
 		rowLink(`${fixture.title} result`).should("be.visible");
 	});
 
-	it("shows result readiness and its calculation on Project Details", () => {
+	it("keeps deliverables progress in the Project dashboard after a rebuild and hides it without results", () => {
+		const card = '[data-pwa-bar="deliverables"]';
+		const readiness = `.form-graph ${card}`;
+		const formula =
+			"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded.";
 		cy.visit(`/app/project/${fixture.project}`);
-		const readiness = '[data-fieldname="custom_scope_deliverables_progress_html"]';
-		cy.contains(`${readiness} strong`, "20%").should("be.visible");
+		cy.contains(`${readiness} .chart-percent`, "20%").should("be.visible");
 		cy.get(`${readiness} progress`).should(($meter) => {
 			expect($meter).to.have.prop("value", 20);
-			expect($meter).to.have.attr(
-				"title",
-				"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded."
-			);
+			expect($meter).to.have.attr("title", formula);
 		});
+		cy.get('[data-fieldname="custom_scope_deliverables_progress_html"] progress').should(
+			"not.exist"
+		);
+		let previousRow;
+		cy.window().then((view) => {
+			const host = view.cur_frm.dashboard.chart_area.wrapper[0];
+			previousRow = host.querySelector(".dashboard-percents");
+			if (typeof view.load_and_render_project_dashboard === "function") {
+				view.load_and_render_project_dashboard(view.cur_frm);
+				return;
+			}
+			// The scope-only acceptance bench has no Workload Assignment app.
+			const grid = view.document.createElement("div");
+			grid.className = "custom-dashboard-grid";
+			const row = view.document.createElement("div");
+			row.className = "dashboard-percents";
+			grid.append(row);
+			host.replaceChildren(grid);
+		});
+		cy.get(".form-graph .dashboard-percents").should(([row]) =>
+			expect(row).not.to.eq(previousRow)
+		);
+		cy.get(`.form-graph .dashboard-percents > ${card}`).should("have.length", 1);
+		cy.get(`${readiness} progress`).should("have.prop", "value", 20);
+		cy.intercept({
+			method: "GET",
+			pathname: "/api/method/dinext_project_scope.analytics.data.project_progress",
+			query: { project: fixture.empty_project },
+		}).as("emptyProgress");
+		cy.window().then(({ frappe }) => {
+			frappe.set_route("Form", "Project", fixture.empty_project);
+		});
+		cy.wait("@emptyProgress").its("response.body.message").should("deep.eq", {
+			count: 0,
+			progress: null,
+		});
+		cy.get(readiness).should("not.exist");
 	});
 
 	it("requires an explicit project for traceability and responsibility", () => {

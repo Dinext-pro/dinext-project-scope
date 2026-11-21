@@ -608,6 +608,7 @@
 			}));
 		},
 		async refresh(frm) {
+			frm.toggle_display("custom_scope_deliverables_progress_html", false);
 			await frappe.require("/assets/dinext_project_scope/css/project_scope.css");
 			placeScopeGrids(frm);
 			const analytics =

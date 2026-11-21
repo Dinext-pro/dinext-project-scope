@@ -7,6 +7,7 @@
 	const DELIVERABLE = "Project Deliverable";
 	const tones = ["red", "yellow", "green", "light-green", "cyan", "blue", "gray"];
 	const surfaces = new Map();
+	let projectProgressView = null;
 	const chartPalette = [
 		"#3976b7",
 		"#22877c",
@@ -189,6 +190,9 @@
 	}
 
 	frappe.router.on("change", () => {
+		if (projectProgressView && !routeMatches("Form", "Project", projectProgressView.project)) {
+			disposeProjectProgress();
+		}
 		for (const surface of surfaces.values()) {
 			if (!surface.active()) surface.dispose();
 		}
@@ -1177,37 +1181,67 @@
 		await refresh();
 	}
 
+	function disposeProjectProgress() {
+		projectProgressView?.observer?.disconnect();
+		projectProgressView?.card?.remove();
+		projectProgressView = null;
+	}
+
 	async function renderProjectProgress(frm) {
-		const host = formHost(frm, "custom_scope_deliverables_progress_html");
+		const host = frm.dashboard?.chart_area?.wrapper?.[0];
 		if (!host || frm.is_new()) return;
 		const project = frm.doc.name;
-		const surface = createSurface(host, () => routeMatches("Form", "Project", project));
-		await libraries();
-		if (!surface.active()) return;
-		surface.root.append(node("h4", "dinext-scope-heading", __("Deliverables progress")));
-		setMessage(surface, __("Loading"));
+		if (!routeMatches("Form", "Project", project)) return;
+		disposeProjectProgress();
+		const view = { project };
+		projectProgressView = view;
 		try {
-			const result = await call("project_progress", { project });
-			if (!surface.active()) return;
-			if (result.progress === null) {
-				setMessage(surface, __("No deliverables"));
+			const [result] = await Promise.all([
+				call("project_progress", { project }),
+				libraries(),
+			]);
+			if (view !== projectProgressView || !host.isConnected || result.progress === null)
 				return;
-			}
-			setMessage(surface, null);
-			const progress = node("div", "dinext-scope-project-progress");
-			const meter = node("progress");
-			meter.max = 100;
-			meter.value = result.progress;
-			meter.setAttribute("aria-label", __("Deliverables progress"));
+
+			const label = __("Deliverables progress");
 			const formula = __(
 				"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded."
 			);
+			const meter = node("progress");
+			meter.max = 100;
+			meter.value = result.progress;
 			meter.title = formula;
+			meter.setAttribute("aria-label", label);
 			meter.setAttribute("aria-description", formula);
-			progress.append(meter, node("strong", "", formatProgress(result.progress)));
-			surface.root.append(progress);
+
+			const header = node("div", "chart-header");
+			header.append(
+				node("span", "chart-title text-muted", label),
+				node("span", "chart-percent", formatProgress(result.progress))
+			);
+			const card = node("div", "chart-card linear-card dinext-scope-project-progress");
+			card.dataset.pwaBar = "deliverables";
+			card.append(header, meter);
+			view.card = card;
+
+			function mount() {
+				const row = host.querySelector(".custom-dashboard-grid .dashboard-percents");
+				const target = row || host;
+				if (card.parentNode === target) return;
+				card.classList.toggle("dinext-scope-project-progress--standalone", !row);
+				if (row) {
+					row.append(card);
+				} else {
+					host.prepend(card);
+					frm.dashboard.show();
+					frm.dashboard.chart_area.show();
+				}
+			}
+			view.observer = new MutationObserver(mount);
+			view.observer.observe(host, { childList: true, subtree: true });
+			mount();
 		} catch {
-			if (surface.active()) setMessage(surface, __("Could not load project results."));
+			// Frappe displays the request error.
 		}
 	}
 

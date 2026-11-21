@@ -782,7 +782,7 @@ describe("Project scope charts", () => {
 			]);
 		});
 		cy.visit(`/app/project/${fixture.project}`);
-		cy.get('[data-fieldname="custom_scope_deliverables_progress_html"] progress').should(
+		cy.get('.form-graph [data-pwa-bar="deliverables"] progress').should(
 			"have.attr",
 			"title",
 			"Средняя готовность уникальных корневых результатов с равным весом каждого. Отменённые результаты и шаблоны исключаются."
