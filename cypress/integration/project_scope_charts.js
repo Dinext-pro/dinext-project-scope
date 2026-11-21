@@ -178,7 +178,13 @@ describe("Project scope charts", () => {
 			.click();
 		workCells(`${fixture.title} work group`)
 			.find('[col-id="deliverable_type"]')
-			.should("have.text", fixture.title);
+			.should("have.text", fixture.title)
+			.and(([cell]) => {
+				const label = cell.ownerDocument.createRange();
+				label.selectNodeContents(cell.querySelector("span"));
+				expect(label.getBoundingClientRect().width).to.be.lessThan(cell.clientWidth);
+				expect(cell.getBoundingClientRect().width).to.be.greaterThan(135);
+			});
 		cy.contains(`${resultHost} .dinext-scope-label`, "Contact reference").should("not.exist");
 	});
 

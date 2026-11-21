@@ -25,9 +25,18 @@ frappe.query_reports["Project Responsibility Matrix"] = {
 		{
 			fieldname: "responsibility",
 			label: __("Responsibility"),
-			fieldtype: "Link",
-			options: "Project Deliverable Responsibility",
-			only_select: true,
+			fieldtype: "MultiSelectList",
+			async get_data(txt) {
+				const entries = await frappe.db.get_link_options(
+					"Project Deliverable Responsibility",
+					txt
+				);
+				return entries.map(({ value, label, description }) => ({
+					value,
+					label: frappe.utils.escape_html(label || value),
+					description: frappe.utils.escape_html(description || ""),
+				}));
+			},
 		},
 		{
 			fieldname: "project_role",

@@ -505,3 +505,54 @@ button.dinext-scope-link:hover {
 .dinext-scope-group-row .dinext-scope-label {
 	font-weight: 600;
 }
+
+.page-form.dinext-scope-raci-filters:not(.hide) {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: 0.5rem;
+	position: relative;
+	z-index: 5;
+	overflow: visible;
+}
+
+.dinext-scope-raci-filters > .frappe-control {
+	width: 100%;
+	max-width: none;
+	min-width: 0;
+	margin-inline: 0;
+}
+
+.dinext-scope-raci-filters > .frappe-control:focus-within,
+.dinext-scope-raci-filters > .frappe-control:has(.dropdown-menu.show) {
+	position: relative;
+	z-index: 1;
+}
+
+.dinext-scope-raci-table {
+	position: relative;
+	z-index: 0;
+}
+
+.dinext-scope-raci-table .ag-header-cell:not([col-id="label"]) .ag-header-cell-label,
+.dinext-scope-raci-table .ag-header-group-cell-label,
+.dinext-scope-raci-table .ag-cell:not([col-id="label"]) > .ag-cell-wrapper {
+	justify-content: center;
+}
+
+.dinext-scope-raci-table .ag-cell:not([col-id="label"]) {
+	text-align: center;
+}
+
+.dinext-scope-raci-table .ag-header-cell .avatar {
+	vertical-align: middle;
+}
+
+.dinext-scope-excel {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+}
+
+.dinext-scope-excel .icon {
+	color: inherit;
+}

@@ -310,12 +310,23 @@ describe("Project scope reports", () => {
 		cy.contains(`${table} .ag-header-group-text`, exact(`${fixture.title} secondary`)).should(
 			"be.visible"
 		);
-		cy.contains(`${table} .ag-header-cell-text`, `Contact · ${fixture.contact}`).should(
-			"be.visible"
-		);
-		cy.contains(`${table} .ag-header-cell-text`, `User · ${fixture.actor}`).should(
-			"be.visible"
-		);
+		cy.get(`${table} .ag-header-cell .avatar[title$="Contact · ${fixture.contact})"]`)
+			.should("be.visible")
+			.find(".standard-image")
+			.should("exist");
+		cy.get(`${table} .ag-header-cell .avatar[title$="User · ${fixture.actor})"] img`)
+			.should("be.visible")
+			.and(($image) => expect($image[0].naturalWidth).to.be.greaterThan(0));
+		cy.contains(`${table} .ag-header-group-text`, exact(fixture.title))
+			.closest(".ag-header-group-cell")
+			.should("have.attr", "aria-colspan", "2");
+		cy.get(`${table} .ag-cell[col-id="deliverable_type"]`)
+			.first()
+			.should("have.css", "text-align", "center");
+		cy.get(`${table} [data-toolbar-custom-id="scope-export"] button`)
+			.should(($button) => expect($button.text().trim()).to.eq("Excel"))
+			.find("svg use")
+			.should(($icon) => expect($icon.attr("href")).to.contain("download"));
 		rowLink(`${fixture.title} peer`)
 			.closest(".ag-row")
 			.find(`[title="${fixture.title} reviewer"]`)
@@ -343,7 +354,7 @@ describe("Project scope reports", () => {
 			category: fixture.title,
 			deliverable_type: fixture.title,
 			project_role: fixture.title,
-			responsibility: `${fixture.title} secondary`,
+			responsibility: [`${fixture.title} secondary`],
 			responsible_type: "User",
 			responsible: fixture.actor,
 		};
@@ -368,6 +379,74 @@ describe("Project scope reports", () => {
 		});
 		cy.contains("Nothing to show").should("be.visible");
 		rowLink(`${fixture.title} result`).should("not.exist");
+	});
+
+	it("uses all matrix filters in one row and keeps multi-value filtering in fullscreen", () => {
+		openReport(responsibility, { project: fixture.project });
+		rowLink(`${fixture.title} result`).should("be.visible");
+		cy.get(".page-form:visible > .frappe-control").should(($fields) => {
+			expect($fields).to.have.length(7);
+			const tops = [...$fields].map((field) => field.getBoundingClientRect().top);
+			expect(new Set(tops).size).to.eq(1);
+		});
+
+		clickFullscreenControl("Fullscreen");
+		cy.document().should((doc) => expect(doc.fullscreenElement).to.exist);
+		const picker = '.page-form:visible .multiselect-list[data-fieldname="responsibility"]';
+		const toggle = `${picker} [data-toggle="dropdown"]`;
+		cy.intercept("GET", "**/api/method/frappe.desk.query_report.run?*").as("matrixFilter");
+		cy.get(toggle).click();
+		cy.get(`${picker} .dropdown-input-wrapper input`).type(fixture.title);
+		function option(code) {
+			return cy.get(`${picker} .selectable-item[data-value="${encodeURIComponent(code)}"]`);
+		}
+		option(`${fixture.title} secondary`)
+			.should(($option) => {
+				const element = $option[0];
+				const { x, y, width, height } = element.getBoundingClientRect();
+				expect(
+					element.contains(
+						element.ownerDocument.elementFromPoint(x + width / 2, y + height / 2)
+					)
+				).to.eq(true);
+			})
+			.click();
+		cy.wait("@matrixFilter")
+			.its("response.body.message.result")
+			.should((rows) => {
+				expect(rows.map((row) => row.document).filter(Boolean)).to.deep.equal([
+					fixture.result,
+				]);
+			});
+		option(fixture.title).click();
+		cy.wait("@matrixFilter");
+		cy.get(toggle).click();
+		rowLink(`${fixture.title} peer`).should("be.visible");
+		cy.document().should((doc) => expect(doc.fullscreenElement).to.exist);
+		reportShown(responsibility, {
+			responsibility: [`${fixture.title} secondary`, fixture.title],
+		});
+		downloadExcel("project_responsibility_matrix", {
+			project: fixture.project,
+			responsibility: [`${fixture.title} secondary`, fixture.title],
+		});
+		cy.window().then((win) =>
+			win.frappe.query_report.set_filter_value("responsible_type", "Contact")
+		);
+		cy.window().then((win) =>
+			win.frappe.query_report.set_filter_value("responsibility", [
+				`${fixture.title} secondary`,
+			])
+		);
+		cy.contains("No records match the filters.").should("be.visible");
+		cy.document().should((doc) => expect(doc.fullscreenElement).to.exist);
+		cy.get(toggle).click();
+		cy.get(`${picker} .clear-selections`).click();
+		cy.wait("@matrixFilter");
+		cy.get(toggle).click();
+		rowLink(`${fixture.title} result`).should("be.visible");
+		clickFullscreenControl("Exit fullscreen");
+		cy.document().should((doc) => expect(doc.fullscreenElement).to.be.null);
 	});
 
 	it("keeps the full impact including historical levels and marks the matching detail", () => {

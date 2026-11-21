@@ -71,11 +71,15 @@ RESULT_FILTERS = ("status", "deliverable_type", "category")
 ONLY_EMPTY = "__dinext_scope_no_value__"
 
 
-def normalize_filters(filters=None):
+def normalize_filters(filters=None, *, list_fields=()):
 	values = frappe.parse_json(filters) or {}
-	if not isinstance(values, dict) or any(
-		value is not None and not isinstance(value, (str, int, float, bool)) for value in values.values()
-	):
+	if not isinstance(values, dict):
+		frappe.throw(_("Invalid report filters."))
+	for key, value in values.items():
+		if value is None or isinstance(value, (str, int, float, bool)):
+			continue
+		if key in list_fields and isinstance(value, list) and all(isinstance(item, str) for item in value):
+			continue
 		frappe.throw(_("Invalid report filters."))
 	return values
 
@@ -190,6 +194,10 @@ def _participant_rows(assignments, *, include_images=False):
 
 def _participant_names(participants):
 	return {key: row.get("full_name") or key[1] for key, row in participants.items()}
+
+
+def participant_profiles(assignments):
+	return _participant_rows(assignments, include_images=True)
 
 
 def participant_names(assignments):
@@ -516,7 +524,7 @@ def result_tree_responsibles(assignments, codes):
 		name: [row for row in rows if row.get("responsibility") in codes and row.get("responsible")]
 		for name, rows in assignments.items()
 	}
-	profiles = _participant_rows(selected, include_images=True)
+	profiles = participant_profiles(selected)
 	responsibles = {}
 	for name, rows in selected.items():
 		by_responsibility = defaultdict(set)

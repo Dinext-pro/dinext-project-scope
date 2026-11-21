@@ -2,9 +2,10 @@
 	"use strict";
 
 	const overview = "Project Scope Overview";
+	const responsibilityMatrix = "Project Responsibility Matrix";
 	const scopeReports = new Set([
 		"Requirement Traceability Matrix",
-		"Project Responsibility Matrix",
+		responsibilityMatrix,
 		"Project Change Impact Matrix",
 		overview,
 		"Project Deliverable Register",
@@ -177,19 +178,27 @@
 		const ui = window.DinextScopeAnalytics;
 		const name = report.report_name;
 		const container = report.$report.get(0);
-		const surface = ui.createSurface(container, () => ui.routeMatches("query-report", name));
+		const matrix = name === responsibilityMatrix;
+		const previous = grids.get(report);
+		const surface =
+			matrix && previous?.active()
+				? previous
+				: ui.createSurface(container, () => ui.routeMatches("query-report", name));
 		grids.set(report, surface);
 		const page = report.page.main.get(0);
 		page.classList.add("dinext-scope-report-page");
-		const table = ui.node("div", "dinext-scope-table");
-		surface.root.append(table);
+		if (!surface.reportTable) {
+			surface.reportTable = ui.node("div", "dinext-scope-table");
+			surface.reportTable.classList.toggle("dinext-scope-raci-table", matrix);
+			surface.root.append(surface.reportTable);
+		}
 
 		if (name === overview) {
 			const project = report.get_filter_value("project");
 			const actions = ui.node("div", "dinext-scope-overview-actions");
 			for (const target of [
 				"Requirement Traceability Matrix",
-				"Project Responsibility Matrix",
+				responsibilityMatrix,
 				"Project Change Impact Matrix",
 				"Project Constraint Register",
 			]) {
@@ -218,16 +227,31 @@
 				});
 		}
 		const rows = name === overview ? result.result.filter((row) => !row.chart) : result.result;
-		await ui.drawGrid(surface, table, result.columns, nestRows(rows), {
-			expand:
-				name === "Requirement Traceability Matrix"
-					? "roots"
-					: name === "Project Responsibility Matrix"
-					? "all"
-					: null,
+		if (matrix)
+			surface.matrixBaseColumns = result.columns.filter((column) => !column.assignee);
+		await ui.drawGrid(surface, surface.reportTable, result.columns, nestRows(rows), {
+			responsibilityMatrix: matrix,
+			expand: name === "Requirement Traceability Matrix" ? "roots" : matrix ? "all" : null,
 			export: canExport(report) ? () => download(report) : null,
 			fullscreenShell: page,
 		});
+	}
+
+	function currentMatrix(report) {
+		if (report.report_name !== responsibilityMatrix || !isActive(report)) return;
+		const surface = grids.get(report);
+		if (surface?.active() && surface.table) return surface;
+	}
+
+	function clearMatrix(report, surface, message) {
+		report.toggle_message(false);
+		return window.DinextScopeAnalytics.drawGrid(
+			surface,
+			surface.reportTable,
+			surface.matrixBaseColumns,
+			[],
+			{ responsibilityMatrix: true, emptyMessage: message }
+		);
 	}
 
 	function install(report) {
@@ -236,11 +260,22 @@
 		const render = report.render_datatable;
 		const refresh = report.refresh;
 		const toggle = report.toggle_report;
+		const toggleEmpty = report.toggle_nothing_to_show;
+		const setupFilters = report.setup_filters;
+		const showLoading = report.show_loading_screen;
 		const menu = report.get_menu_items;
 		const footer = report.show_footer_message;
 		const addChartButtons = report.add_chart_buttons_to_toolbar;
 		const addCardButton = report.add_card_button_to_toolbar;
 
+		report.setup_filters = function (...args) {
+			const result = setupFilters.apply(this, args);
+			this.page.page_form.toggleClass(
+				"dinext-scope-raci-filters",
+				this.report_name === responsibilityMatrix
+			);
+			return result;
+		};
 		report.refresh = function (...args) {
 			if (
 				isActive(this) &&
@@ -249,6 +284,8 @@
 				)
 			) {
 				this.hide_loading_screen();
+				const matrix = currentMatrix(this);
+				if (matrix) return clearMatrix(this, matrix, __("Please set filters"));
 				this.toggle_report(false);
 				this.toggle_message(true, __("Please set filters"));
 				return;
@@ -268,12 +305,22 @@
 					);
 			});
 		};
+		report.show_loading_screen = function (...args) {
+			if (!currentMatrix(this)) return showLoading.apply(this, args);
+		};
 		report.toggle_report = function (visible, ...args) {
 			if (isActive(this) && !visible) {
+				const matrix = currentMatrix(this);
+				if (matrix) return clearMatrix(this, matrix, __("Loading"));
 				grids.get(this)?.dispose();
 				grids.delete(this);
 			}
 			return toggle.call(this, visible, ...args);
+		};
+		report.toggle_nothing_to_show = function (visible, ...args) {
+			const matrix = currentMatrix(this);
+			if (visible && matrix) return clearMatrix(this, matrix);
+			return toggleEmpty.call(this, visible, ...args);
 		};
 		report.get_menu_items = function (...args) {
 			const items = menu.apply(this, args);
@@ -308,6 +355,10 @@
 			if (expectedReport !== report.report_name || !isActive(report)) return;
 			keepLinkValuesDuringTitleLookup(report);
 			install(report);
+			report.page.page_form.toggleClass(
+				"dinext-scope-raci-filters",
+				expectedReport === responsibilityMatrix
+			);
 			report.page.clear_menu();
 			report.menu_items = report.get_menu_items();
 			report.set_menu_items();

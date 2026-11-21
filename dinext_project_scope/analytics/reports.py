@@ -209,10 +209,11 @@ def traceability(filters):
 	], list(flatten_rows(top))
 
 
-def responsibility_matrix(deliverables, assignments, definitions, participant_names, role_names, filters):
-	filter_assignments = any(
-		filters.get(key) for key in ("responsibility", "project_role", "responsible_type", "responsible")
-	)
+def responsibility_matrix(deliverables, assignments, definitions, participant_profiles, role_names, filters):
+	selected = filters.get("responsibility")
+	selected_codes = set(selected) if isinstance(selected, list) else {selected} if selected else set()
+	assignment_fields = ("project_role", "responsible_type", "responsible")
+	filter_assignments = selected_codes or any(filters.get(key) for key in assignment_fields)
 	cells_by_result = {}
 	members = defaultdict(set)
 	for name, result in deliverables.items():
@@ -223,12 +224,11 @@ def responsibility_matrix(deliverables, assignments, definitions, participant_na
 			kind, identity = data.participant(row)
 			if kind not in {"User", "Contact"} or not identity:
 				continue
-			assignment = dict(row, responsible_type=kind)
-			if not data.matches(
-				assignment, filters, ("responsibility", "project_role", "responsible_type", "responsible")
-			):
-				continue
 			role, code = row.get("project_role") or "", row.get("responsibility")
+			if selected_codes and code not in selected_codes:
+				continue
+			if not data.matches(dict(row, responsible_type=kind), filters, assignment_fields):
+				continue
 			if code:
 				cells[(role, kind, identity)].add(code)
 				members[role].add((kind, identity))
@@ -244,26 +244,27 @@ def responsibility_matrix(deliverables, assignments, definitions, participant_na
 		members, key=lambda value: (not value, role_names.get(value, value).casefold(), value)
 	):
 		group_name = role_names.get(role) or role or _("Role not specified")
-		member_list = sorted(
-			members[role], key=lambda key: (participant_names.get(key, key[1]).casefold(), key)
-		)
-		label_counts = Counter(participant_names.get(key, key[1]) for key in member_list)
-		for kind, identity in member_list:
-			label = participant_names.get((kind, identity), identity)
+		avatars = [
+			data.participant_avatar(kind, identity, participant_profiles) for kind, identity in members[role]
+		]
+		avatars.sort(key=lambda avatar: (avatar["label"].casefold(), avatar["doctype"], avatar["name"]))
+		label_counts = Counter(avatar["label"] for avatar in avatars)
+		for avatar in avatars:
+			kind, identity, label = avatar["doctype"], avatar["name"], avatar["label"]
 			if label_counts[label] > 1:
 				label = f"{label} ({_(kind)} · {identity})"
 			field = f"assignment_{len(fields) + 1}"
 			fields[(role, kind, identity)] = field
-			columns.append(
-				column(
-					field,
-					label,
-					kind="raci",
-					group=group_name,
-					group_id=f"role:{role}",
-					width=max(135, min(250, len(label) * 8)),
-				)
+			assignment_column = column(
+				field,
+				label,
+				kind="raci",
+				group=group_name,
+				group_id=f"role:{role}",
+				width=max(135, min(250, len(label) * 8)),
 			)
+			assignment_column["assignee"] = dict(avatar, label=label)
+			columns.append(assignment_column)
 
 	groups = defaultdict(list)
 	for name, slots in cells_by_result.items():
@@ -322,7 +323,7 @@ def raci(filters):
 		deliverables,
 		assignments,
 		data.responsibility_definitions(),
-		data.participant_names(assignments),
+		data.participant_profiles(assignments),
 		role_names,
 		filters,
 	)
@@ -748,7 +749,8 @@ REPORTS = {
 def dataset(report_name, filters=None):
 	if report_name not in REPORTS:
 		frappe.throw(_("This report is unavailable."))
-	return REPORTS[report_name](data.normalize_filters(filters))
+	list_fields = ("responsibility",) if report_name == RESPONSIBILITY else ()
+	return REPORTS[report_name](data.normalize_filters(filters, list_fields=list_fields))
 
 
 def execute_report(report_name, filters=None):

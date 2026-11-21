@@ -397,6 +397,33 @@
 		return holder;
 	}
 
+	function participantAvatar(member) {
+		const avatar = node("span", "avatar avatar-small");
+		avatar.title = member.label;
+		avatar.setAttribute("role", "img");
+		avatar.setAttribute("aria-label", member.label);
+		const initials = node(
+			"span",
+			"avatar-frame standard-image",
+			frappe.get_abbr(member.label, 1)
+		);
+		const [background, text] = frappe.get_palette(member.label);
+		initials.style.backgroundColor = `var(${background})`;
+		initials.style.color = `var(${text})`;
+		avatar.append(imageWithFallback(member.image, initials));
+		return avatar;
+	}
+
+	class ParticipantHeader {
+		init({ assignee }) {
+			this.element = participantAvatar(assignee);
+		}
+
+		getGui() {
+			return this.element;
+		}
+	}
+
 	function resultAvatars(row, members) {
 		if (!members?.length) {
 			if (row.document_type !== DELIVERABLE || row.is_other) return node("span");
@@ -406,22 +433,7 @@
 			return placeholder;
 		}
 		const holder = node("span", "dinext-scope-result-avatars");
-		for (const member of members) {
-			const avatar = node("span", "avatar avatar-small");
-			avatar.title = member.label;
-			avatar.setAttribute("role", "img");
-			avatar.setAttribute("aria-label", member.label);
-			const initials = node(
-				"span",
-				"avatar-frame standard-image",
-				frappe.get_abbr(member.label, 1)
-			);
-			const [background, text] = frappe.get_palette(member.label);
-			initials.style.backgroundColor = `var(${background})`;
-			initials.style.color = `var(${text})`;
-			avatar.append(imageWithFallback(member.image, initials));
-			holder.append(avatar);
-		}
+		holder.append(...members.map(participantAvatar));
 		return holder;
 	}
 
@@ -553,9 +565,15 @@
 				field: column.fieldname,
 				headerName: column.label,
 				width: column.width || 135,
-				minWidth: 76,
+				minWidth: column.kind === "result_type" ? 66 : 76,
 				cellDataType: false,
 			};
+			if (column.assignee) {
+				item.headerComponentParams = {
+					innerHeaderComponent: ParticipantHeader,
+					innerHeaderComponentParams: { assignee: column.assignee },
+				};
+			}
 			if (column.pinned) {
 				item.pinned = column.pinned;
 				item.lockPinned = true;
@@ -583,6 +601,10 @@
 					const group = {
 						groupId: column.group_id,
 						headerName: column.group,
+						...(column.assignee && {
+							headerTooltip: column.group,
+							marryChildren: true,
+						}),
 						children: [],
 					};
 					groups.set(column.group_id, group);
@@ -610,13 +632,24 @@
 
 	async function drawGrid(surface, container, columns, rows, options = {}) {
 		if (!surface.active()) return;
-		if (options.resultTree && surface.table) {
+		const definitions = tableColumns(columns, options.resultTree);
+		if ((options.resultTree || options.responsibilityMatrix) && surface.table) {
 			const table = surface.table;
-			table.clearRowCheck();
+			if (options.resultTree) {
+				table.clearRowCheck();
+				const type = columns.find((column) => column.kind === "result_type");
+				table.api.setColumnWidths([{ key: type.fieldname, newWidth: type.width }]);
+			} else {
+				table.setOption("columns", definitions);
+				table.expandedIds.clear();
+			}
 			for (const id of expansionIds(rows, options.expand)) table.expandedIds.add(id);
 			table.refresh(rows);
 			table.refreshToolbar();
-			setMessage(surface, rows.length ? null : __("No records match the filters."));
+			setMessage(
+				surface,
+				rows.length ? null : options.emptyMessage || __("No records match the filters.")
+			);
 			return;
 		}
 		const generation = (surface.gridGeneration || 0) + 1;
@@ -633,7 +666,20 @@
 			toolbarItems.push({
 				id: "scope-export",
 				type: "custom",
-				render: () => button(__("Download Excel"), options.export),
+				render: () => {
+					if (!options.responsibilityMatrix)
+						return button(__("Download Excel"), options.export);
+					const excel = button(
+						__("Excel"),
+						options.export,
+						"btn btn-default btn-xs dinext-scope-excel"
+					);
+					const icon = node("span");
+					icon.setAttribute("aria-hidden", "true");
+					icon.innerHTML = frappe.utils.icon("es-line-download", "sm");
+					excel.prepend(icon);
+					return excel;
+				},
 			});
 		}
 		const grid = node("div", "dinext-scope-grid-target");
@@ -643,7 +689,7 @@
 		const table = await window.DinextTable.create({
 			container: grid,
 			data: rows,
-			columns: tableColumns(columns, options.resultTree),
+			columns: definitions,
 			expandedIds: expansionIds(rows, options.expand),
 			filter: { enabled: false },
 			edit: false,
@@ -658,10 +704,8 @@
 			fullscreen: { target: "shell", shell: options.fullscreenShell || surface.root },
 			layout: { height: "auto", minHeight: 76, maxHeight: "min(65vh, 660px)" },
 			gridOptions: {
-				...(options.resultTree && {
-					getRowStyle: resultRowStyle,
-					suppressNoRowsOverlay: true,
-				}),
+				...(options.resultTree && { getRowStyle: resultRowStyle }),
+				suppressNoRowsOverlay: Boolean(options.resultTree || options.responsibilityMatrix),
 				rowHeight: 35,
 				headerHeight: 32,
 				groupHeaderHeight: 29,
@@ -994,11 +1038,31 @@
 		return name ? __(name, null, DELIVERABLE) : __("Not specified");
 	}
 
-	function resultColumns() {
+	function resultTypeWidth(container, heading, rows) {
+		const measure = document.createElement("canvas").getContext("2d");
+		if (!measure) return 76;
+		const style = getComputedStyle(container);
+		measure.font = `600 ${style.fontSize} ${style.fontFamily}`;
+		let width = measure.measureText(heading).width;
+		measure.font = `${style.fontSize} ${style.fontFamily}`;
+		function visit(items) {
+			for (const row of items) {
+				if (!isResultRow(row) && row.deliverable_type) {
+					width = Math.max(width, measure.measureText(row.deliverable_type).width);
+				}
+				if (row.children?.length) visit(row.children);
+			}
+		}
+		visit(rows);
+		return Math.max(66, Math.min(240, Math.ceil(width + 34)));
+	}
+
+	function resultColumns(container, rows) {
+		const type = __("Type");
 		return [
 			["label", __("Deliverable / Work"), "label", 285, "left"],
 			["status", __("Status"), "status", 155],
-			["deliverable_type", __("Type"), "result_type", 135],
+			["deliverable_type", type, "result_type", resultTypeWidth(container, type, rows)],
 			["category", __("Category"), null, 150],
 			["progress", __("Progress"), "result_progress", 105],
 			["assignment", __("Assignment"), "result_assignment", 155],
@@ -1223,7 +1287,13 @@
 					}
 				);
 			}
-			await drawGrid(surface, table, resultColumns(), result.rows, tableOptions);
+			await drawGrid(
+				surface,
+				table,
+				resultColumns(table, result.rows),
+				result.rows,
+				tableOptions
+			);
 		}
 
 		await refresh();

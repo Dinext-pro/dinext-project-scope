@@ -595,11 +595,36 @@ class TestScopeAnalytics(TestCase):
 			{"r1": {"name": "r1", "title": "=1+2", "category": "Cat", "deliverable_type": "Type"}},
 			assignments,
 			definitions,
-			{("Contact", "x"): "Same", ("User", "x"): "Same"},
+			{("Contact", "x"): {"full_name": "Same"}, ("User", "x"): {"full_name": "Same"}},
 			{},
 			{},
 		)
 		self.assertEqual(len([column for column in columns if column.get("group")]), 2)
+		self.assertEqual(
+			data.normalize_filters({"responsibility": ["Do", "Own"]}, list_fields=("responsibility",)),
+			{"responsibility": ["Do", "Own"]},
+		)
+		for filters in (
+			{"responsibility": ["Do", {"value": "Own"}]},
+			{"project": ["P1", "P2"]},
+		):
+			with self.assertRaises(frappe.ValidationError):
+				data.normalize_filters(filters, list_fields=("responsibility",))
+		selected_columns, selected_rows = reports.responsibility_matrix(
+			{"r1": {"name": "r1"}},
+			assignments,
+			definitions,
+			{("Contact", "x"): {"full_name": "Same"}, ("User", "x"): {
+				"full_name": "Same", "user_image": "/files/member.png",
+			}},
+			{},
+			{"responsibility": ["Own", "Do"], "responsible_type": "User"},
+		)
+		assignee = selected_columns[-1]["assignee"]
+		self.assertEqual(assignee["image"], "/files/member.png")
+		self.assertEqual(assignee["label"], "Same")
+		self.assertEqual(selected_rows[-1]["assignment_1"], "Do / Own")
+
 		self.assertEqual(
 			reports.responsibility_matrix(
 				{"r1": {"name": "r1"}},

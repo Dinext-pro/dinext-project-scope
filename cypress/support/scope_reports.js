@@ -31,13 +31,18 @@ export function reportShown(name, filters = {}) {
 		const report = window.frappe?.query_report;
 		expect(report?.report_name).to.eq(name);
 		for (const [field, value] of Object.entries(filters)) {
-			expect(report.get_filter_value(field), field).to.eq(value);
+			expect(report.get_filter_value(field), field).to.deep.eq(value);
 		}
 	});
 }
 
 export function openReport(name, filters = {}) {
-	const query = new URLSearchParams(filters);
+	const query = new URLSearchParams(
+		Object.entries(filters).map(([key, value]) => [
+			key,
+			Array.isArray(value) ? JSON.stringify(value) : value,
+		])
+	);
 	cy.visit(`/app/query-report/${encodeURIComponent(name)}?${query}`);
 	reportShown(name, filters);
 }
@@ -52,11 +57,11 @@ export function exact(text) {
 
 export function downloadExcel(name, expectedFilters) {
 	cy.intercept("GET", `**${exportMethod}?*`).as("workbook");
-	cy.contains(`${table} button`, "Download Excel").click();
+	cy.get(`${table} [data-toolbar-custom-id="scope-export"] button`).click();
 	cy.wait("@workbook").then(({ request, response }) => {
 		expect(response.statusCode).to.eq(200);
 		expect(response.headers["content-disposition"]).to.contain(`${name}.xlsx`);
-		expect(JSON.parse(request.query.filters)).to.include(expectedFilters);
+		expect(JSON.parse(request.query.filters)).to.deep.include(expectedFilters);
 	});
 	cy.readFile(`${Cypress.config("downloadsFolder")}/${name}.xlsx`, null, {
 		timeout: 30000,
