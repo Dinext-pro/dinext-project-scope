@@ -979,7 +979,7 @@
 		}));
 	}
 
-	function resultToolbar(frm, surface, refresh, canDelete) {
+	function resultToolbar(frm, surface, { refresh, clearFilters, canDelete }) {
 		const project = frm.doc.name;
 		let deleting = false;
 		return [
@@ -1027,9 +1027,17 @@
 				},
 			},
 			{
+				id: "scope-clear-result-filters",
+				type: "button",
+				title: __("Clear filters"),
+				iconSvg: frappe.utils.icon("filter-x", "sm"),
+				onClick: clearFilters,
+			},
+			{
 				id: "scope-responsibility-matrix",
 				type: "button",
-				label: __("Project Responsibility Matrix"),
+				label: __("Responsibility Matrix"),
+				iconSvg: frappe.utils.icon("table", "sm"),
 				onClick: () => toReport("Project Responsibility Matrix", { project }),
 			},
 		];
@@ -1064,9 +1072,8 @@
 		const project = frm.doc.name;
 		const canDelete = frm.has_perm("write") && frappe.model.can_delete(DELIVERABLE);
 		const charts = node("div", "dinext-scope-charts");
-		const actions = node("div", "dinext-scope-result-actions");
 		const table = node("div", "dinext-scope-table dinext-scope-results-table");
-		surface.root.append(charts, actions, table);
+		surface.root.append(charts, table);
 		const profiles = [
 			["category", __("Category"), __("Deliverables by category")],
 			["deliverable_type", __("Deliverable type"), __("Deliverables by type")],
@@ -1097,20 +1104,19 @@
 			control.$input.attr("aria-label", label);
 			return { key, chart, control };
 		});
-		actions.append(
-			button(__("Clear filters"), () => {
-				for (const { control } of panels) control.set_input("");
-				refresh();
-			})
-		);
 		let revision = 0;
 		const tableOptions = {
 			expand: "roots",
 			resultTree: true,
 			canCheckRow: ({ row }) =>
 				canDelete && row.document_type === DELIVERABLE && !row.is_other,
-			toolbarItems: resultToolbar(frm, surface, refresh, canDelete),
+			toolbarItems: resultToolbar(frm, surface, { refresh, clearFilters, canDelete }),
 		};
+
+		function clearFilters() {
+			for (const { control } of panels) control.set_input("");
+			return refresh();
+		}
 
 		async function refresh() {
 			const request = ++revision;

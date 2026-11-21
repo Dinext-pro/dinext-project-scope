@@ -95,6 +95,7 @@ describe("Project scope charts", () => {
 	const fixture = useReportFixture();
 
 	it("shows the results loader until data arrives and keeps fullscreen through donut filters", () => {
+		cy.viewport(1440, 680);
 		let release;
 		const incoming = new Cypress.Promise((resolve) => {
 			release = resolve;
@@ -139,6 +140,17 @@ describe("Project scope charts", () => {
 		const grid = `${resultHost} .dinext-table--fullscreen`;
 		cy.get(grid).then(([$element]) => {
 			fullscreenTable = $element;
+		});
+		cy.get(`${resultHost} .dinext-scope-results`).should(([shell]) => {
+			const viewport = shell.querySelector(".ag-body-viewport");
+			expect(shell.ownerDocument.defaultView.getComputedStyle(shell).overflowY).to.eq(
+				"hidden"
+			);
+			expect(shell.scrollHeight).to.be.at.most(shell.clientHeight + 1);
+			expect(viewport.clientHeight).to.be.greaterThan(0);
+			expect(viewport.getBoundingClientRect().bottom).to.be.at.most(
+				shell.getBoundingClientRect().bottom
+			);
 		});
 		clickPieSegment("Deliverables by category", `${fixture.title} secondary`);
 		resultFilter("Deliverables by category", "category").should(
@@ -387,9 +399,10 @@ describe("Project scope charts", () => {
 		cy.contains(`${resultHost} [role="status"]`, "No records match the filters.").should(
 			"be.visible"
 		);
-		cy.contains(`${resultHost} .dinext-table-toolbar button`, "Project Responsibility Matrix")
-			.should("be.visible")
-			.click();
+		const matrix = `${resultHost} .dinext-table-toolbar button[title="Responsibility Matrix"]`;
+		cy.get(matrix).should("have.text", "Responsibility Matrix").and("be.visible");
+		cy.get(matrix).find("svg use").should("have.attr", "href", "#icon-table");
+		cy.get(matrix).click();
 		reportShown(responsibility, { project: fixture.project });
 		cy.window().should(({ frappe }) => {
 			expect(frappe.query_report.get_filter_value("deliverable_type") || "").to.eq("");
@@ -481,7 +494,12 @@ describe("Project scope charts", () => {
 			"be.visible"
 		);
 		cy.get(`${resultHost} select`).should("have.length", 3);
-		cy.contains(`${resultHost} button`, "Clear filters").click();
+		const clear = `${resultHost} .dinext-table-toolbar button[title="Clear filters"]`;
+		cy.get(clear)
+			.should("have.text", "")
+			.find("svg use")
+			.should("have.attr", "href", "#icon-filter-x");
+		cy.get(clear).click();
 		for (const [title, fieldname] of filters) {
 			resultFilter(title, fieldname).should("have.value", "");
 		}

@@ -47,12 +47,6 @@
 	height: 75vh;
 }
 
-.dinext-scope-result-actions {
-	display: flex;
-	justify-content: flex-end;
-	margin-block-end: 0.5rem;
-}
-
 .dinext-scope-results {
 	padding-block-start: 0;
 }
@@ -63,6 +57,30 @@
 
 .dinext-scope-results .dinext-scope-heading {
 	margin-block-end: 0.2rem;
+}
+
+.dinext-scope-results:has(.dinext-table--fullscreen) {
+	display: flex;
+	flex-direction: column;
+	block-size: 100dvh;
+	overflow: hidden;
+}
+
+.dinext-scope-results:has(.dinext-table--fullscreen) .dinext-scope-charts {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dinext-scope-results:has(.dinext-table--fullscreen) .dinext-scope-chart--donut {
+	height: min(8.6rem, 22dvh);
+}
+
+.dinext-scope-results:has(.dinext-table--fullscreen) .dinext-scope-results-table {
+	flex: 1;
+	min-height: 0;
+}
+
+.dinext-scope-results:has(.dinext-table--fullscreen) .dinext-scope-grid-target {
+	height: 100%;
 }
 
 .dinext-scope-results-table {
