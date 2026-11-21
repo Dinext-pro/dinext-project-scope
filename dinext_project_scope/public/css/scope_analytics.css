@@ -591,6 +591,10 @@ button.dinext-scope-link:hover {
 	margin: 0;
 }
 
+.dinext-scope-raci-table .ag-cell[col-id^="assignment_"] {
+	padding-inline: var(--padding-xs);
+}
+
 .dinext-scope-raci-table .dinext-scope-badges {
 	flex-wrap: wrap;
 	justify-content: center;

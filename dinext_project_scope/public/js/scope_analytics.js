@@ -569,7 +569,7 @@
 				cellDataType: false,
 			};
 			if (column.assignee) {
-				const width = 76;
+				const width = 104;
 				Object.assign(item, {
 					width,
 					minWidth: width,

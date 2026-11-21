@@ -347,6 +347,19 @@ describe("Project scope reports", () => {
 				"rgb(120, 44, 196)"
 			);
 		});
+		assignmentRow(`${fixture.title} shared component`)
+			.find(".dinext-scope-badge")
+			.should(($badges) => {
+				expect([...$badges].map((badge) => badge.textContent)).to.have.members([
+					"Д",
+					"О",
+					"С",
+				]);
+				const boxes = [...$badges].map((badge) => badge.getBoundingClientRect());
+				expect(new Set(boxes.map((box) => box.top)).size).to.eq(1);
+				const cell = $badges[0].closest(".ag-cell").getBoundingClientRect();
+				expect(Math.max(...boxes.map((box) => box.right))).to.be.lessThan(cell.right);
+			});
 		cy.screenshot("responsibility-matrix");
 		rowLink(`${fixture.title} result`).click();
 		cy.location("pathname").should("eq", `/app/project-deliverable/${fixture.result}`);
@@ -393,13 +406,24 @@ describe("Project scope reports", () => {
 			expect(new Set(tops).size).to.eq(1);
 		});
 
+		cy.get('.page-form:visible select[data-fieldname="responsible_type"] option').should(
+			($options) => {
+				expect([...$options].map((option) => option.value)).to.deep.equal([
+					"",
+					"User",
+					"Contact",
+				]);
+				expect($options[0].textContent.trim()).to.eq("");
+			}
+		);
+
 		const label = '.ag-pinned-left-header .ag-header-cell[col-id="label"]';
 		cy.get(`${table} ${label}`).should("be.visible");
 		cy.get(`${table} .ag-header-cell[col-id^="assignment_"]`).should(($headers) => {
 			expect($headers.length).to.be.at.least(2);
 			const widths = [...$headers].map((header) => header.getBoundingClientRect().width);
 			expect(new Set(widths).size).to.eq(1);
-			expect(widths[0]).to.be.lessThan(100);
+			expect(widths[0]).to.be.within(100, 110);
 		});
 
 		clickFullscreenControl("Fullscreen");

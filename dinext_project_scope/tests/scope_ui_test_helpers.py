@@ -310,21 +310,22 @@ def create_report_fixture(run_id):
 			(role, first_code, "Contact", person),
 		)
 	]
-	shared_accountable = []
+	shared_responsibles = [
+		{
+			"project_role": role,
+			"responsibility": code,
+			"responsible_type": "Contact",
+			"responsible": person,
+		}
+		for code in (ACCOUNTABLE_CODE, "Д", "С")
+		if frappe.db.get_value(RESPONSIBILITY, code, "enabled")
+	]
 	configured = {(row["responsibility"], row["project_role"]) for row in assigned}
-	if frappe.db.get_value(RESPONSIBILITY, ACCOUNTABLE_CODE, "enabled"):
+	if any(row["responsibility"] == ACCOUNTABLE_CODE for row in shared_responsibles):
 		configured.add((ACCOUNTABLE_CODE, second_role))
-		shared_accountable.append(
-			{
-				"project_role": role,
-				"responsibility": ACCOUNTABLE_CODE,
-				"responsible_type": "Contact",
-				"responsible": person,
-			}
-		)
 	for name, pairs in (
 		(category, configured),
-		(other_category, {(row["responsibility"], row["project_role"]) for row in shared_accountable}),
+		(other_category, {(row["responsibility"], row["project_role"]) for row in shared_responsibles}),
 	):
 		doc = frappe.get_doc("Project Deliverable Category", name)
 		for responsibility, project_role in sorted(pairs):
@@ -337,7 +338,7 @@ def create_report_fixture(run_id):
 		other_category,
 		leaf_kind,
 		work=work.name,
-		deliverable_responsibles=shared_accountable,
+		deliverable_responsibles=shared_responsibles,
 	)
 	result = _result(
 		project.name,

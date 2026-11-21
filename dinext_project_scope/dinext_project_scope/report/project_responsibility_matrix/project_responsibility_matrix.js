@@ -49,10 +49,7 @@ frappe.query_reports["Project Responsibility Matrix"] = {
 			fieldname: "responsible_type",
 			label: __("Participant type"),
 			fieldtype: "Select",
-			options: ["", "User", "Contact"].map((value) => ({
-				value,
-				label: value ? __(value) : "",
-			})),
+			options: ["", "User", "Contact"],
 		},
 		{
 			fieldname: "responsible",
