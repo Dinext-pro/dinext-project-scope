@@ -185,7 +185,11 @@ def _work_selection(source, selection, created):
 		nested = row["nested_item_key"]
 		element = created[nested] if nested else work.get(row["source_element_key"])
 		rows.append(
-			{**{key: value for key, value in row.items() if key != "nested_item_key"}, "element": element}
+			{
+				**{key: value for key, value in row.items() if key != "nested_item_key"},
+				"element": element,
+				"element_doctype": structure.element_doctype(row),
+			}
 		)
 	return rows
 

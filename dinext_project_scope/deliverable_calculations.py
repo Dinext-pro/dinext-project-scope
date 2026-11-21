@@ -7,6 +7,7 @@ from math import fsum
 COMPLETED = "Completed"
 CANCELLED = "Cancelled"
 DELIVERABLE = "Project Deliverable"
+OTHER = "Other"
 DATE_FIELDS = ("planned_start_date", "planned_end_date", "expected_end_date", "actual_end_date")
 PROJECTION_FIELDS = ("progress", *DATE_FIELDS, "plan_incomplete", "forecast_incomplete", "requires_recheck")
 
@@ -20,6 +21,7 @@ def work_digest(value):
 
 
 def calculate(status, rows, accepted_on=None):
+	rows = [(row, work) for row, work in rows if row["element_type"] != OTHER]
 	if not rows:
 		finished_on = accepted_on if status == COMPLETED else None
 		return {
@@ -92,6 +94,8 @@ def work_blockers(rows):
 		if not row.get("element"):
 			if not row["is_optional"]:
 				blockers.append((label, "missing"))
+		elif row["element_type"] == OTHER:
+			continue
 		elif not work or work["status"] != COMPLETED:
 			blockers.append((label, "incomplete"))
 		elif not row["is_optional"] and row["element_type"] == DELIVERABLE and work.get("requires_recheck"):

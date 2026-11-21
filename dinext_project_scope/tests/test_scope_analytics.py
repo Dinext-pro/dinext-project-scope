@@ -1,13 +1,19 @@
+import json
 from datetime import date, datetime
 from io import BytesIO
+from pathlib import Path
+from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import call, patch
+from unittest.mock import Mock, call, patch
 
 import frappe
 from openpyxl import load_workbook
 
 from dinext_project_scope import requirements
 from dinext_project_scope.analytics import data, export, reports
+from dinext_project_scope.dinext_project_scope.doctype.project_deliverable_type.project_deliverable_type import (
+	ProjectDeliverableType,
+)
 
 
 class TestScopeAnalytics(TestCase):
@@ -187,6 +193,10 @@ class TestScopeAnalytics(TestCase):
 				)
 			]
 		}
+		assignments["review"] += [
+			assignments["review"][0],
+			{"responsibility": "other", "responsible_type": "User", "responsible": "not-selected"},
+		]
 		readable = {
 			"Project Deliverable Type": {"Document": {"icon": "/files/document.svg", "color": "#123456"}},
 			"User": {
@@ -201,12 +211,18 @@ class TestScopeAnalytics(TestCase):
 			patch.object(data, "load_structure", return_value=structure),
 			patch.object(data, "load_assignments", return_value=assignments),
 			patch.object(
+				data,
+				"result_tree_responsibilities",
+				return_value=[data.ACCOUNTABLE_CODE],
+			),
+			patch.object(
 				data, "responsibility_definitions", return_value={data.ACCOUNTABLE_CODE: {"enabled": 1}}
 			),
 			patch.object(
 				data, "available_tasks", return_value={"work": {"subject": "Work", "type": "Task type"}}
 			),
 			patch.object(data, "getdate", return_value=date(2026, 11, 20)),
+			patch.object(data, "work_assignees", return_value={("Task", "work"): [{"name": "assigned"}]}),
 			patch.object(data, "select_rows", side_effect=lambda doctype, *_: readable[doctype]) as select,
 		):
 			result = data.project_results("p1")
@@ -261,6 +277,77 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual(work["deliverable_type"], "Task type")
 		self.assertNotIn("deliverable_type_icon", work)
 		self.assertNotIn("accountable", work)
+		self.assertEqual(review["assignment"], review["accountable"])
+		self.assertEqual(work["assignment"], [{"name": "assigned"}])
+
+	def test_results_tree_honors_configured_responsibility_order_and_empty_list(self):
+		settings = frappe._dict(
+			result_tree_responsibilities=[
+				frappe._dict(responsibility=code) for code in ("review", "obsolete", "work", "review")
+			]
+		)
+		with (
+			patch.object(data.frappe, "get_cached_doc", return_value=settings),
+			patch.object(
+				data,
+				"responsibility_definitions",
+				return_value={
+					"review": {"enabled": 1, "responsibility": "Reviewer"},
+					"obsolete": {"enabled": 0, "responsibility": "Obsolete"},
+					"work": {"enabled": 1, "responsibility": "Contributor"},
+				},
+			),
+		):
+			self.assertEqual(
+				data.result_tree_responsibilities(),
+				["review", "work"],
+			)
+			settings.result_tree_responsibilities = []
+			self.assertEqual(data.result_tree_responsibilities(), [])
+
+	def test_work_assignees_are_scoped_to_visible_documents_and_open_todos(self):
+		todos = [frappe._dict(reference_name="W", allocated_to="user")]
+		with (
+			patch.object(data.frappe, "get_all", return_value=todos) as query,
+			patch.object(data, "_participant_rows", return_value={("User", "user"): {"full_name": "Person"}}),
+		):
+			assigned = data.work_assignees({"W": {}}, {("Contact", "W"): {}})
+		self.assertEqual(assigned[("Task", "W")][0]["label"], "Person")
+		self.assertEqual(assigned[("Contact", "W")][0]["name"], "user")
+		for kind in ("Task", "Contact"):
+			query.assert_any_call(
+				"ToDo",
+				filters={"reference_type": kind, "reference_name": ["in", ["W"]], "status": "Open"},
+				fields=["reference_name", "allocated_to"],
+			)
+
+	def test_standard_result_type_icons_are_distinct_bundled_assets(self):
+		app = Path(data.__file__).parents[1]
+		types = json.loads((app / "fixtures/project_deliverable_type.json").read_text(encoding="utf-8"))
+		icons = {row["icon"] for row in types}
+		self.assertEqual(len(icons), 5)
+		for icon in icons:
+			self.assertTrue(icon.startswith("/assets/dinext_project_scope/icons/deliverable-types/"))
+			asset = app / "public" / icon.removeprefix("/assets/dinext_project_scope/")
+			self.assertTrue(asset.is_file(), icon)
+
+	def test_deliverable_type_fixture_import_preserves_configured_icon(self):
+		kind = SimpleNamespace(
+			doctype="Project Deliverable Type", name="Document", icon="/assets/default.svg"
+		)
+		db = Mock()
+		db.get_value.return_value = "/files/custom.svg"
+		with (
+			patch.object(frappe, "db", db),
+			patch.object(frappe, "flags", frappe._dict(in_fixtures=True)),
+		):
+			ProjectDeliverableType.before_import(kind)
+			self.assertEqual(kind.icon, "/files/custom.svg")
+
+			db.get_value.return_value = None
+			kind.icon = "/assets/default.svg"
+			ProjectDeliverableType.before_import(kind)
+			self.assertEqual(kind.icon, "/assets/default.svg")
 
 	def test_history_has_no_synthetic_actual_values(self):
 		events = [

@@ -88,6 +88,7 @@ fixtures = [
 
 before_install = "dinext_project_scope.install.before_install"
 after_install = "dinext_project_scope.install.after_install"
+after_sync = "dinext_project_scope.install.seed_default_result_tree_responsibility"
 after_migrate = "dinext_project_scope.install.after_migrate"
 
 # Uninstallation

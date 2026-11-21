@@ -43,7 +43,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Element Type",
-   "options": "Task\nProject Deliverable",
+   "options": "Task\nProject Deliverable\nOther",
    "reqd": 1
   },
   {
@@ -57,7 +57,7 @@
    "fieldtype": "Select",
    "hidden": 1,
    "label": "Filter Doctype",
-   "options": "\nTask Type\nProject Deliverable Type"
+   "options": "\nTask Type\nProject Deliverable Type\nDocType"
   },
   {
    "fieldname": "filter_type",
@@ -76,14 +76,15 @@
    "fieldname": "weight",
    "fieldtype": "Float",
    "label": "Weight",
-   "non_negative": 1
+   "non_negative": 1,
+   "read_only_depends_on": "eval:doc.element_type == 'Other'"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-11-18 00:55:25.515277",
+ "modified": "2026-11-21 11:45:02.906843",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Deliverable Template Element",

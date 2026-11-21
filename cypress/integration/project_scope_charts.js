@@ -1,3 +1,4 @@
+import { linkOption } from "../support/link_options";
 import {
 	downloadExcel,
 	exact,
@@ -81,6 +82,15 @@ function resultCells(label) {
 		.then((id) => cy.get(`${resultHost} .ag-center-cols-container [row-id="${id}"]`));
 }
 
+function workCells(label) {
+	return cy
+		.contains(`${resultHost} .dinext-scope-label`, label)
+		.first()
+		.closest(".ag-row")
+		.invoke("attr", "row-id")
+		.then((id) => cy.get(`${resultHost} .ag-center-cols-container [row-id="${id}"]`));
+}
+
 describe("Project scope charts", () => {
 	const fixture = useReportFixture();
 
@@ -122,7 +132,7 @@ describe("Project scope charts", () => {
 						row.ownerDocument.defaultView.getComputedStyle(row).backgroundColor
 					).not.to.eq("rgba(0, 0, 0, 0)");
 				});
-			cy.get('[col-id="accountable"] .avatar[role="img"]')
+			cy.get('[col-id="assignment"] .avatar[role="img"]')
 				.should(([avatar]) => expect(avatar.title).to.eq(fixture.title))
 				.find("img")
 				.should(([photo]) => {
@@ -135,14 +145,157 @@ describe("Project scope charts", () => {
 				.should("be.visible");
 		});
 		resultCells(`${fixture.title} shared component`)
-			.find('[col-id="accountable"] .avatar .standard-image')
+			.find('[col-id="assignment"] .avatar .standard-image')
 			.should("have.text", "C");
 		resultCells(`${fixture.title} shared component`)
 			.find('[col-id="deliverable_type"] svg')
 			.should("be.visible");
 		resultCells(`${fixture.title} peer`)
-			.find('[col-id="accountable"]')
+			.find('[col-id="assignment"]')
 			.should("have.text", "—");
+	});
+
+	it("ships a distinct visible icon for each standard deliverable type", () => {
+		for (const [name, file] of [
+			["Документ", "document"],
+			["Работа", "work"],
+			["Разработка", "development"],
+			["Тестирование", "testing"],
+			["Миграция данных", "data-migration"],
+		]) {
+			const icon = `/assets/dinext_project_scope/icons/deliverable-types/${file}.svg`;
+			cy.visit(`/app/project-deliverable-type/${encodeURIComponent(name)}`);
+			cy.window().should(({ cur_frm }) => {
+				expect(cur_frm.doc.name).to.eq(name);
+				expect(cur_frm.doc.icon).to.eq(icon);
+			});
+			cy.request(icon).its("headers.content-type").should("include", "image/svg+xml");
+		}
+	});
+
+	context("configured result tree responsibilities", () => {
+		const url = "/app/project-scope-settings/Project%20Scope%20Settings";
+		const field = "result_tree_responsibilities";
+		const control = `.page-container:visible [data-fieldname="${field}"]`;
+		let original;
+
+		function openSettings() {
+			cy.openDesk(url);
+			cy.window().its("cur_frm.doc.doctype").should("eq", "Project Scope Settings");
+		}
+
+		function saveSettings() {
+			cy.window().then(({ cur_frm }) => cur_frm.save());
+		}
+
+		afterEach(() => {
+			if (!original) return;
+			cy.login();
+			openSettings();
+			cy.window().then(({ cur_frm }) => {
+				cur_frm.clear_table(field);
+				for (const responsibility of original)
+					cur_frm.add_child(field, { responsibility });
+				cur_frm.dirty();
+			});
+			saveSettings();
+		});
+
+		it("combines selected responsibilities in Assignment and keeps work assignees when the list is empty", () => {
+			openSettings();
+			cy.window().then(({ cur_frm }) => {
+				original = cur_frm.doc[field].map(({ responsibility }) => responsibility);
+				expect(original).to.deep.eq(["О"]);
+			});
+			cy.get(`${control} .tb-selected-value .btn-remove`).click();
+			for (const value of [`${fixture.title} secondary`, fixture.title]) {
+				cy.get(`${control} input:visible`).type(value);
+				linkOption(control, value).click();
+			}
+			saveSettings();
+
+			showResults(fixture.project);
+			cy.get(`${resultHost} .ag-header-cell[col-id="assignment"]`).should(
+				"have.text",
+				"Assignment"
+			);
+			resultCells(`${fixture.title} result`)
+				.find('[col-id="assignment"] .avatar')
+				.should("have.length", 2);
+			resultCells(`${fixture.title} shared component`)
+				.find('[col-id="assignment"]')
+				.should("have.text", "—");
+			openSettings();
+			cy.get(`${control} .tb-selected-value .btn-remove`).first().click();
+			cy.get(`${control} .tb-selected-value .btn-remove`).first().click();
+			saveSettings();
+
+			showResults(fixture.project);
+			resultCells(`${fixture.title} result`)
+				.find('[col-id="assignment"]')
+				.should("have.text", "—");
+			rowLink(`${fixture.title} shared component`)
+				.first()
+				.closest(".ag-cell")
+				.find(".dinext-table-tree-toggle")
+				.click();
+			workCells(`${fixture.title} work group`)
+				.find('[col-id="assignment"] .avatar')
+				.should("have.length", 1);
+		});
+	});
+
+	it("links an Other document without counting its dates or progress and shows its assignment", () => {
+		cy.visit(
+			`/app/project-deliverable-type/${encodeURIComponent(`${fixture.title} secondary`)}`
+		);
+		cy.get('[data-fieldname="elements"] .grid-row[data-idx="2"] .btn-open-row').click();
+		const kind = '.grid-row-open .form-in-grid [data-fieldname="element_type"] select';
+		cy.get(kind).select("Task");
+		cy.get(kind).select("Other");
+		const filter =
+			'.grid-row-open .form-in-grid [data-fieldname="filter_type"].frappe-control';
+		cy.get(`${filter} input:visible`).type("Contact");
+		linkOption(filter, "Contact").click();
+		cy.window().then(({ cur_frm }) => cur_frm.save());
+
+		cy.visit(`/app/project-deliverable/${fixture.shared}`);
+		let schedule;
+		cy.window()
+			.should(({ cur_frm }) => {
+				expect(cur_frm.doc.name).to.eq(fixture.shared);
+				expect(cur_frm.doc.table_xuct[1].element_doctype).to.eq("Contact");
+			})
+			.then(({ cur_frm }) => {
+				schedule = [
+					cur_frm.doc.progress,
+					cur_frm.doc.planned_end_date,
+					cur_frm.doc.expected_end_date,
+				];
+			});
+		cy.get('[data-fieldname="table_xuct"] .grid-row[data-idx="2"] .btn-open-row').click();
+		const field = '.grid-row-open .form-in-grid [data-fieldname="element"].frappe-control';
+		cy.get(`${field} input:visible`).type(fixture.title);
+		linkOption(field, fixture.contact).click();
+		cy.window().then(({ cur_frm }) => cur_frm.save());
+		cy.window().should(({ cur_frm }) => {
+			expect(cur_frm.doc.table_xuct[1].element).to.eq(fixture.contact);
+			expect([
+				cur_frm.doc.progress,
+				cur_frm.doc.planned_end_date,
+				cur_frm.doc.expected_end_date,
+			]).to.deep.eq(schedule);
+		});
+
+		showResults(fixture.project);
+		rowLink(`${fixture.title} shared component`)
+			.first()
+			.closest(".ag-cell")
+			.find(".dinext-table-tree-toggle")
+			.click();
+		workCells("Contact reference")
+			.find('[col-id="assignment"] .avatar')
+			.should("have.attr", "title", fixture.title);
 	});
 
 	it("opens the current project's responsibility matrix from the results toolbar", () => {

@@ -370,7 +370,8 @@
 	}
 
 	function resultType(row, value) {
-		if (!value || row.document_type !== DELIVERABLE) return node("span", "", value);
+		if (!value || row.document_type !== DELIVERABLE || row.is_other)
+			return node("span", "", value);
 		const holder = node("span", "dinext-scope-result-type");
 		holder.title = value;
 		holder.setAttribute("role", "img");
@@ -382,8 +383,8 @@
 	}
 
 	function resultAvatars(row, members) {
-		if (row.document_type !== DELIVERABLE) return node("span");
 		if (!members?.length) {
+			if (row.document_type !== DELIVERABLE || row.is_other) return node("span");
 			const placeholder = node("span", "text-muted", "—");
 			placeholder.title = __("Responsible person not assigned");
 			placeholder.setAttribute("aria-label", placeholder.title);
@@ -483,7 +484,7 @@
 					return resultProgress(value, column.label);
 				case "result_type":
 					return resultType(row, value);
-				case "result_accountable":
+				case "result_assignment":
 					return resultAvatars(row, value);
 				case "project":
 					return value ? documentLink(value, "Project", value) : node("span");
@@ -544,6 +545,7 @@
 				item.pinned = column.pinned;
 				item.lockPinned = true;
 			}
+			if (column.kind === "result_assignment") item.autoHeight = true;
 			if (column.kind === "label") item.render = cellRenderer(column, resultTree);
 			else item.cellRenderer = cellRenderer(column);
 			if (column.kind === "trace_state") {
@@ -941,7 +943,7 @@
 			["deliverable_type", __("Deliverable type"), "result_type", 135],
 			["category", __("Category"), null, 150],
 			["progress", __("Progress"), "result_progress", 105],
-			["accountable", __("Accountable"), "result_accountable", 155],
+			["assignment", __("Assignment"), "result_assignment", 155],
 			[
 				"planned_end_date",
 				__("Planned end", null, "Dinext.ProjectScope.Dates"),

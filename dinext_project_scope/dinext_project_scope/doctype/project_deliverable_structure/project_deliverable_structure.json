@@ -14,7 +14,8 @@
   "source_element_key",
   "filter_doctype",
   "filter_type",
-  "is_optional"
+  "is_optional",
+  "element_doctype"
  ],
  "fields": [
   {
@@ -31,13 +32,14 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Weight",
-   "non_negative": 1
+   "non_negative": 1,
+   "read_only_depends_on": "eval:doc.element_type == 'Other'"
   },
   {
    "fieldname": "element_type",
    "fieldtype": "Select",
    "label": "Element Type",
-   "options": "Task\nProject Deliverable",
+   "options": "Task\nProject Deliverable\nOther",
    "read_only": 1,
    "reqd": 1
   },
@@ -46,7 +48,7 @@
    "fieldtype": "Dynamic Link",
    "in_list_view": 1,
    "label": "Element",
-   "options": "element_type"
+   "options": "element_doctype"
   },
   {
    "fieldname": "source_type",
@@ -71,7 +73,7 @@
    "hidden": 1,
    "label": "Filter Doctype",
    "no_copy": 1,
-   "options": "\nTask Type\nProject Deliverable Type",
+   "options": "\nTask Type\nProject Deliverable Type\nDocType",
    "read_only": 1
   },
   {
@@ -89,13 +91,21 @@
    "label": "Is Optional",
    "no_copy": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "element_doctype",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Element Document Type",
+   "options": "DocType",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-11-18 00:56:53.456950",
+ "modified": "2026-11-21 11:45:02.906843",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Deliverable Structure",

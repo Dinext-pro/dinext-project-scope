@@ -35,6 +35,7 @@
 			filters: {
 				project: frm.doc.project,
 				deliverable: frm.is_new() ? null : frm.doc.name,
+				element_type: locals[cdt][cdn].element_type,
 				filter_type: locals[cdt][cdn].filter_type,
 			},
 		}));

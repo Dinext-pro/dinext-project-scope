@@ -19,6 +19,24 @@ def task(progress, status="Working", **details):
 
 
 class TestDeliverableCalculations(TestCase):
+	def test_other_documents_are_excluded_from_progress_and_dates(self):
+		task = slot("task", name="T")
+		other = {**slot("reference", 100, name="R"), "element_type": "Other"}
+		finished = {
+			"status": "Completed",
+			"progress": 100,
+			"planned_start_date": "2026-11-12",
+			"planned_end_date": "2026-11-14",
+			"expected_end_date": "2026-11-14",
+			"actual_end_date": "2026-11-14",
+		}
+		self.assertEqual(
+			calculate("Completed", [(task, finished), (other, None)]),
+			calculate("Completed", [(task, finished)]),
+		)
+		self.assertEqual(work_blockers([(task, finished), (other, None)]), [])
+		self.assertEqual(work_blockers([({**other, "element": None}, None)]), [("reference", "missing")])
+
 	def test_weighted_progress_supports_missing_cancelled_and_optional_work(self):
 		done = task(100, "Completed")
 		working = task(20)

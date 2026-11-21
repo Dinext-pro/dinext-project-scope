@@ -496,14 +496,22 @@ def get_deliverable_details(deliverable: str):
 def work_query(doctype, txt, searchfield, start, page_len, filters):
 	filters = frappe.parse_json(filters) or {}
 	project = filters.get("project")
-	if not project or doctype not in structure.WORK_TYPES:
+	other = filters.get("element_type") == structure.OTHER
+	if not project or (not other and doctype not in structure.WORK_TYPES):
 		return []
 	access.check_project(project)
-	title = "subject" if doctype == structure.TASK else "title"
-	query = {"project": project, "status": ("!=", "Template")}
-	if filters.get("filter_type"):
-		query[structure.WORK_TYPES[doctype][1]] = filters["filter_type"]
-	if doctype == DELIVERABLE and filters.get("deliverable"):
+	if other:
+		meta = structure.other_work_meta(doctype) if doctype == filters.get("filter_type") else None
+		if not meta:
+			return []
+		title = meta.title_field or "name"
+		query = structure.other_work_filters(meta, project)
+	else:
+		title = "subject" if doctype == structure.TASK else "title"
+		query = {"project": project, "status": ("!=", "Template")}
+		if filters.get("filter_type"):
+			query[structure.WORK_TYPES[doctype][1]] = filters["filter_type"]
+	if not other and doctype == DELIVERABLE and filters.get("deliverable"):
 		doc = access.check_document(DELIVERABLE, filters["deliverable"])
 		if doc.project != project:
 			return []
@@ -514,7 +522,7 @@ def work_query(doctype, txt, searchfield, start, page_len, filters):
 		doctype,
 		filters=query,
 		or_filters={"name": ("like", f"%{txt}%"), title: ("like", f"%{txt}%")},
-		fields=["name", title],
+		fields=list(dict.fromkeys(("name", title))),
 		start=cint(start),
 		page_length=cint(page_len),
 		as_list=True,

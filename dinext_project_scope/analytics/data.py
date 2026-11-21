@@ -6,6 +6,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt, getdate
 
+from dinext_project_scope import deliverable_structure as work_structure
+
 DELIVERABLE = "Project Deliverable"
 REQUIREMENT = "Project Requirement"
 CHANGE_REQUEST = "Project Change Request"
@@ -145,7 +147,7 @@ def load_structure(deliverables):
 		deliverables,
 		DELIVERABLE,
 		"table_xuct",
-		["element", "element_name", "element_type", "is_optional"],
+		["element", "element_name", "element_type", "filter_type", "is_optional"],
 	)
 
 
@@ -256,11 +258,15 @@ def row_sort_key(row):
 
 
 class StructureTree:
-	def __init__(self, deliverables, structure, tasks, accountable, today):
+	def __init__(
+		self, deliverables, structure, tasks, responsibles, today, *, other_work=None, assigned_work=None
+	):
 		self.deliverables = deliverables
 		self.structure = structure
 		self.tasks = tasks
-		self.accountable = accountable
+		self.responsibles = responsibles
+		self.other_work = other_work or {}
+		self.assigned_work = assigned_work or {}
 		self.today = today
 		self.task_children = defaultdict(list)
 		for name, row in tasks.items():
@@ -276,13 +282,21 @@ class StructureTree:
 			self.slot(slot, f"{row_id}/work-{quote(str(slot.get('name') or index), safe='')}", ancestors)
 			for index, slot in enumerate(self.structure.get(name, ()), start=1)
 		]
+		responsibles = self.responsibles.get(name, {})
 		return {
 			**row,
 			"id": row_id,
 			"label": row.get("title") or name,
 			"document_type": DELIVERABLE,
 			"document": name,
-			"accountable": self.accountable.get(name, []),
+			"assignment": list(
+				{
+					(member["doctype"], member["name"]): member
+					for people in responsibles.values()
+					for member in people
+				}.values()
+			),
+			"accountable": responsibles.get(ACCOUNTABLE_CODE, []),
 			"status_tone": result_tone(row, self.today),
 			"children": sorted(children, key=row_sort_key),
 		}
@@ -301,6 +315,14 @@ class StructureTree:
 			if label and label != row["label"]:
 				row["slot_label"] = label
 			return row
+		if kind == work_structure.OTHER and (work := self.other_work.get((slot.get("filter_type"), target))):
+			return {
+				**work,
+				"id": row_id,
+				"is_other": True,
+				"slot_label": label if label != work["label"] else None,
+				"assignment": self.assigned_work.get((work["document_type"], target), []),
+			}
 		return {
 			"id": row_id,
 			"label": label,
@@ -321,6 +343,7 @@ class StructureTree:
 			"label": row.get("subject") or name,
 			"document_type": "Task",
 			"document": name,
+			"assignment": self.assigned_work.get(("Task", name), []),
 			"deliverable_type": row.get("type"),
 			"status": status,
 			"status_tone": STATUS_TONES.get(status),
@@ -342,7 +365,9 @@ def distribution(rows, key):
 	]
 
 
-def results_view(deliverables, structure, tasks, accountable, filters, today=None):
+def results_view(
+	deliverables, structure, tasks, responsibles, filters, today=None, *, other_work=None, assigned_work=None
+):
 	today = today or getdate()
 	# Compute the filtered document set once; a document may appear in more than one branch.
 	matching = {
@@ -350,7 +375,15 @@ def results_view(deliverables, structure, tasks, accountable, filters, today=Non
 		for name, row in deliverables.items()
 		if matches(row, filters, RESULT_FILTERS) and (not cint(filters.get("overdue")) or is_late(row, today))
 	}
-	tree = StructureTree(deliverables, structure, tasks, accountable, today)
+	tree = StructureTree(
+		deliverables,
+		structure,
+		tasks,
+		responsibles,
+		today,
+		other_work=other_work,
+		assigned_work=assigned_work,
+	)
 	roots = [tree.deliverable(name) for name in sorted(root_names(deliverables, structure))]
 	# A historical cycle may have no root. Its reads stay available without following the loop.
 	for name in deliverables:
@@ -358,7 +391,7 @@ def results_view(deliverables, structure, tasks, accountable, filters, today=Non
 			roots.append(tree.deliverable(name))
 
 	def retain_branch(row, *, keep_work=False):
-		if row.get("document_type") != DELIVERABLE:
+		if row.get("document_type") != DELIVERABLE or row.get("is_other"):
 			return row if keep_work else None
 		selected = row["document"] in matching
 		children = [
@@ -435,6 +468,114 @@ def accountables(assignments, definitions, names):
 	return values
 
 
+def result_tree_responsibilities():
+	settings = frappe.get_cached_doc("Project Scope Settings")
+	codes = dict.fromkeys(row.responsibility for row in settings.result_tree_responsibilities)
+	if not codes:
+		return []
+	definitions = responsibility_definitions()
+	return [code for code in codes if definitions.get(code, {}).get("enabled")]
+
+
+def participant_avatar(doctype, member, profiles):
+	profile = profiles.get((doctype, member), {})
+	return {
+		"doctype": doctype,
+		"name": member,
+		"label": profile.get("full_name") or member,
+		"image": profile.get(PARTICIPANT_IMAGE_FIELDS.get(doctype)) or None,
+	}
+
+
+def result_tree_responsibles(assignments, codes):
+	selected = {
+		name: [row for row in rows if row.get("responsibility") in codes and row.get("responsible")]
+		for name, rows in assignments.items()
+	}
+	profiles = _participant_rows(selected, include_images=True)
+	responsibles = {}
+	for name, rows in selected.items():
+		by_responsibility = defaultdict(set)
+		for row in rows:
+			by_responsibility[row["responsibility"]].add(participant(row))
+		responsibles[name] = {
+			code: [
+				participant_avatar(doctype, member, profiles)
+				for doctype, member in sorted(by_responsibility[code])
+			]
+			for code in codes
+			if code in by_responsibility
+		}
+	return responsibles
+
+
+def available_other_work(project, structure):
+	targets = defaultdict(set)
+	for slots in structure.values():
+		for slot in slots:
+			if slot.get("element_type") == work_structure.OTHER and slot.get("element"):
+				targets[slot.get("filter_type")].add(slot["element"])
+	work = {}
+	for doctype, targets_for_type in targets.items():
+		meta = work_structure.other_work_meta(doctype)
+		if not meta:
+			continue
+		filters = work_structure.other_work_filters(meta, project)
+		if "name" in filters:
+			targets_for_type = targets_for_type & {filters["name"]}
+		if not targets_for_type:
+			continue
+		title = meta.title_field or "name"
+		for name, row in select_rows(
+			doctype,
+			{**filters, "name": ["in", sorted(targets_for_type)]},
+			list(dict.fromkeys(("name", title))),
+		).items():
+			if not frappe.has_permission(doctype, "read", doc=name):
+				continue
+			work[doctype, name] = {
+				"document_type": doctype,
+				"document": name,
+				"label": row.get(title) or name,
+				"deliverable_type": _(doctype),
+			}
+	return work
+
+
+def work_assignees(tasks, other_work):
+	names = defaultdict(set)
+	names["Task"].update(tasks)
+	for doctype, name in other_work:
+		names[doctype].add(name)
+	assignees = defaultdict(set)
+	for doctype, documents in names.items():
+		if not documents:
+			continue
+		# Each reference has already passed the reader's document permission and project filters.
+		for todo in frappe.get_all(
+			"ToDo",
+			filters={
+				"reference_type": doctype,
+				"reference_name": ["in", sorted(documents)],
+				"status": "Open",
+			},
+			fields=["reference_name", "allocated_to"],
+		):
+			if todo.allocated_to:
+				assignees[doctype, todo.reference_name].add(todo.allocated_to)
+	profiles = _participant_rows(
+		{
+			key: [{"responsible_type": "User", "responsible": user} for user in users]
+			for key, users in assignees.items()
+		},
+		include_images=True,
+	)
+	return {
+		key: [participant_avatar("User", user, profiles) for user in sorted(users)]
+		for key, users in assignees.items()
+	}
+
+
 def available_tasks(project, structure):
 	if not any(
 		slot.get("element_type") == "Task" and slot.get("element")
@@ -463,20 +604,22 @@ def project_results(project, filters=None):
 		row["deliverable_type_icon"] = deliverable_type.get("icon") or None
 		row["deliverable_type_color"] = deliverable_type.get("color") or None
 	structure = load_structure(deliverables)
-	assignments = load_assignments(deliverables)
-	participants = _participant_rows(assignments, include_images=True)
-	accountable = accountables(assignments, responsibility_definitions(), _participant_names(participants))
-	for members in accountable.values():
-		for member in members:
-			doctype = member["doctype"]
-			profile = participants.get((doctype, member["name"]), {})
-			member["image"] = profile.get(PARTICIPANT_IMAGE_FIELDS.get(doctype)) or None
+	codes = result_tree_responsibilities()
+	responsibles = result_tree_responsibles(load_assignments(deliverables), codes) if codes else {}
+	tasks = available_tasks(project, structure)
+	other_work = available_other_work(project, structure)
 	filters = {
 		(f"{key}_missing" if value == ONLY_EMPTY else key): (1 if value == ONLY_EMPTY else value)
 		for key, value in filters.items()
 	}
 	rows, counts = results_view(
-		deliverables, structure, available_tasks(project, structure), accountable, filters
+		deliverables,
+		structure,
+		tasks,
+		responsibles,
+		filters,
+		other_work=other_work,
+		assigned_work=work_assignees(tasks, other_work),
 	)
 	return {
 		"rows": rows,

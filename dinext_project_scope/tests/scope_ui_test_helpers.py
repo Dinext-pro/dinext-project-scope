@@ -93,7 +93,7 @@ def create_report_fixture(run_id):
 			for_value=project.name,
 			apply_to_all_doctypes=1,
 		).insert()
-		project.append("users", {"user": email})
+		project.append("users", {"user": email, "welcome_email_sent": 1})
 	actor = actors["en"]
 	hidden = make_project(other_category, f"CYPRESS-SCOPE-REPORT-HIDDEN-{run_id}", project.project_type)
 	rollout.append("users", {"user": actor, "welcome_email_sent": 1})
@@ -204,7 +204,16 @@ def create_report_fixture(run_id):
 	leaf_kind = _named(
 		"Project Deliverable Type",
 		other_category,
-		elements=[{"element_key": "task", "element_name": "Work task", "element_type": "Task"}],
+		elements=[
+			{"element_key": "task", "element_name": "Work task", "element_type": "Task"},
+			{
+				"element_key": "contact",
+				"element_name": "Contact reference",
+				"element_type": "Other",
+				"filter_type": "Contact",
+				"is_optional": 1,
+			},
+		],
 	).name
 	first_code = _named(
 		"Project Deliverable Responsibility", prefix, responsibility=f"{prefix} contributor", color="#2C7C70"
@@ -333,6 +342,15 @@ def create_report_fixture(run_id):
 	work.progress = 20
 	work.save()
 	frappe.share.add("Task", work.name, user=actor, write=1, notify=0)
+	for doctype, name in (("Task", work.name), ("Contact", person)):
+		frappe.get_doc(
+			doctype="ToDo",
+			reference_type=doctype,
+			reference_name=name,
+			allocated_to=actor,
+			description="Cypress assignment",
+			status="Open",
+		).insert()
 	foreign = _result(hidden.name, prefix, "hidden deliverable", other_category, leaf_kind)
 
 	change = frappe.get_doc(
@@ -436,6 +454,7 @@ def remove_report_fixture(run_id):
 				frappe.db.delete("Project Deliverable Log", {"deliverable": name})
 			frappe.delete_doc(doctype, name, force=True, delete_permanently=True)
 	actors = [_fixture_user(run_id, language) for language in ("en", "ru")]
+	frappe.db.delete("ToDo", {"allocated_to": ["in", actors], "description": "Cypress assignment"})
 	for permission in frappe.get_all("User Permission", filters={"user": ["in", actors]}, pluck="name"):
 		frappe.delete_doc("User Permission", permission, delete_permanently=True)
 	for name in projects:

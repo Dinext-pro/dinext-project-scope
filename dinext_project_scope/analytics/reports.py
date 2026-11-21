@@ -133,7 +133,12 @@ def traceability(filters):
 	relations = requirement_results(deliverables)
 	structure = data.load_structure(deliverables)
 	tree = data.StructureTree(
-		deliverables, structure, data.available_tasks(project, structure), {}, getdate()
+		deliverables,
+		structure,
+		data.available_tasks(project, structure),
+		{},
+		getdate(),
+		other_work=data.available_other_work(project, structure),
 	)
 	selected = {
 		name

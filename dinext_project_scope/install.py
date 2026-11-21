@@ -28,3 +28,12 @@ def after_migrate() -> None:
 	before_install()
 	register_dinext_hub_items()
 	ensure_default_workflows()
+
+
+def seed_default_result_tree_responsibility() -> None:
+	from dinext_project_scope.analytics.data import ACCOUNTABLE_CODE, RESPONSIBILITY
+
+	settings = frappe.get_single("Project Scope Settings")
+	if not settings.result_tree_responsibilities and frappe.db.exists(RESPONSIBILITY, ACCOUNTABLE_CODE):
+		settings.append("result_tree_responsibilities", {"responsibility": ACCOUNTABLE_CODE})
+		settings.save(ignore_permissions=True)

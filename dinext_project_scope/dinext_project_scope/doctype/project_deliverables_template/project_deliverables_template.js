@@ -200,10 +200,14 @@
 					fieldtype: "Link",
 					fieldname,
 					label: frappe.utils.escape_html(slot.element_name),
-					options: slot.element_type,
+					options: slot.element_type === "Other" ? slot.filter_type : slot.element_type,
 					get_query: () => ({
 						query: workQuery,
-						filters: { project, filter_type: slot.filter_type },
+						filters: {
+							project,
+							element_type: slot.element_type,
+							filter_type: slot.filter_type,
+						},
 					}),
 				});
 				group.work.push([fieldname, slot.source_element_key]);
