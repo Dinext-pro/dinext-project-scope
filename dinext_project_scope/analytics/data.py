@@ -239,17 +239,43 @@ def root_names(deliverables, structure):
 	return set(deliverables) - nested
 
 
-def root_progress(deliverables, structure):
+def plan_dates(deliverable):
+	start = deliverable.get("planned_start_date")
+	end = deliverable.get("planned_end_date")
+	if not start or not end:
+		return None, None, "missing"
+	start, end = getdate(start), getdate(end)
+	return (start, end, None) if start and end and end >= start else (None, None, "invalid")
+
+
+def average_planned_progress(results, today):
+	if not results:
+		return None
+	values = []
+	for row in results:
+		start, end, reason = plan_dates(row)
+		if reason or cint(row.get("plan_incomplete")):
+			return None
+		days = (end - start).days
+		elapsed = (today - start).days
+		values.append(min(100, max(0, elapsed * 100 / days)) if days else 100 * (elapsed >= 0))
+	return sum(values) / len(values)
+
+
+def root_progress(deliverables, structure, *, plan_date=None):
 	eligible = {
 		name: row for name, row in deliverables.items() if row.get("status") not in {"Cancelled", "Template"}
 	}
-	roots = root_names(eligible, structure)
-	return {
+	roots = [eligible[name] for name in root_names(eligible, structure)]
+	result = {
 		"count": len(roots),
-		"progress": sum(numeric_progress(eligible[name].get("progress")) for name in roots) / len(roots)
+		"progress": sum(numeric_progress(row.get("progress")) for row in roots) / len(roots)
 		if roots
 		else None,
 	}
+	if plan_date is not None:
+		result["planned_progress"] = average_planned_progress(roots, plan_date)
+	return result
 
 
 def row_sort_key(row):
@@ -423,21 +449,15 @@ def progress_series(deliverable, events, today=None):
 		# Date changes can create journal entries without changing recorded progress.
 		if not actual or actual[-1][1] != progress:
 			actual.append([str(event["log_date"]).replace(" ", "T"), progress])
-	start = deliverable.get("planned_start_date")
-	end = deliverable.get("planned_end_date")
+	start, end, reason = plan_dates(deliverable)
 	result = {
 		"planned": [],
 		"actual": actual,
 		"plan_step": False,
-		"plan_reason": None,
+		"plan_reason": reason,
 		"plan_incomplete": bool(cint(deliverable.get("plan_incomplete"))),
 	}
-	if not start or not end:
-		result["plan_reason"] = "missing"
-		return result
-	start, end = getdate(start), getdate(end)
-	if not start or not end or end < start:
-		result["plan_reason"] = "invalid"
+	if reason:
 		return result
 	timeline = [str(today), *(point[0] for point in actual)]
 	before, after = min(timeline), max(timeline)
@@ -637,7 +657,7 @@ def project_results(project, filters=None):
 def project_progress(project):
 	projects = project_ids(project, required=True)
 	deliverables = get_deliverables(projects)
-	return root_progress(deliverables, load_structure(deliverables))
+	return root_progress(deliverables, load_structure(deliverables), plan_date=getdate())
 
 
 @frappe.whitelist(methods=["GET"])

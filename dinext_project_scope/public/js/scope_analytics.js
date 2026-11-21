@@ -1251,25 +1251,49 @@
 			if (view !== projectProgressView || !host.isConnected || result.progress === null)
 				return;
 
-			const label = __("Deliverables progress");
-			const formula = __(
-				"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded."
+			const label = __("Deliverables");
+			const fact = formatProgress(result.progress);
+			const plan =
+				result.planned_progress == null
+					? __("Plan is incomplete")
+					: formatProgress(result.planned_progress);
+			const tooltip = node("div", "custom-tooltip");
+			tooltip.id = "scope-deliverables-progress-tooltip";
+			tooltip.setAttribute("role", "tooltip");
+			tooltip.append(
+				node("div", "", __("Plan: {0}", [plan])),
+				node("div", "", __("Fact: {0}", [fact]))
 			);
-			const meter = node("progress");
-			meter.max = 100;
-			meter.value = result.progress;
-			meter.title = formula;
+
+			const meter = node("div", "progress-bar-container");
+			meter.tabIndex = 0;
+			meter.setAttribute("role", "progressbar");
+			meter.setAttribute("aria-valuemin", "0");
+			meter.setAttribute("aria-valuemax", "100");
+			meter.setAttribute("aria-valuenow", String(result.progress));
 			meter.setAttribute("aria-label", label);
-			meter.setAttribute("aria-description", formula);
+			meter.setAttribute("aria-describedby", tooltip.id);
+			meter.setAttribute(
+				"aria-description",
+				__(
+					"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded."
+				)
+			);
+			const fill = node("div", "progress-bar-fill");
+			fill.style.width = `${result.progress}%`;
+			fill.style.backgroundColor = "var(--percent-line, var(--blue-600))";
+			meter.append(node("div", "progress-bar-bg"), fill);
+			if (result.progress < 100) {
+				const tail = node("div", "progress-bar-tail");
+				tail.style.left = fill.style.width;
+				meter.append(tail);
+			}
 
 			const header = node("div", "chart-header");
-			header.append(
-				node("span", "chart-title text-muted", label),
-				node("span", "chart-percent", formatProgress(result.progress))
-			);
+			header.append(node("span", "chart-title", label), node("span", "chart-percent", fact));
 			const card = node("div", "chart-card linear-card dinext-scope-project-progress");
 			card.dataset.pwaBar = "deliverables";
-			card.append(header, meter);
+			card.append(header, meter, tooltip);
 			view.card = card;
 
 			function mount() {

@@ -68,7 +68,9 @@ describe("Project scope reports", () => {
 
 	it("opens the responsibility matrix from the Project Scope Reports menu with its project", () => {
 		cy.visit(`/app/project/${fixture.project}`);
-		cy.get('.form-graph [data-pwa-bar="deliverables"] progress').should("be.visible");
+		cy.get('.form-graph [data-pwa-bar="deliverables"] [role="progressbar"]').should(
+			"be.visible"
+		);
 		cy.get('.inner-group-button[data-label="Scope%20Reports"] > button:visible').click({
 			scrollBehavior: "center",
 		});
@@ -82,11 +84,39 @@ describe("Project scope reports", () => {
 		const readiness = `.form-graph ${card}`;
 		const formula =
 			"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded.";
+		cy.intercept({
+			method: "GET",
+			pathname: "/api/method/dinext_project_scope.analytics.data.project_progress",
+			query: { project: fixture.project },
+		}).as("deliverablesProgress");
 		cy.visit(`/app/project/${fixture.project}`);
-		cy.contains(`${readiness} .chart-percent`, "20%").should("be.visible");
-		cy.get(`${readiness} progress`).should(($meter) => {
-			expect($meter).to.have.prop("value", 20);
-			expect($meter).to.have.attr("title", formula);
+		cy.wait("@deliverablesProgress").then(({ response }) => {
+			const planned = response.body.message.planned_progress;
+			expect(planned).not.to.eq(undefined);
+			const plan =
+				planned === null
+					? "Plan is incomplete"
+					: `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(
+							planned
+					  )}%`;
+			cy.get(`${readiness} .chart-title`).should("have.text", "Deliverables");
+			cy.get(`${readiness} .chart-percent`).should("have.text", "20%");
+			const meter = `${readiness} [role="progressbar"]`;
+			cy.get(meter).should("have.attr", "aria-valuenow", "20");
+			cy.get(meter).should("have.attr", "aria-description", formula);
+			cy.get(`${meter} .progress-bar-fill`).should(([fill]) => {
+				const style = fill.ownerDocument.defaultView.getComputedStyle(fill);
+				expect(style.animationName).to.be.oneOf([
+					"pwa-dash-slide-in",
+					"dinext-scope-progress-fill",
+				]);
+				expect(fill.style.width).to.eq("20%");
+			});
+			cy.get(meter).focus();
+			cy.get(`${readiness} [role="tooltip"]`)
+				.should("be.visible")
+				.and("contain.text", `Plan: ${plan}`)
+				.and("contain.text", "Fact: 20%");
 		});
 		cy.get('[data-fieldname="custom_scope_deliverables_progress_html"] progress').should(
 			"not.exist"
@@ -111,7 +141,7 @@ describe("Project scope reports", () => {
 			expect(row).not.to.eq(previousRow)
 		);
 		cy.get(`.form-graph .dashboard-percents > ${card}`).should("have.length", 1);
-		cy.get(`${readiness} progress`).should("have.prop", "value", 20);
+		cy.get(`${readiness} [role="progressbar"]`).should("have.attr", "aria-valuenow", "20");
 		cy.intercept({
 			method: "GET",
 			pathname: "/api/method/dinext_project_scope.analytics.data.project_progress",
@@ -123,6 +153,7 @@ describe("Project scope reports", () => {
 		cy.wait("@emptyProgress").its("response.body.message").should("deep.eq", {
 			count: 0,
 			progress: null,
+			planned_progress: null,
 		});
 		cy.get(readiness).should("not.exist");
 	});

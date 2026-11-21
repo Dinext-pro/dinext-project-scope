@@ -307,6 +307,8 @@ Overdue only,Только просроченные,
 Participant type,Тип участника,
 Pending,Ожидает проверки,
 Pending Review,Ожидает проверки,
+Plan: {0},План: {0},
+Fact: {0},Факт: {0},
 Plan is incomplete,План задан частично,
 Planned and recorded progress,Плановый и фактический прогресс,
 Planned end,Плановое завершение,Dinext.ProjectScope.Dates

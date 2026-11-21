@@ -413,45 +413,84 @@ button.dinext-scope-link:hover {
 	font-size: var(--text-sm);
 }
 
-.dinext-scope-project-progress progress {
-	appearance: none;
-	display: block;
-	width: 100%;
-	height: 12px;
-	border: 0;
-	border-radius: 6px;
-	background: var(--bg-dark-gray, var(--control-bg));
-	color: var(--percent-line, var(--blue-600));
-}
-
-.dinext-scope-project-progress progress::-webkit-progress-bar {
-	background: transparent;
-}
-
-.dinext-scope-project-progress progress::-webkit-progress-value {
-	border-radius: 6px;
-	background: currentColor;
-}
-
-.dinext-scope-project-progress progress::-moz-progress-bar {
-	border-radius: 6px;
-	background: currentColor;
-}
-
 .dinext-scope-project-progress--standalone {
+	position: relative;
 	max-width: 24rem;
 	padding: 10px;
 	text-align: center;
 }
 
-.dinext-scope-project-progress--standalone .chart-title,
-.dinext-scope-project-progress--standalone .chart-percent {
+.dinext-scope-project-progress--standalone .chart-title {
 	display: block;
+	color: var(--text-muted);
+	font-size: 12px;
 }
 
 .dinext-scope-project-progress--standalone .chart-percent {
+	display: block;
 	margin-bottom: 5px;
 	font-size: x-large;
+}
+
+.dinext-scope-project-progress--standalone .progress-bar-container {
+	position: relative;
+	height: 12px;
+}
+
+.dinext-scope-project-progress--standalone
+	:is(.progress-bar-bg, .progress-bar-fill, .progress-bar-tail) {
+	position: absolute;
+	inset-block: 0;
+	left: 0;
+	border-radius: 6px;
+}
+
+.dinext-scope-project-progress--standalone .progress-bar-bg {
+	width: 100%;
+	background: var(--bg-dark-gray, var(--control-bg));
+}
+
+.dinext-scope-project-progress--standalone .progress-bar-fill {
+	animation: dinext-scope-progress-fill 1s ease-out;
+}
+
+.dinext-scope-project-progress--standalone .progress-bar-tail {
+	width: 4px;
+	margin-left: -2px;
+	background: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes dinext-scope-progress-fill {
+	from {
+		width: 0;
+	}
+}
+
+.dinext-scope-project-progress--standalone .custom-tooltip {
+	display: none;
+	position: absolute;
+	inset-block-end: 100%;
+	inset-inline-start: 0;
+	padding: 5px 8px;
+	border-radius: 4px;
+	background: var(--bg-color);
+	color: var(--text-color);
+	font-size: 11px;
+	text-align: start;
+	box-shadow: var(--shadow-sm);
+	z-index: 10;
+}
+
+.dinext-scope-project-progress--standalone:hover .custom-tooltip,
+.dinext-scope-project-progress:focus-within .custom-tooltip {
+	display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dinext-scope-project-progress .progress-bar-fill {
+		animation: none;
+		transition: none;
+	}
 }
 
 .dinext-scope-progress-picker {

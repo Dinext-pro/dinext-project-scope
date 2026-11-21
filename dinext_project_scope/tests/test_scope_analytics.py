@@ -148,6 +148,40 @@ class TestScopeAnalytics(TestCase):
 			data.root_progress({"template": deliverables["template"]}, {}), {"count": 0, "progress": None}
 		)
 
+	def test_root_plan_averages_linear_progress_of_the_same_results_as_fact(self):
+		today = date(2026, 11, 10)
+		deliverables = {
+			"dated": {"progress": 20, "planned_start_date": "2026-11-06", "planned_end_date": "2026-11-14"},
+			"milestone": {
+				"progress": 40,
+				"planned_start_date": "2026-11-10",
+				"planned_end_date": "2026-11-10",
+			},
+			"future": {"progress": 60, "planned_start_date": "2026-11-11", "planned_end_date": "2026-11-15"},
+			"nested": {"progress": 90},
+			"cancelled": {"status": "Cancelled", "progress": 100},
+		}
+		structure = {"dated": [{"element_type": "Project Deliverable", "element": "nested"}]}
+		self.assertEqual(
+			data.root_progress(deliverables, structure, plan_date=today),
+			{"count": 3, "progress": 40, "planned_progress": 50},
+		)
+		for dates in (
+			{"planned_start_date": None},
+			{"planned_end_date": "2026-11-05"},
+			{"plan_incomplete": 1},
+		):
+			with self.subTest(dates=dates):
+				results = {**deliverables, "dated": {**deliverables["dated"], **dates}}
+				self.assertEqual(
+					data.root_progress(results, structure, plan_date=today),
+					{"count": 3, "progress": 40, "planned_progress": None},
+				)
+		self.assertEqual(
+			data.root_progress({}, {}, plan_date=today),
+			{"count": 0, "progress": None, "planned_progress": None},
+		)
+
 	def test_result_tree_hides_only_unlinked_optional_slots(self):
 		deliverables = {"D": {"title": "Result", "progress": 75}}
 		slots = [
