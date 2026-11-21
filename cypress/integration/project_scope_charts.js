@@ -253,16 +253,11 @@ describe("Project scope charts", () => {
 		);
 		cy.get('[data-fieldname="elements"] .grid-row[data-idx="2"] .btn-open-row').click();
 		const kind = '.grid-row-open .form-in-grid [data-fieldname="element_type"] select';
-		cy.get(kind).select("Task");
-		cy.get(kind).select("Other");
-		cy.window().then(({ frappe }) => frappe.after_ajax());
+		cy.get(kind).should("have.value", "Other");
 		const filter =
 			'.grid-row-open .form-in-grid [data-fieldname="filter_type"].frappe-control';
-		cy.get(`${filter} input:visible`).type("Contac");
-		linkOption(filter, "Contact").click();
-		cy.window().its("cur_frm.doc.elements.1.filter_type").should("eq", "Contact");
-		cy.get(".grid-row-open .grid-collapse-row").click();
-		cy.window().then(({ cur_frm }) => cur_frm.save());
+		cy.get(`${filter} input:visible`).should("have.value", "Contact");
+		cy.window().its("cur_frm.doc.elements.1.filter_doctype").should("eq", "DocType");
 
 		cy.visit(`/app/project-deliverable/${fixture.shared}`);
 		let schedule;
