@@ -11,7 +11,26 @@
   "log_date",
   "author",
   "progress",
-  "source"
+  "source",
+  "event_type",
+  "event_key",
+  "source_name",
+  "workflow_process",
+  "workflow_task",
+  "decision_note",
+  "previous_progress",
+  "previous_status",
+  "status",
+  "previous_planned_start_date",
+  "previous_planned_end_date",
+  "previous_expected_end_date",
+  "previous_actual_end_date",
+  "planned_start_date",
+  "planned_end_date",
+  "expected_end_date",
+  "actual_end_date",
+  "work_snapshot",
+  "work_digest"
  ],
  "fields": [
   {
@@ -50,27 +69,175 @@
    "fieldtype": "Link",
    "label": "Source",
    "options": "DocType"
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Select",
+   "label": "Event Type",
+   "options": "Calculation\nStructure Changed\nStatus Changed\nAccepted\nReconfirmed\nReopened"
+  },
+  {
+   "fieldname": "event_key",
+   "fieldtype": "Data",
+   "label": "Event Key",
+   "unique": 1
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Source Name",
+   "options": "source"
+  },
+  {
+   "fieldname": "workflow_process",
+   "fieldtype": "Link",
+   "label": "Workflow Process",
+   "options": "Workflow Process"
+  },
+  {
+   "fieldname": "workflow_task",
+   "fieldtype": "Link",
+   "label": "Workflow Task",
+   "options": "Workflow Task"
+  },
+  {
+   "fieldname": "decision_note",
+   "fieldtype": "Small Text",
+   "label": "Decision Note"
+  },
+  {
+   "fieldname": "previous_progress",
+   "fieldtype": "Percent",
+   "label": "Previous Progress"
+  },
+  {
+   "fieldname": "previous_status",
+   "fieldtype": "Data",
+   "label": "Previous Status"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Status"
+  },
+  {
+   "fieldname": "previous_planned_start_date",
+   "fieldtype": "Date",
+   "label": "Previous Planned Start Date"
+  },
+  {
+   "fieldname": "previous_planned_end_date",
+   "fieldtype": "Date",
+   "label": "Previous Planned End Date"
+  },
+  {
+   "fieldname": "previous_expected_end_date",
+   "fieldtype": "Date",
+   "label": "Previous Expected End Date"
+  },
+  {
+   "fieldname": "previous_actual_end_date",
+   "fieldtype": "Date",
+   "label": "Previous Actual End Date"
+  },
+  {
+   "fieldname": "planned_start_date",
+   "fieldtype": "Date",
+   "label": "Planned Start Date"
+  },
+  {
+   "fieldname": "planned_end_date",
+   "fieldtype": "Date",
+   "label": "Planned End Date"
+  },
+  {
+   "fieldname": "expected_end_date",
+   "fieldtype": "Date",
+   "label": "Expected End Date"
+  },
+  {
+   "fieldname": "actual_end_date",
+   "fieldtype": "Date",
+   "label": "Actual End Date"
+  },
+  {
+   "fieldname": "work_snapshot",
+   "fieldtype": "Long Text",
+   "label": "Work Snapshot"
+  },
+  {
+   "fieldname": "work_digest",
+   "fieldtype": "Data",
+   "label": "Work Digest"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-19 03:07:01.869973",
+ "modified": "2026-11-18 00:57:02.767318",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Deliverable Log",
- "naming_rule": "Expression",
- "owner": "Administrator",
+ "naming_rule": "Expression (old style)",
+ "owner": "ikhmel@dinord.ru",
  "permissions": [
   {
    "create": 1,
    "delete": 1,
    "email": 1,
-   "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dinext_Projects_Director",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dinext_Project_Manager",
+   "select": 1,
    "share": 1,
    "write": 1
   }

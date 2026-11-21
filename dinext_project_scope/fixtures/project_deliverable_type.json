@@ -34,7 +34,7 @@
    }
   ],
   "enabled": 1,
-  "icon": null,
+  "icon": "/assets/dinext_project_scope/icons/deliverable-types/document.svg",
   "modified": "2026-03-23 03:03:13.806884",
   "name": "Документ"
  },
@@ -73,7 +73,7 @@
    }
   ],
   "enabled": 1,
-  "icon": null,
+  "icon": "/assets/dinext_project_scope/icons/deliverable-types/work.svg",
   "modified": "2026-03-23 02:56:12.709446",
   "name": "Работа"
  },
@@ -103,7 +103,7 @@
    }
   ],
   "enabled": 1,
-  "icon": null,
+  "icon": "/assets/dinext_project_scope/icons/deliverable-types/development.svg",
   "modified": "2026-03-23 02:56:20.322042",
   "name": "Разработка"
  },
@@ -133,7 +133,7 @@
    }
   ],
   "enabled": 1,
-  "icon": null,
+  "icon": "/assets/dinext_project_scope/icons/deliverable-types/testing.svg",
   "modified": "2026-03-23 02:56:20.807044",
   "name": "Тестирование"
  },
@@ -172,7 +172,7 @@
    }
   ],
   "enabled": 1,
-  "icon": null,
+  "icon": "/assets/dinext_project_scope/icons/deliverable-types/data-migration.svg",
   "modified": "2026-03-23 02:56:21.415907",
   "name": "Миграция данных"
  }

@@ -22,253 +22,82 @@
 
 # Dinext Project Scope
 
-## 📖 Overview
+## 📖 Обзор
 
-**Dinext Project Scope** — Frappe-приложение для [ERPNext](https://erpnext.com/), расширяющее стандартный **Project** управлением **объёмом работ**, **ограничениями и допущениями**, **требованиями**, **результатами проекта (deliverables)** и **запросами на изменение**. Модуль объединяет справочники, ExampleCustomer08 (submittable), иерархические требования и связи с задачами, контактами, счетами и ролями проекта.
+Dinext Project Scope добавляет в карточку проекта ERPNext управление объёмом, требованиями, ограничениями, результатами и запросами на изменение. Маршруты согласования работают через Workflow Dinext. Модуль сохраняет содержание на момент подачи, чтобы связать каждую согласованную редакцию с решением.
 
-Все основные DocTypes приложения относятся к модулю **Dinext Project Scope** и поставляются в виде JSON/Python в репозитории; для работы нужны ERPNext и (для полной функциональности связей) другие приложения Dinext, где уже определены **Project Role** и при необходимости **Project Risk**.
+## ✨ Возможности
 
-## ✨ Features
+- Одно дерево требований в каждой карточке проекта, спецификации и шаблона. Требование занимает одну строку, даже если входит в несколько ветвей спецификации.
+- Отдельные шаблоны спецификаций. Применение шаблона создаёт рабочие спецификации и требования выбранного проекта.
+- Проверка допущений с пояснением и подтверждающими вложениями. Ограничения и допущения можно создавать из шаблона.
+- Структура результата по его типу. Взвешенный прогресс, плановые, ожидаемые и фактические даты рассчитываются по задачам и вложенным результатам. Ответственность можно назначить пользователям и контактам проекта.
+- Запросы на изменение с оценкой влияния, историей согласований и ссылками на изменённые документы.
+- Матрицы прослеживаемости, ответственности и влияния изменений. Матрицы ответственности и влияния выгружаются в Excel. Обзор и реестры позволяют перейти от показателя или графика к документам.
 
-- **Объём проекта**: дочерняя таблица **Project Scope** на форме ERPNext **Project** (вкладка «Объем») — тип объёма, описание, ссылка на объект через Dynamic Link (опции из **Project Scope Type**).
-- **Ограничения и допущения**: **Project Constraint** как таблица в **Project** и в **Project Constraints Template**.
-- **Справочники**: **Project Scope Type**, **Requirement Category**, **Requirement Kind**, **Project Change Relation Type**, **Project Deliverable Responsibility**, **Project Deliverable Type** (+ строки **Project Deliverable Type Element**), **Project Deliverable Category** (+ **Project Deliverable Category Responsibility** с привязкой к **Project Role**).
-- **Требования**: иерархический **Project Requirement** (`is_tree`) с проектом, приоритетом, уровнем (Must/Should/Nice), статусом и категорией; дочерние строки **Project Requirement Item** (при использовании в форме).
-- **ExampleCustomer08 (submittable)**: **Project Constraints Template**, **Project Requirements Template** (+ **Project Requirement Template Item**), **Project Deliverables Template** (+ **Project Deliverable Template Item**).
-- **Запрос на изменение**: **Project Change Request** (submittable) с таблицей **Change Relation** — тип связи (**Project Change Relation Type**), направление, уровень влияния, пояснение, оценка, UOM (read-only с типа), Dynamic Link на связанный объект.
-- **Результат проекта**: **Project Deliverable** с таблицами **Deliverable Scope**, **Deliverable Requirement**, **Deliverable Constraint**, **Project Deliverable Structure**, **Project Deliverable Responsible**, **Project Deliverable Item** (при включении в форму).
-- **Журнал прогресса**: **Project Deliverable Log** (отдельный документ).
-- **Фикстуры**: в `hooks.py` задан экспорт ряда справочников и кастомизаций (**Custom Field**, **Client Script**, **Server Script**) — см. раздел **Configuration** ниже; JSON-файлы лежат в `dinext_project_scope/fixtures/`.
+## 🚀 Установка
 
-## 🚀 Installation
+В bench с Frappe и ERPNext 15, где на сайте установлены Dinext Common, Dinext Projects и Dinext Goals, установите приложение из принятой ветки или выпуска. Подставьте `<ref>` и `<site>` для своей среды.
 
-Требуется рабочая [bench](https://github.com/frappe/bench) с установленным **Frappe** и **ERPNext**.
+Используйте версию Dinext Common с DocType `Workflow Process` и версию Dinext Goals с DocType `Goal`, где доступны связи с проектами. Приложение проверяет эти условия при установке и миграции.
 
 ```bash
-cd /path/to/frappe-bench
-bench get-app <repository-url> --branch develop
-bench --site <site_name> install-app dinext_project_scope
-bench --site <site_name> migrate
+bench get-app --branch <ref> https://github.com/Dinext-pro/dinext-project-scope.git
+bench --site <site> install-app dinext_project_scope
+bench --site <site> migrate
+bench build --app dinext_project_scope
+bench --site <site> clear-cache
 ```
 
-После установки проверьте:
+## 🛠️ Работа с модулем
 
-- модуль **Dinext Project Scope** в списке модулей;
-- наличие пользовательских полей **Project** для таблиц `project_scopes` и `project_constraints` (при необходимости создайте через Customize Form или импортируйте фикстуры `bench --site <site> import-fixtures` после добавления записей в репозиторий).
+1. Откройте **Проект → Объём**. Добавьте требования напрямую, подключите спецификацию или проверьте состав в предпросмотре и создайте отдельный набор для проекта. Откройте требование из строки или раскройте подробности, чтобы увидеть пути включения.
+2. В карточке спецификации или шаблона управляйте прямым составом и подавайте весь набор на согласование. При правке согласованного содержания система сохраняет прежнее решение в истории, а для новой редакции требуется повторное согласование.
+3. На вкладке **Проект → Результаты** создавайте результаты, назначайте ответственность, связывайте работы и подавайте результат на приёмку. Матрицы доступны из проекта и через поиск Desk.
+4. Создайте запрос на изменение из проекта и добавьте оценку влияния. После одобрения ответственный записывает дату, пояснение и изменённые документы, затем подтверждает выполнение запроса.
 
-## 🛠️ Usage
+## 🔧 Настройка
 
-1. **Проект**: откройте документ **Project** → вкладка **«Объем»** — заполните **Объем проекта** и **Ограничения и допущения** (если поля добавлены в форму).
-2. **Требования**: список **Project Requirement**, фильтрация по полю **Project**; используйте дерево для иерархии.
-3. **Результаты**: **Project Deliverable** — тип, категория, статус, связанные объёмы/требования/ограничения, структура и ответственные.
-4. **ExampleCustomer08**: создайте и **Submit** документы шаблонов ограничений, требований или результатов; используйте бизнес-логику вашей установки для копирования строк в проект (при необходимости доработайте server scripts или методы DocType).
-5. **Изменения**: **Project Change Request** — описание, инициатор, причина/обоснование; в таблице **Change Relations** указывайте тип связи (**Project Change Relation Type**), направление, силу влияния и ссылку на затронутую сущность.
+Назначьте одного действующего пользователя на роль руководителя в команде проекта. Если команда использует другое название роли, выберите её в **Настройках объёма проекта**. В начальных маршрутах этот пользователь принимает результаты и решения по запросам. Требования и спецификации согласовывает назначенный ответственный. Другие маршруты настраиваются в Workflow Dinext. Для этих маршрутов на сайте используется штатный механизм параллельного согласования.
 
-**Зависимости от других DocTypes**
+## 📦 Технологии и требования
 
-- **Project Role** (типично приложение **dinext_projects**): ссылки из категорий результатов и строк ответственности.
-- **Project Risk** (при наличии в bench): может фигурировать в настройках типов связей изменений (**Project Change Relation Type** → Link DocType).
-- **Task**, **Account**, стандартные **UOM** — по настройке **Project Change Relation Type** и полей связи.
+Frappe и ERPNext 15, Python, JavaScript, MariaDB, Workflow Dinext, DinextTable и DinextCharts. Роли и участников проекта предоставляет Dinext Projects. Связанные с требованиями цели ведутся в Dinext Goals.
 
-Убедитесь, что эти приложения установлены на сайте, если используете соответствующие поля.
+## Структура репозитория
 
-## 📦 Technologies
-
-| Компонент | Версия / заметки |
-|-----------|-------------------|
-| Python | >= 3.10 (`pyproject.toml`) |
-| Frappe / ERPNext | Как в установке bench (`required_apps`: **erpnext**) |
-| Сборка пакета | flit (через `[build-system]` в `pyproject.toml`) |
-| Линтинг / формат | Ruff, pre-commit (eslint, prettier, pyupgrade — см. `.pre-commit-config.yaml`) |
-
-## 🔧 Configuration
-
-Файл `dinext_project_scope/hooks.py`:
-
-- **`required_apps = ["erpnext"]`** — обязательная зависимость от ERPNext.
-- **`fixtures`** — при `bench export-fixtures` / `bench import-fixtures` на сайте синхронизируются записи следующих DocType (в указанном порядке):
-  - **Project Scope Type**
-  - **Requirement Kind**
-  - **Project Deliverable Responsibility**
-  - **Project Deliverable Category**
-  - **Project Change Relation Type**
-  - **Project Deliverable Type**
-  - **Custom Field** (модуль `Dinext Project Scope`)
-  - **Client Script** (модуль `Dinext Project Scope`)
-  - **Server Script** (модуль `Dinext Project Scope`)
-
-Модуль приложения задаётся в `dinext_project_scope/modules.txt` (одна строка: `Dinext Project Scope`).
-
-Каталог **`dinext_project_scope/fixtures/`** содержит JSON для перечисленных в `hooks.py` типов и дополнительные файлы (например `requirement_category.json`), которые при необходимости можно добавить в список `fixtures` в `hooks.py` для автоматического импорта. Файл `project_change_impact_type.json` в каталоге относится к DocType **Project Change Impact Type** (если такой DocType развёрнут на сайте); в текущем дереве приложения отдельной папки DocType под это имя может не быть — сверяйте с фактической схемой сайта.
-
-Переменные окружения для самого приложения не требуются; настройки сайта — стандартные Frappe (`site_config.json`).
-
-### Справочные записи в репозитории (ориентир)
-
-После `import-fixtures` (при актуальном `hooks.py`) на сайте появятся, в частности:
-
-- **Project Deliverable Type**: `Документ`, `Работа`, `Разработка`, `Тестирование`, `Миграция данных` — с дочерними **Project Deliverable Type Element**; для строк с типом **Project Deliverable** поле **Filter** (`filter_type`, Data) задаёт имя базового типа результата: **`Документ`** или **`Работа`** (как `name` записи **Project Deliverable Type**). Подробнее — в `fixtures/project_deliverable_type.json`.
-- **Project Change Impact Type** (если DocType доступен и импорт настроен): записи вроде **Сроки**, **Трудозатраты**, **Фин. результат**, **Качество**, **Объем** — см. `fixtures/project_change_impact_type.json` (UOM на сайте должны существовать, например локализованные **День**, **Час**, **Единица**).
-
-При расхождении имён **UOM** между сайтами отредактируйте фикстуру или записи в Desk после импорта.
-
-## ✅ Requirements
-
-- **bench** с Frappe и **ERPNext**
-- **Python** >= 3.10
-- Для полных связей: приложения с DocType **Project Role** (и при необходимости **Project Risk**)
-- **MariaDB** / совместимая СУБД (как у Frappe)
-
-## 🤝 Contributing
-
-1. Форкните репозиторий и создайте ветку от `develop`.
-2. Установите **pre-commit** и выполните `pre-commit install` в корне приложения.
-3. Соблюдайте стиль кода (Ruff, ESLint, Prettier по конфигурации репозитория).
-4. Для DocType-доработок используйте стандартный цикл Frappe: изменение JSON/Python, затем `migrate` и тесты.
-
-## 📄 Documentation
-
-- Код и схемы полей: каталог `dinext_project_scope/dinext_project_scope/doctype/<doctype_name>/`.
-- Подробности для агентов и среды разработки: `AGENTS.md` (в корне приложения).
-- Метаданные ERPNext: [Frappe Framework Documentation](https://docs.frappe.io/), [ERPNext Projects](https://docs.erpnext.com/).
-
-## 📝 Changelog
-
-| Дата / коммит | Описание |
-|---------------|----------|
-| `ab8a146` | docs: AGENTS.md, навыки README и ретроспективного анализа |
-| `c684a02` | feat: Initialize App (начальная структура приложения) |
-
-*Для актуальной истории выполните `git log` в клоне репозитория.*
-
-## 🗂️ Repository Structure
-
-```
-dinext_project_scope/
-├── README.md                 # Документация проекта
-├── AGENTS.md                 # Контекст для разработки и агентов
-├── license.txt               # Лицензия MIT
-├── pyproject.toml            # Метаданные пакета, Ruff, зависимости bench
-├── .pre-commit-config.yaml   # Хуки качества кода
-├── .gitignore
-└── dinext_project_scope/
-    ├── hooks.py              # Точка входа приложения: required_apps, fixtures
-    ├── modules.txt           # Имя модуля Frappe
-    ├── patches.txt           # Заготовка секций pre/post_model_sync (патчи по мере необходимости)
-    ├── fixtures/             # JSON для import-fixtures (состав согласовать с hooks.py)
-    │   ├── custom_field.json
-    │   ├── client_script.json
-    │   ├── server_script.json
-    │   ├── project_scope_type.json
-    │   ├── requirement_kind.json
-    │   ├── requirement_category.json
-    │   ├── project_deliverable_responsibility.json
-    │   ├── project_deliverable_category.json
-    │   ├── project_change_relation_type.json
-    │   ├── project_deliverable_type.json
-    │   └── project_change_impact_type.json
-    └── dinext_project_scope/
-        └── doctype/          # Все DocTypes модуля Dinext Project Scope
-            ├── change_relation/
-            ├── deliverable_constraint/
-            ├── deliverable_requirement/
-            ├── deliverable_scope/
-            ├── project_change_relation_type/
-            ├── project_change_request/
-            ├── project_change_request_item/
-            ├── project_constraint/
-            ├── project_constraints_template/
-            ├── project_deliverable/
-            ├── project_deliverable_category/
-            ├── project_deliverable_category_responsibility/
-            ├── project_deliverable_item/
-            ├── project_deliverable_log/
-            ├── project_deliverable_responsibility/
-            ├── project_deliverable_responsible/
-            ├── project_deliverable_structure/
-            ├── project_deliverable_template_item/
-            ├── project_deliverable_type/
-            ├── project_deliverable_type_element/
-            ├── project_deliverables_template/
-            ├── project_requirement/
-            ├── project_requirement_item/
-            ├── project_requirement_template_item/
-            ├── project_requirements_template/
-            ├── project_scope/
-            ├── project_scope_type/
-            ├── requirement_category/
-            └── requirement_kind/
-```
-
-Каждая папка DocType обычно содержит:
-
-- `*.json` — схема DocType и полей;
-- `*.py` — класс `Document` и контроллеры;
-- `*.js` — клиентские скрипты формы/списка (если есть);
-- `test_*.py` — unit-тесты (если добавлены).
-
-## 🔗 Flow Chart
-
-Ниже упрощённая схема сущностей и потоков данных (от справочников к проекту и изменениям).
+- `dinext_project_scope/dinext_project_scope/doctype` содержит проектные документы и справочники.
+- `dinext_project_scope/dinext_project_scope/report` содержит отчёты Desk.
+- `dinext_project_scope/analytics`, `public`, `setup` и `translations` содержат серверные выборки, интерфейс, настройки установки и переводы.
+- Серверные тесты в приложении и `cypress/integration` проверяют документы и сценарии Desk.
 
 ```mermaid
-flowchart TB
-  subgraph refs["Справочники"]
-    PST[Project Scope Type]
-    RC[Requirement Category]
-    RK[Requirement Kind]
-    PCRelT[Project Change Relation Type]
-    PDR[Project Deliverable Responsibility]
-    PDT[Project Deliverable Type]
-    PDTE[Project Deliverable Type Element]
-    PDC[Project Deliverable Category]
-    PDCR[Project Deliverable Category Responsibility]
-    PRole[Project Role внешний]
-  end
-
-  subgraph project_form["Форма Project ERPNext"]
-    PR[Project]
-    PS[Project Scope child]
-    PCstr[Project Constraint child]
-  end
-
-  subgraph standalone["Документы"]
-    PReq[Project Requirement tree]
-    PDel[Project Deliverable]
-    PCR[Project Change Request]
-    PDL[Project Deliverable Log]
-  end
-
-  subgraph templates["ExampleCustomer08 submittable"]
-    PCT[Project Constraints Template]
-    PRT[Project Requirements Template]
-    PDTpl[Project Deliverables Template]
-  end
-
-  PST --> PS
-  PS --> PR
-  PCstr --> PR
-  PDC --> PDel
-  PDT --> PDel
-  PDTE --> PDT
-  PDCR --> PDC
-  PRole --> PDCR
-
-  PReq --> PDel
-  PS --> PDel
-  PCstr --> PDel
-
-  PCT --> PCstr
-  PRT --> PReq
-  PDTpl --> PDel
-
-  PCR -->|Change Relation| PCRelT
-  PCR -->|Change Relation Dynamic Link| PS
-  PCR -->|Change Relation Dynamic Link| PDel
-  PCR -->|Change Relation Dynamic Link| PReq
-  PCR -->|Change Relation Dynamic Link| PCstr
-
-  PDel -.->|план: журнал при смене progress| PDL
+flowchart LR
+    Project[Проект] --> Scope[Объём и требования]
+    Specification[Спецификация] --> Scope
+    Scope --> Deliverables[Результаты]
+    Work[Задачи и вложенные результаты] --> Deliverables
+    Project --> Changes[Запросы на изменение]
+    Scope --> Reports[Отчёты]
+    Deliverables --> Reports
+    Changes --> Reports
 ```
 
-**Примечание:** расчёт поля **progress** у **Project Deliverable** по взвешенной структуре (**Project Deliverable Structure**) и автозапись **Project Deliverable Log** в текущем коде контроллера не реализованы (`ProjectDeliverable` — пустой наследник `Document`); это может быть добавлено в `project_deliverable.py` и связанных хуках по мере внедрения.
+## 🤝 Участие в разработке и проверки
+
+Для локальной разработки и проверок используйте основной сайт WSL [localhost:8000](http://localhost:8000/). Тестовые данные размещайте в отдельном синтетическом проекте. Откройте pull request в `develop` и приложите результаты проверок. GitHub Actions запускает серверные и Cypress-тесты для pull request.
+
+Автоматические проверки можно запустить на том же локальном сайте, когда в Frappe настроен режим тестирования.
+
+```bash
+bench --site localhost run-tests --app dinext_project_scope --skip-test-records
+bench --site localhost run-ui-tests dinext_project_scope --headless
+```
+
+## 📄 Документация
+
+Описание проектной карточки и настройки маршрутов доступны в [документации Dinext](https://docs.dinext.ru/).
+
+## Лицензия
+
+[GNU General Public License v3.0](license.txt).

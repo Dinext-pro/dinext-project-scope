@@ -1,13 +1,16 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
- "autoname": "prompt",
+ "autoname": "CR-.#####",
  "creation": "2026-03-19 02:45:24.486953",
  "description": "Project Change Request",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "title",
+  "project",
   "initiator",
   "column_break_uutl",
   "status",
@@ -20,7 +23,16 @@
   "section_relations",
   "change_relations",
   "section_break_xwpu",
-  "amended_from"
+  "implementation_responsible",
+  "implementation_date",
+  "implementation_note",
+  "implementation_items",
+  "implemented_by",
+  "implemented_at",
+  "implementation_section",
+  "amended_from",
+  "approval_approver",
+  "workflow_state"
  ],
  "fields": [
   {
@@ -29,12 +41,15 @@
    "label": "Description"
   },
   {
+   "allow_on_submit": 1,
    "default": "Draft",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nSubmitted\nCancel",
+   "no_copy": 1,
+   "options": "Draft\nIn Review\nApproved\nRejected\nImplemented\nCancelled",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -96,24 +111,111 @@
   {
    "fieldname": "column_break_tpbc",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "implementation_responsible",
+   "fieldtype": "Link",
+   "label": "Implementation Responsible",
+   "options": "User"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "implementation_date",
+   "fieldtype": "Date",
+   "label": "Implementation Date",
+   "no_copy": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "implementation_note",
+   "fieldtype": "Text",
+   "label": "Implementation Note",
+   "no_copy": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "implementation_items",
+   "fieldtype": "Table",
+   "label": "Implementation Items",
+   "no_copy": 1,
+   "options": "Project Change Request Implementation Item"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "implemented_by",
+   "fieldtype": "Link",
+   "label": "Implemented By",
+   "no_copy": 1,
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "implemented_at",
+   "fieldtype": "Datetime",
+   "label": "Implemented At",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "implementation_section",
+   "fieldtype": "Section Break",
+   "label": "Implementation"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "approval_approver",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Approval Approver",
+   "no_copy": 1,
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "workflow_state",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Workflow State",
+   "no_copy": 1,
+   "options": "Workflow State",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-23 01:46:49.473994",
+ "modified": "2026-11-18 02:35:10.974391",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Change Request",
- "naming_rule": "Set by user",
- "owner": "Administrator",
+ "naming_rule": "Expression",
+ "owner": "ikhmel@dinord.ru",
  "permissions": [
   {
    "create": 1,
    "delete": 1,
    "email": 1,
    "export": 1,
+   "import": 1,
    "print": 1,
    "read": 1,
    "report": 1,
@@ -138,6 +240,7 @@
   },
   {
    "create": 1,
+   "delete": 1,
    "email": 1,
    "export": 1,
    "print": 1,
@@ -148,11 +251,46 @@
    "share": 1,
    "submit": 1,
    "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "select": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User",
+   "select": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1
   }
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
 }

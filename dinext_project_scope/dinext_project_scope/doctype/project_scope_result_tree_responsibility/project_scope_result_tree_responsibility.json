@@ -1,0 +1,29 @@
+{
+ "actions": [],
+ "creation": "2026-11-21 11:35:13.537819",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "responsibility"
+ ],
+ "fields": [
+  {
+   "fieldname": "responsibility",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Responsibility",
+   "options": "Project Deliverable Responsibility",
+   "reqd": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-21 11:35:13.537819",
+ "modified_by": "Administrator",
+ "module": "Dinext Project Scope",
+ "name": "Project Scope Result Tree Responsibility",
+ "owner": "Administrator",
+ "permissions": [],
+ "states": []
+}

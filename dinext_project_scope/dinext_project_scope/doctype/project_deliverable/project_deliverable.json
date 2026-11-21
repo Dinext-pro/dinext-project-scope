@@ -1,12 +1,17 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
- "autoname": "prompt",
+ "autoname": "DEL-.#####",
  "creation": "2026-03-19 02:45:42.689206",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "progress_html",
+  "details_section",
+  "title",
+  "project",
   "deliverable_type",
   "category",
   "column_break_juas",
@@ -21,7 +26,18 @@
   "structure_section",
   "table_xuct",
   "sb_responsible",
-  "deliverable_responsibles"
+  "deliverable_responsibles",
+  "planned_start_date",
+  "planned_end_date",
+  "expected_end_date",
+  "actual_end_date",
+  "plan_incomplete",
+  "forecast_incomplete",
+  "last_acceptance_log",
+  "requires_recheck",
+  "acceptance_approver",
+  "workflow_state",
+  "acceptance_html"
  ],
  "fields": [
   {
@@ -46,7 +62,8 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Not Started\nIn Progress\nAcceptance\nCompleted\nCancelled\nTemplate"
+   "options": "Not Started\nIn Progress\nAcceptance\nCompleted\nCancelled\nTemplate",
+   "reqd": 1
   },
   {
    "default": "0",
@@ -109,18 +126,141 @@
   {
    "fieldname": "column_break_hexf",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Project",
+   "mandatory_depends_on": "eval:doc.status != \"Template\"",
+   "options": "Project"
+  },
+  {
+   "fieldname": "planned_start_date",
+   "fieldtype": "Date",
+   "label": "Planned Start Date",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "planned_end_date",
+   "fieldtype": "Date",
+   "label": "Planned End Date",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_end_date",
+   "fieldtype": "Date",
+   "label": "Expected End Date",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_end_date",
+   "fieldtype": "Date",
+   "label": "Actual End Date",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "plan_incomplete",
+   "fieldtype": "Check",
+   "label": "Plan Incomplete",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "forecast_incomplete",
+   "fieldtype": "Check",
+   "label": "Forecast Incomplete",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_acceptance_log",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Last Acceptance Log",
+   "no_copy": 1,
+   "options": "Project Deliverable Log",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "requires_recheck",
+   "fieldtype": "Check",
+   "label": "Requires Recheck",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "acceptance_approver",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Acceptance Approver",
+   "no_copy": 1,
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "workflow_state",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Workflow State",
+   "no_copy": 1,
+   "options": "Workflow State",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:!doc.__islocal && doc.status != 'Template'",
+   "fieldname": "progress_html",
+   "fieldtype": "HTML",
+   "label": "Progress History"
+  },
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "acceptance_html",
+   "fieldtype": "HTML",
+   "label": "Acceptance"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-20 23:59:01.370152",
+ "modified": "2026-11-20 23:07:02.646310",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Deliverable",
- "naming_rule": "Set by user",
- "owner": "Administrator",
+ "naming_rule": "Expression",
+ "owner": "ikhmel@dinord.ru",
  "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
   {
    "create": 1,
    "delete": 1,
@@ -129,14 +269,57 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "System Manager",
+   "role": "Projects Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dinext_Projects_Director",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dinext_Project_Manager",
+   "select": 1,
    "share": 1,
    "write": 1
   }
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
 }
