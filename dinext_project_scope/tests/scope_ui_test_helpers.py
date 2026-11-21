@@ -322,9 +322,6 @@ def create_report_fixture(run_id):
 				"responsible": person,
 			}
 		)
-		for target in (hidden, rollout):
-			target.append("custom_contact_list", {"contact": person, "project_role": role})
-			target.save()
 	for name, pairs in (
 		(category, configured),
 		(other_category, {(row["responsibility"], row["project_role"]) for row in shared_accountable}),
@@ -368,7 +365,8 @@ def create_report_fixture(run_id):
 			description="Cypress assignment",
 			status="Open",
 		).insert()
-	foreign = _result(hidden.name, prefix, "hidden deliverable", other_category, leaf_kind)
+	unassigned_category = _named("Project Deliverable Category", f"{prefix} hidden").name
+	foreign = _result(hidden.name, prefix, "hidden deliverable", unassigned_category, leaf_kind)
 
 	change = frappe.get_doc(
 		doctype="Project Change Request",
@@ -390,7 +388,7 @@ def create_report_fixture(run_id):
 			_impact(secondary_impact, "Moderate", result.name),
 		],
 	).insert()
-	rollout_result = _result(rollout.name, prefix, "rollout deliverable", other_category, leaf_kind)
+	rollout_result = _result(rollout.name, prefix, "rollout deliverable", unassigned_category, leaf_kind)
 	frappe.get_doc(
 		doctype="Project Change Request",
 		project=rollout.name,

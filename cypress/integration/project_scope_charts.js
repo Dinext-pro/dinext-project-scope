@@ -239,8 +239,9 @@ describe("Project scope charts", () => {
 			.find('[col-id="deliverable_type"] svg')
 			.should("be.visible");
 		resultCells(`${fixture.title} peer`)
-			.find('[col-id="assignment"]')
-			.should("have.text", "—");
+			.find('[col-id="assignment"] .avatar')
+			.should("have.length", 1)
+			.and("have.attr", "title", fixture.title);
 	});
 
 	it("ships a distinct visible icon for each standard deliverable type", () => {
@@ -471,7 +472,7 @@ describe("Project scope charts", () => {
 			"have.length",
 			2
 		);
-		cy.get(`${table} a`).should(($links) => {
+		cy.get(`${table} .dinext-scope-link:not(button)`).should(($links) => {
 			expect($links.filter((_, link) => link.textContent === child)).to.have.length(2);
 		});
 		for (const [title, name] of [
