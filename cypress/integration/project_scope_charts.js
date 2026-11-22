@@ -30,7 +30,7 @@ function chartOption(subject, assertion) {
 	});
 }
 
-function clickChartPoint(title, locate) {
+function withChartPoint(title, locate, interact) {
 	chart(title)
 		.find("canvas")
 		.first()
@@ -39,16 +39,21 @@ function clickChartPoint(title, locate) {
 			canvas.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
 			const target = canvas.closest(".dinext-scope-chart");
 			const instance = target.ownerDocument.defaultView.echarts.getInstanceByDom(target);
-			const [x, y] = locate(instance);
-			cy.wrap($canvas)
-				.should(() => {
-					const rect = canvas.getBoundingClientRect();
-					expect(
-						canvas.ownerDocument.elementFromPoint(rect.left + x, rect.top + y)
-					).to.eq(canvas);
-				})
-				.click(Math.round(x), Math.round(y), { scrollBehavior: false });
+			const [x, y] = locate(instance).map(Math.round);
+			const subject = cy.wrap($canvas).should(() => {
+				const rect = canvas.getBoundingClientRect();
+				expect(canvas.ownerDocument.elementFromPoint(rect.left + x, rect.top + y)).to.eq(
+					canvas
+				);
+			});
+			interact(subject, x, y);
 		});
+}
+
+function clickChartPoint(title, locate) {
+	withChartPoint(title, locate, (canvas, x, y) => {
+		canvas.click(x, y, { scrollBehavior: false });
+	});
 }
 
 function pieSegmentPoint(instance, label) {
@@ -539,22 +544,25 @@ describe("Project scope charts", () => {
 	});
 
 	it("shows the hovered segment count in the donut center and restores the total", () => {
-		showResults(fixture.project);
+		cy.visit(`/app/project/${fixture.project}`);
+		cy.get('.inner-group-button[data-label="Scope%20Reports"] > button:visible').should(
+			"exist"
+		);
+		cy.window().then(({ frappe }) => frappe.after_ajax());
+		cy.get('button[data-fieldname="custom_результаты"]').click().should("have.class", "active");
 		const title = "Deliverables by category";
 		const center = () => cy.contains(chartCard, title).find(".dinext-scope-donut-count");
 		const move = (label) => {
-			chart(title)
-				.find("canvas")
-				.first()
-				.then(([canvas]) => {
-					const host = canvas.closest(".dinext-scope-chart");
-					const instance = host.ownerDocument.defaultView.echarts.getInstanceByDom(host);
-					const [x, y] = label ? pieSegmentPoint(instance, label) : [1, 1];
-					cy.wrap(canvas).trigger("mousemove", Math.round(x), Math.round(y), {
+			withChartPoint(
+				title,
+				(instance) => (label ? pieSegmentPoint(instance, label) : [1, 1]),
+				(canvas, x, y) => {
+					canvas.trigger("mousemove", x, y, {
 						eventConstructor: "MouseEvent",
 						scrollBehavior: false,
 					});
-				});
+				}
+			);
 		};
 		chartOption(chart(title), (option) => expect(option.series[0].data).to.have.length(2));
 		move(fixture.title);
