@@ -1156,13 +1156,16 @@
 	function progressControls(surface, onChange) {
 		const element = node("div", "dinext-scope-progress-controls");
 		const controls = {};
+		const values = {};
 		for (const [fieldname, fieldtype, label, initial] of [
 			["show_plan", "Check", __("Plan"), 0],
 			["reporting_date", "Date", __("Reporting date"), frappe.datetime.get_today()],
 			["baseline_date", "Date", __("Baseline date"), ""],
 		]) {
+			values[fieldname] = initial;
 			const control = frappe.ui.form.make_control({
 				parent: element,
+				doc: values,
 				df: { fieldname, fieldtype, label },
 				render_input: true,
 			});
@@ -1375,9 +1378,13 @@
 			);
 			appliedQuery = null;
 			const { reporting_date, baseline_date, show_plan } = comparison.controls;
-			const reporting = reporting_date.get_value() || frappe.datetime.get_today();
+			const selectedDate = reporting_date.get_value();
+			const reporting = selectedDate || frappe.datetime.get_today();
 			const baseline = baseline_date.get_value() || "";
-			if (!reporting_date.get_value()) reporting_date.set_input(reporting);
+			if (!selectedDate) {
+				reporting_date.doc.reporting_date = reporting;
+				reporting_date.set_input(reporting);
+			}
 			if (baseline && baseline > reporting) {
 				setMessage(
 					surface,
