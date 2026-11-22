@@ -14,10 +14,11 @@ from openpyxl.cell.text import InlineFont
 from openpyxl.styles import Alignment, Font, PatternFill
 
 from dinext_project_scope.analytics import data
-from dinext_project_scope.analytics.reports import REPORTS, dataset
+from dinext_project_scope.analytics.reports import REPORTS, column, dataset, flatten_rows
 
 HEADER_FILL = PatternFill("solid", fgColor="FFDCE8F2")
 GROUP_FILL = PatternFill("solid", fgColor="FFEAF0F4")
+DELTA_COLORS = {"up": "FF176C3F", "flat": "FF525A65", "down": "FFA32734"}
 STATE_FILLS = {
 	"red": "F8D3D3",
 	"yellow": "FDECAC",
@@ -125,6 +126,12 @@ def write_report_value(cell, row, column, legend):
 	if kind == "progress" and value is not None:
 		value = flt(value) / 100
 		cell.number_format = "0.##%"
+	if kind == "delta" and value is not None:
+		cell.number_format = "+0.##;-0.##;0"
+		if color := DELTA_COLORS.get(row.get(f"{field}_direction")):
+			cell.font = Font(color=color, bold=True)
+	if kind == "assignment":
+		value = " / ".join(member["label"] for member in value or ()) or None
 	if kind in {"date", "plan_date"} and value:
 		value = getdate(value)
 		cell.number_format = "yyyy-mm-dd"
@@ -234,3 +241,43 @@ def download(report_name, filters=None):
 	frappe.has_permission(report.ref_doctype, "export", throw=True)
 	columns, rows = dataset(report_name, filters)
 	provide_binary_file(frappe.scrub(report_name), "xlsx", make_workbook(report_name, columns, rows))
+
+@frappe.whitelist(methods=["GET"])
+def download_project_results(project, filters=None, reporting_date=None, baseline_date=None, show_plan=0):
+	frappe.has_permission(data.DELIVERABLE, "export", throw=True)
+	view = data.project_results(project, filters, reporting_date, baseline_date, show_plan)
+	comparison = view["comparison"]
+	columns = [
+		column("label", _("Deliverable / Work"), width=285),
+		column("status", _("Status"), kind="status", width=155),
+		column("deliverable_type", _("Type")),
+		column("category", _("Category"), width=150),
+		column("progress", _("Progress"), kind="progress", width=105),
+	]
+	if comparison["baseline_date"]:
+		columns.extend(
+			[
+				column("baseline_progress", _("Baseline progress"), kind="progress"),
+				column("baseline_delta", _("Δ from baseline"), kind="delta"),
+			]
+		)
+	if comparison["show_plan"]:
+		columns.extend(
+			[
+				column(
+					"planned_progress", _("Planned progress", context="Dinext.ProjectScope.Comparison"),
+					kind="progress",
+				),
+				column("plan_delta", _("Δ from plan"), kind="delta"),
+			]
+		)
+	columns.extend(
+		[
+			column("assignment", _("Assignment"), kind="assignment", width=170),
+			column("planned_end_date", _("Planned end", context="Dinext.ProjectScope.Dates"), kind="plan_date"),
+			column("expected_end_date", _("Expected end", context="Dinext.ProjectScope.Dates"), kind="date"),
+			column("actual_end_date", _("Actual end", context="Dinext.ProjectScope.Dates"), kind="date"),
+		]
+	)
+	rows = list(flatten_rows(view["rows"]))
+	provide_binary_file("project-results", "xlsx", make_workbook("Project Results", columns, rows))

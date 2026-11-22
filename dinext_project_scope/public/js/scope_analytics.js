@@ -138,6 +138,7 @@
 				resize?.disconnect();
 				if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
 				theme.disconnect();
+				this.disposeControls?.();
 				this.table?.destroy();
 				this.table = null;
 				root.remove();
@@ -454,6 +455,27 @@
 		return progress;
 	}
 
+	function resultDelta(row, field, label) {
+		const value = row[field];
+		const direction = row[`${field}_direction`];
+		if (value == null || !direction) return node("span");
+		const locale = frappe.boot.user?.language?.replaceAll("_", "-");
+		const format = new Intl.NumberFormat(locale || undefined, { maximumFractionDigits: 2 });
+		const amount = format.format(Math.abs(value));
+		const marker = node(
+			"span",
+			`dinext-scope-result-delta dinext-scope-result-delta--${direction}`
+		);
+		marker.dataset.direction = direction;
+		const arrow = node("span", "", { up: "↑", flat: "→", down: "↓" }[direction]);
+		arrow.setAttribute("aria-hidden", "true");
+		const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+		marker.title = `${label} ${sign}${amount} ${__("pp")}`;
+		marker.setAttribute("aria-label", marker.title);
+		marker.append(arrow, document.createTextNode(` ${amount} ${__("pp")}`));
+		return marker;
+	}
+
 	function resultRowStyle({ data }) {
 		const color = data?.deliverable_type_color;
 		if (data?.document_type !== DELIVERABLE || !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color))
@@ -509,6 +531,8 @@
 					);
 				case "result_progress":
 					return resultProgress(value, column.label);
+				case "result_delta":
+					return resultDelta(row, column.fieldname, column.label);
 				case "result_type":
 					return resultType(row, value);
 				case "result_assignment":
@@ -641,10 +665,15 @@
 	async function drawGrid(surface, container, columns, rows, options = {}) {
 		if (!surface.active()) return;
 		const definitions = tableColumns(columns, options.resultTree);
+		const columnKey = options.resultTree && columns.map((column) => column.fieldname).join();
 		if ((options.resultTree || options.responsibilityMatrix) && surface.table) {
 			const table = surface.table;
 			if (options.resultTree) {
 				table.clearRowCheck();
+				if (surface.resultColumnKey !== columnKey) {
+					table.setOption("columns", definitions);
+					surface.resultColumnKey = columnKey;
+				}
 				const type = columns.find((column) => column.kind === "result_type");
 				table.api.setColumnWidths([{ key: type.fieldname, newWidth: type.width }]);
 			} else {
@@ -821,7 +850,10 @@
 			},
 		});
 		if (!surface.active() || surface.gridGeneration !== generation) table.destroy();
-		else surface.table = table;
+		else {
+			surface.table = table;
+			surface.resultColumnKey = columnKey;
+		}
 	}
 
 	function chartColors() {
@@ -1073,7 +1105,7 @@
 		return Math.max(66, Math.min(240, Math.ceil(width + 34)));
 	}
 
-	function resultColumns(container, rows) {
+	function resultColumns(container, rows, comparison) {
 		const type = __("Type");
 		return [
 			["label", __("Deliverable / Work"), "label", 285, "left"],
@@ -1081,6 +1113,23 @@
 			["deliverable_type", type, "result_type", resultTypeWidth(container, type, rows)],
 			["category", __("Category"), null, 150],
 			["progress", __("Progress"), "result_progress", 105],
+			...(comparison.baseline_date
+				? [
+						["baseline_progress", __("Baseline progress"), "result_progress", 173],
+						["baseline_delta", __("Δ from baseline"), "result_delta", 128],
+				  ]
+				: []),
+			...(comparison.show_plan
+				? [
+						[
+							"planned_progress",
+							__("Planned progress", null, "Dinext.ProjectScope.Comparison"),
+							"result_progress",
+							145,
+						],
+						["plan_delta", __("Δ from plan"), "result_delta", 128],
+				  ]
+				: []),
 			["assignment", __("Assignment"), "result_assignment", 155],
 			[
 				"planned_end_date",
@@ -1104,7 +1153,57 @@
 		}));
 	}
 
-	function resultToolbar(frm, surface, { refresh, clearFilters, canDelete }) {
+	function progressControls(surface, onChange) {
+		const element = node("div", "dinext-scope-progress-controls");
+		const controls = {};
+		for (const [fieldname, fieldtype, label, initial] of [
+			["show_plan", "Check", __("Plan"), 0],
+			["reporting_date", "Date", __("Reporting date"), frappe.datetime.get_today()],
+			["baseline_date", "Date", __("Baseline date"), ""],
+		]) {
+			const control = frappe.ui.form.make_control({
+				parent: element,
+				df: { fieldname, fieldtype, label },
+				render_input: true,
+			});
+			control.set_input(initial);
+			control.$input.attr("aria-label", label);
+			control.df.onchange = onChange;
+			controls[fieldname] = control;
+		}
+		surface.disposeControls = () => {
+			for (const control of Object.values(controls)) control.datepicker?.destroy();
+		};
+		return { element, controls };
+	}
+
+	async function downloadResultTree(query, surface) {
+		if (!query || !surface.active()) return;
+		try {
+			const method = "dinext_project_scope.analytics.export.download_project_results";
+			const response = await fetch(`/api/method/${method}?${new URLSearchParams(query)}`, {
+				credentials: "same-origin",
+				cache: "no-store",
+			});
+			if (!response.ok) throw new Error("Export failed");
+			const workbook = await response.blob();
+			if (!surface.active()) return;
+			const url = URL.createObjectURL(workbook);
+			const link = node("a");
+			link.href = url;
+			link.download = "project-results.xlsx";
+			link.click();
+			setTimeout(() => URL.revokeObjectURL(url), 2000);
+		} catch {
+			if (surface.active()) frappe.msgprint(__("Could not download the report."));
+		}
+	}
+
+	function resultToolbar(
+		frm,
+		surface,
+		{ refresh, clearFilters, canDelete, comparison, exportResults }
+	) {
 		const project = frm.doc.name;
 		let deleting = false;
 		return [
@@ -1164,6 +1263,17 @@
 				label: __("Responsibility Matrix"),
 				iconSvg: frappe.utils.icon("dashboard-list", "sm"),
 				onClick: () => toReport("Project Responsibility Matrix", { project }),
+			},
+			{ id: "scope-progress-comparison", type: "custom", element: comparison },
+			{
+				id: "scope-download-results",
+				type: "button",
+				align: "end",
+				title: __("Export XLSX"),
+				iconSvg:
+					'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M8 2v8m-3-3 3 3 3-3M3 11v3h10v-3"/></svg>',
+				hidden: !frappe.model.can_export(DELIVERABLE),
+				onClick: exportResults,
 			},
 		];
 	}
@@ -1230,12 +1340,20 @@
 			return { key, chart, control };
 		});
 		let revision = 0;
+		let appliedQuery = null;
+		const comparison = progressControls(surface, refresh);
 		const tableOptions = {
 			expand: "roots",
 			resultTree: true,
 			canCheckRow: ({ row }) => canDelete && isResultRow(row),
 			toggleResultFilter,
-			toolbarItems: resultToolbar(frm, surface, { refresh, clearFilters, canDelete }),
+			toolbarItems: resultToolbar(frm, surface, {
+				refresh,
+				clearFilters,
+				canDelete,
+				comparison: comparison.element,
+				exportResults: () => downloadResultTree(appliedQuery, surface),
+			}),
 		};
 
 		function toggleResultFilter(field, value) {
@@ -1255,12 +1373,28 @@
 			const filters = Object.fromEntries(
 				panels.map(({ key, control }) => [key, control.get_value() || ""])
 			);
+			appliedQuery = null;
+			const { reporting_date, baseline_date, show_plan } = comparison.controls;
+			const reporting = reporting_date.get_value() || frappe.datetime.get_today();
+			const baseline = baseline_date.get_value() || "";
+			if (!reporting_date.get_value()) reporting_date.set_input(reporting);
+			if (baseline && baseline > reporting) {
+				setMessage(
+					surface,
+					__("The baseline date must be on or before the reporting date.")
+				);
+				return;
+			}
+			const query = {
+				project,
+				filters: JSON.stringify(filters),
+				reporting_date: reporting,
+				baseline_date: baseline,
+				show_plan: show_plan.get_value() ? 1 : 0,
+			};
 			let result;
 			try {
-				result = await call("project_results", {
-					project,
-					filters: JSON.stringify(filters),
-				});
+				result = await call("project_results", query);
 			} catch {
 				if (surface.active() && request === revision) {
 					surface.table?.clearRowCheck();
@@ -1306,10 +1440,11 @@
 			await drawGrid(
 				surface,
 				table,
-				resultColumns(table, result.rows),
+				resultColumns(table, result.rows, result.comparison),
 				result.rows,
 				tableOptions
 			);
+			if (surface.active() && request === revision) appliedQuery = query;
 		}
 
 		await refresh();

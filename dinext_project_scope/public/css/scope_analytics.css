@@ -635,3 +635,65 @@ button.dinext-scope-link:hover {
 .dinext-scope-excel .icon {
 	color: inherit;
 }
+
+.dinext-scope-progress-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+}
+
+.dinext-scope-progress-controls .frappe-control,
+.dinext-scope-progress-controls .frappe-control .help-box {
+	margin: 0;
+}
+
+.dinext-scope-progress-controls .frappe-control[data-fieldtype="Date"] {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.dinext-scope-progress-controls label {
+	white-space: nowrap;
+}
+
+.dinext-scope-progress-controls input[data-fieldtype="Date"] {
+	width: 7rem;
+	height: var(--input-height);
+}
+
+.dinext-scope-results-table .dinext-table-toolbar-panel:has(.dinext-scope-progress-controls) {
+	flex-wrap: wrap;
+}
+
+.dinext-scope-results-table
+	:is(.dinext-table--toolbar-open, .dinext-table--toolbar-pinned)
+	.dinext-table-toolbar-panel:has(.dinext-scope-progress-controls) {
+	max-height: none;
+}
+
+.dinext-scope-result-delta {
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.dinext-scope-result-delta--up {
+	color: var(--green-600);
+}
+
+.dinext-scope-result-delta--flat {
+	color: var(--text-muted);
+}
+
+.dinext-scope-result-delta--down {
+	color: var(--red-600);
+}
+
+[data-theme="dark"] .dinext-scope-result-delta--up {
+	color: var(--green-400);
+}
+
+[data-theme="dark"] .dinext-scope-result-delta--down {
+	color: var(--red-400);
+}

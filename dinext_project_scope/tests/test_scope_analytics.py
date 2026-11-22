@@ -17,6 +17,76 @@ from dinext_project_scope.dinext_project_scope.doctype.project_deliverable_type.
 
 
 class TestScopeAnalytics(TestCase):
+	def test_results_use_recorded_progress_and_relative_plan_tolerance(self):
+		reporting = date(2026, 11, 15)
+		baseline = date(2026, 11, 12)
+		today = date(2026, 11, 21)
+		task = {
+			"document_type": "Task",
+			"document": "task",
+			"progress": 95,
+			"planned_start_date": "2026-11-10",
+			"planned_end_date": "2026-11-20",
+		}
+		other = {"document_type": "Note", "document": "other", "is_other": True}
+		result = dict(task, document_type=data.DELIVERABLE, document="result", children=[task, other])
+		with patch.object(data, "result_progress_history", return_value={
+			(data.DELIVERABLE, "result"): [(baseline, 25), (reporting, 48), (reporting, 52.5)],
+			("Task", "task"): [(reporting, 46)],
+		}) as history:
+			data.add_result_progress([result], reporting, baseline, True, today)
+		history.assert_called_once_with({data.DELIVERABLE: {"result"}, "Task": {"task"}}, reporting)
+		self.assertEqual(result["progress"], 52.5)
+		self.assertEqual(result["baseline_progress"], 25)
+		self.assertEqual((result["baseline_delta"], result["baseline_delta_direction"]), (27.5, "up"))
+		self.assertEqual(result["planned_progress"], 50)
+		self.assertEqual((result["plan_delta"], result["plan_delta_direction"]), (2.5, "flat"))
+		self.assertEqual((task["plan_delta"], task["plan_delta_direction"]), (-4, "down"))
+		self.assertIsNone(task["baseline_delta"])
+		self.assertNotIn("progress", other)
+
+	def test_progress_dates_validate_and_keep_current_progress(self):
+		today = date(2026, 11, 21)
+		with patch.object(data, "result_progress_history") as history:
+			row = {"document_type": data.DELIVERABLE, "document": "result", "progress": 41}
+			data.add_result_progress([row], today, None, True, today)
+			self.assertEqual(row["progress"], 41)
+			self.assertIsNone(row["planned_progress"])
+			data.add_result_progress([row], date(2026, 11, 22), None, False, today)
+			self.assertIsNone(row["progress"])
+		history.assert_not_called()
+		for invalid in ("2026-11-21 08:00", "2026-15-12", {"date": "2026-11-18"}):
+			with self.assertRaises(frappe.ValidationError):
+				data.result_progress_dates(invalid, None, today)
+		with self.assertRaises(frappe.ValidationError):
+			data.result_progress_dates("2026-11-18", "2026-11-19", today)
+
+	@patch.object(export, "_", lambda string, **_: string)
+	def test_results_workbook_exports_visible_progress_columns_and_hierarchy(self):
+		with (
+			patch.object(export.frappe, "has_permission") as permission,
+			patch.object(data, "project_results", return_value={
+				"comparison": {"show_plan": True, "baseline_date": "2026-11-12"},
+				"rows": [{"label": "Parent", "progress": 54, "baseline_progress": 25,
+					"baseline_delta": 29, "baseline_delta_direction": "up", "planned_progress": 50,
+					"plan_delta": 4, "plan_delta_direction": "up",
+					"children": [{"label": "=Child", "progress": 20}]}],
+			}) as payload,
+			patch.object(export, "provide_binary_file") as delivery,
+		):
+			export.download_project_results("Project", "{}", "2026-11-15", "2026-11-12", 1)
+		permission.assert_called_once_with(data.DELIVERABLE, "export", throw=True)
+		payload.assert_called_once_with("Project", "{}", "2026-11-15", "2026-11-12", 1)
+		name, extension, content = delivery.call_args.args
+		self.assertEqual((name, extension), ("project-results", "xlsx"))
+		sheet = load_workbook(BytesIO(content)).active
+		headers = {cell.value: cell.column for cell in sheet[1]}
+		self.assertEqual(sheet.cell(2, headers["Progress"]).value, 0.54)
+		self.assertEqual(sheet.cell(2, headers["Δ from baseline"]).value, 29)
+		self.assertEqual(sheet.cell(2, headers["Δ from plan"]).value, 4)
+		self.assertEqual(sheet["A3"].data_type, "s")
+		self.assertEqual(sheet.row_dimensions[3].outlineLevel, 1)
+
 	@patch("dinext_project_scope.access.has_project_access", side_effect=lambda project: project == "public")
 	@patch("dinext_project_scope.access.readable_projects", return_value=["public", "private"])
 	def test_cross_project_scope_checks_each_project(self, _listed, _accessible):

@@ -166,6 +166,73 @@ describe("Project scope charts", () => {
 		cy.get(grid).should(([$element]) => expect($element).to.eq(fullscreenTable));
 	});
 
+	it("compares deliverable progress on selected dates and exports the same tree", () => {
+		cy.viewport(1700, 900);
+		showResults(fixture.project);
+		const control = (field) =>
+			`${resultHost} .dinext-scope-progress-controls input[data-fieldname="${field}"]`;
+		const header = (field) => `${resultHost} .ag-header-cell[col-id="${field}"]`;
+		const cell = (field) => resultCells(`${fixture.title} result`).find(`[col-id="${field}"]`);
+		function setDate(field, date) {
+			cy.window().then((win) => {
+				cy.get(control(field))
+					.invoke("val", date ? win.frappe.datetime.str_to_user(date) : "")
+					.trigger("change");
+			});
+		}
+
+		cy.get(control("show_plan")).should("not.be.checked");
+		cy.get(control("baseline_date")).should("have.value", "");
+		cy.window().then((win) => {
+			const today = win.frappe.datetime.get_today();
+			cy.get(control("reporting_date")).should(
+				"have.value",
+				win.frappe.datetime.str_to_user(today)
+			);
+		});
+		cy.get(header("planned_progress")).should("not.exist");
+		cy.get(header("baseline_progress")).should("not.exist");
+		setDate("reporting_date", fixture.reporting_date);
+		cell("progress").find('[role="progressbar"]').should("have.attr", "aria-valuenow", "54");
+		setDate("baseline_date", fixture.baseline_date);
+		cell("baseline_progress")
+			.find('[role="progressbar"]')
+			.should("have.attr", "aria-valuenow", "20");
+		cell("baseline_delta").find('[data-direction="up"]').should("contain.text", "↑ 34");
+		cy.get(control("show_plan")).check();
+		cy.get(header("planned_progress")).should("exist");
+		cy.get(`${resultHost} .ag-body-horizontal-scroll-viewport`).scrollTo(550, 0, {
+			ensureScrollable: false,
+		});
+		cell("planned_progress")
+			.find('[role="progressbar"]')
+			.should("have.attr", "aria-valuenow", "50");
+		cell("plan_delta").find('[data-direction="up"]').should("contain.text", "↑ 4");
+
+		cy.intercept(
+			"GET",
+			"**/api/method/dinext_project_scope.analytics.export.download_project_results?*"
+		).as("resultsExcel");
+		cy.get(`${resultHost} button[title="Export XLSX"]`).click();
+		cy.wait("@resultsExcel").then(({ request, response }) => {
+			expect(request.query).to.include({
+				project: fixture.project,
+				reporting_date: fixture.reporting_date,
+				baseline_date: fixture.baseline_date,
+				show_plan: "1",
+			});
+			expect(response.statusCode).to.eq(200);
+			expect(response.headers["content-disposition"]).to.contain("project-results.xlsx");
+		});
+		cy.readFile(`${Cypress.config("downloadsFolder")}/project-results.xlsx`, null).should(
+			(file) => expect(file.slice(0, 2).toString()).to.eq("PK")
+		);
+		cy.get(control("show_plan")).uncheck();
+		cy.get(header("planned_progress")).should("not.exist");
+		setDate("baseline_date", "");
+		cy.get(header("baseline_progress")).should("not.exist");
+	});
+
 	it("shows the Task type and omits empty optional work in the expanded results tree", () => {
 		showResults(fixture.project);
 		cy.get(

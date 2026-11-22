@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 from urllib.parse import quote
 
 import frappe
@@ -53,6 +53,7 @@ TASK_FIELDS = [
 	"status",
 	"progress",
 	"parent_task",
+	"custom_planned_start_date",
 	"custom_planned_end_date",
 	"exp_end_date",
 	"completed_on",
@@ -256,17 +257,19 @@ def plan_dates(deliverable):
 	return (start, end, None) if start and end and end >= start else (None, None, "invalid")
 
 
-def average_planned_progress(results, today):
-	if not results:
+def planned_progress_at(row, on_date):
+	start, end, reason = plan_dates(row)
+	if reason or cint(row.get("plan_incomplete")):
 		return None
-	values = []
-	for row in results:
-		start, end, reason = plan_dates(row)
-		if reason or cint(row.get("plan_incomplete")):
-			return None
-		days = (end - start).days
-		elapsed = (today - start).days
-		values.append(min(100, max(0, elapsed * 100 / days)) if days else 100 * (elapsed >= 0))
+	days = (end - start).days
+	elapsed = (on_date - start).days
+	return min(100, max(0, elapsed * 100 / days)) if days else 100 * (elapsed >= 0)
+
+
+def average_planned_progress(results, today):
+	values = [planned_progress_at(row, today) for row in results]
+	if not values or None in values:
+		return None
 	return sum(values) / len(values)
 
 
@@ -382,6 +385,7 @@ class StructureTree:
 			"status": status,
 			"status_tone": STATUS_TONES.get(status),
 			"progress": row.get("progress"),
+			"planned_start_date": row.get("custom_planned_start_date"),
 			"planned_end_date": row.get("custom_planned_end_date"),
 			"expected_end_date": row.get("exp_end_date"),
 			"actual_end_date": (row.get("completed_on") or row.get("act_end_date"))
@@ -445,6 +449,101 @@ def results_view(
 	return sorted(filtered, key=row_sort_key), {
 		key: distribution(matching.values(), key) for key in RESULT_FILTERS
 	}
+
+
+def result_progress_dates(reporting_date, baseline_date, today):
+	def parse(value):
+		if value is None or value == "":
+			return None
+		if isinstance(value, str):
+			try:
+				return date.fromisoformat(value)
+			except ValueError:
+				pass
+		frappe.throw(_("Enter a valid progress date."))
+
+	reporting = parse(reporting_date) or today
+	baseline = parse(baseline_date)
+	if baseline and baseline > reporting:
+		frappe.throw(_("The baseline date must be on or before the reporting date."))
+	return reporting, baseline
+
+
+def result_progress_history(documents, through):
+	history = defaultdict(list)
+	until = ["<", through + timedelta(days=1)]
+	if names := documents.get(DELIVERABLE):
+		for event in frappe.get_all(
+			"Project Deliverable Log",
+			filters={"deliverable": ["in", sorted(names)], "log_date": until},
+			fields=["deliverable", "log_date", "progress"],
+			order_by="log_date asc, creation asc, name asc",
+		):
+			if event.progress is not None:
+				history[DELIVERABLE, event.deliverable].append((getdate(event.log_date), event.progress))
+	if names := documents.get("Task"):
+		field = frappe.get_meta("Task").get_field("custom_progress_history")
+		if field and field.options == "Task Progress History":
+			for event in frappe.get_all(
+				field.options,
+				filters={
+					"parent": ["in", sorted(names)],
+					"parenttype": "Task",
+					"parentfield": field.fieldname,
+					"changed_on": until,
+				},
+				fields=["parent", "changed_on", "new_progress"],
+				order_by="changed_on asc, idx asc, name asc",
+			):
+				if event.new_progress is not None:
+					history["Task", event.parent].append((getdate(event.changed_on), event.new_progress))
+	return history
+
+
+def progress_at(current, events, on_date, today):
+	if on_date == today:
+		return numeric_progress(current) if current is not None else None
+	if on_date < today:
+		for day, progress in reversed(events):
+			if day <= on_date:
+				return numeric_progress(progress)
+	return None
+
+
+def add_progress_delta(row, field, reference, tolerance=0):
+	actual = row["progress"]
+	value = round(actual - reference, 2) if actual is not None and reference is not None else None
+	row[field] = value
+	if value is not None:
+		row[f"{field}_direction"] = (
+			"flat" if abs(value) <= round(tolerance, 2) else "up" if value > 0 else "down"
+		)
+
+
+def add_result_progress(rows, reporting, baseline, show_plan, today):
+	documents = defaultdict(set)
+	supported = []
+	stack = list(rows)
+	while stack:
+		row = stack.pop()
+		stack.extend(row.get("children", ()))
+		doctype = row.get("document_type")
+		if not row.get("is_other") and doctype in {DELIVERABLE, "Task"}:
+			documents[doctype].add(row["document"])
+			supported.append(row)
+	past_dates = [day for day in (reporting, baseline) if day and day < today]
+	history = result_progress_history(documents, max(past_dates)) if documents and past_dates else {}
+	for row in supported:
+		current = row.get("progress")
+		events = history.get((row["document_type"], row["document"]), ())
+		row["progress"] = progress_at(current, events, reporting, today)
+		if baseline:
+			row["baseline_progress"] = progress_at(current, events, baseline, today)
+			add_progress_delta(row, "baseline_delta", row["baseline_progress"])
+		if show_plan:
+			plan = planned_progress_at(row, reporting)
+			row["planned_progress"] = plan
+			add_progress_delta(row, "plan_delta", plan, tolerance=(plan or 0) * 0.05)
 
 
 def progress_series(deliverable, events, today=None):
@@ -619,9 +718,12 @@ def available_tasks(project, structure):
 
 
 @frappe.whitelist(methods=["GET"])
-def project_results(project, filters=None):
+def project_results(project, filters=None, reporting_date=None, baseline_date=None, show_plan=0):
 	filters = normalize_filters(filters)
 	projects = project_ids(project, required=True)
+	today = getdate()
+	reporting, baseline = result_progress_dates(reporting_date, baseline_date, today)
+	show_plan = bool(cint(show_plan))
 	deliverables = get_deliverables(projects)
 	type_names = sorted(
 		{row["deliverable_type"] for row in deliverables.values() if row.get("deliverable_type")}
@@ -653,8 +755,14 @@ def project_results(project, filters=None):
 		other_work=other_work,
 		assigned_work=work_assignees(tasks, other_work),
 	)
+	add_result_progress(rows, reporting, baseline, show_plan, today)
 	return {
 		"rows": rows,
+		"comparison": {
+			"reporting_date": str(reporting),
+			"baseline_date": str(baseline) if baseline else None,
+			"show_plan": show_plan,
+		},
 		"counts": counts,
 		"options": {key: distribution(deliverables.values(), key) for key in RESULT_FILTERS},
 		"progress": root_progress(deliverables, structure),
