@@ -199,8 +199,13 @@ describe("Project scope charts", () => {
 			.find('[role="progressbar"]')
 			.should("have.attr", "aria-valuenow", "20");
 		cell("baseline_delta").find('[data-direction="up"]').should("contain.text", "↑ 34");
-		cy.get(control("show_plan")).check();
-		cy.get(header("planned_progress")).should("exist");
+		const grid = `${resultHost} .ag-root[aria-colcount]`;
+		cy.get(grid)
+			.invoke("attr", "aria-colcount")
+			.then((count) => {
+				cy.get(control("show_plan")).check();
+				cy.get(grid).should("have.attr", "aria-colcount", String(Number(count) + 2));
+			});
 		cy.get(`${resultHost} .ag-body-horizontal-scroll-viewport`).scrollTo(550, 0, {
 			ensureScrollable: false,
 		});
@@ -227,10 +232,14 @@ describe("Project scope charts", () => {
 		cy.readFile(`${Cypress.config("downloadsFolder")}/project-results.xlsx`, null).should(
 			(file) => expect(file.slice(0, 2).toString()).to.eq("PK")
 		);
-		cy.get(control("show_plan")).uncheck();
-		cy.get(header("planned_progress")).should("not.exist");
-		setDate("baseline_date", "");
-		cy.get(header("baseline_progress")).should("not.exist");
+		cy.get(grid)
+			.invoke("attr", "aria-colcount")
+			.then((count) => {
+				cy.get(control("show_plan")).uncheck();
+				cy.get(grid).should("have.attr", "aria-colcount", String(Number(count) - 2));
+				setDate("baseline_date", "");
+				cy.get(grid).should("have.attr", "aria-colcount", String(Number(count) - 4));
+			});
 	});
 
 	it("shows the Task type and omits empty optional work in the expanded results tree", () => {
