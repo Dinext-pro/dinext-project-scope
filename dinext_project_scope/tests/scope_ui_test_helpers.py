@@ -352,7 +352,7 @@ def create_report_fixture(run_id):
 		deliverable_scopes=[{"project_scope": scope.name}],
 		deliverable_constraints=[{"project_constraint": assumption.name}],
 	)
-	_result(project.name, prefix, "peer", category, kind, work=shared.name)
+	peer = _result(project.name, prefix, "peer", category, kind, work=shared.name)
 	work.reload()  # The child Task updates the group's dependency list on insert.
 	work.progress = 20
 	work.save()
@@ -361,11 +361,11 @@ def create_report_fixture(run_id):
 	for day, progress in ((baseline_date, 20), (reporting_date, 54)):
 		entry = frappe.get_doc(
 			doctype="Project Deliverable Log",
-			deliverable=result.name,
+			deliverable=peer.name,
 			log_date=f"{day} 18:00:00",
 			author=actor,
 			event_type="Calculation",
-			event_key=f"scope-browser-{result.name}-{day}",
+			event_key=f"scope-browser-{peer.name}-{day}",
 			progress=progress,
 		)
 		entry.flags.in_deliverable_calculation = True

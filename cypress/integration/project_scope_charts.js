@@ -172,7 +172,7 @@ describe("Project scope charts", () => {
 		const control = (field) =>
 			`${resultHost} .dinext-scope-progress-controls input[data-fieldname="${field}"]`;
 		const header = (field) => `${resultHost} .ag-header-cell[col-id="${field}"]`;
-		const cell = (field) => resultCells(`${fixture.title} result`).find(`[col-id="${field}"]`);
+		const cell = (field) => resultCells(`${fixture.title} peer`).find(`[col-id="${field}"]`);
 		function setDate(field, date) {
 			cy.window().then((win) => {
 				cy.get(control(field))
