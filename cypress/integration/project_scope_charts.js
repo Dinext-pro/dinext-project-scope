@@ -51,16 +51,18 @@ function clickChartPoint(title, locate) {
 		});
 }
 
+function pieSegmentPoint(instance, label) {
+	const series = instance.getModel().getSeriesByIndex(0).getData();
+	const index = instance.getOption().series[0].data.findIndex((item) => item.name === label);
+	expect(index, "segment for the selected category").to.be.at.least(0);
+	const { cx, cy: centerY, startAngle, endAngle, r, r0 } = series.getItemLayout(index);
+	const angle = (startAngle + endAngle) / 2;
+	const radius = (r0 + r) / 2;
+	return [cx + radius * Math.cos(angle), centerY + radius * Math.sin(angle)];
+}
+
 function clickPieSegment(title, label) {
-	clickChartPoint(title, (instance) => {
-		const series = instance.getModel().getSeriesByIndex(0).getData();
-		const index = instance.getOption().series[0].data.findIndex((item) => item.name === label);
-		expect(index, "segment for the selected category").to.be.at.least(0);
-		const { cx, cy: centerY, startAngle, endAngle, r, r0 } = series.getItemLayout(index);
-		const angle = (startAngle + endAngle) / 2;
-		const radius = (r0 + r) / 2;
-		return [cx + radius * Math.cos(angle), centerY + radius * Math.sin(angle)];
-	});
+	clickChartPoint(title, (instance) => pieSegmentPoint(instance, label));
 }
 
 function showResults(project) {
@@ -536,6 +538,45 @@ describe("Project scope charts", () => {
 		chartOption(byCategory(), (option) => expect(option.color[0]).to.eq("#2868eb"));
 	});
 
+	it("shows the hovered segment count in the donut center and restores the total", () => {
+		showResults(fixture.project);
+		const title = "Deliverables by category";
+		const center = () => cy.contains(chartCard, title).find(".dinext-scope-donut-count");
+		const move = (label) => {
+			chart(title)
+				.find("canvas")
+				.first()
+				.then(([canvas]) => {
+					const host = canvas.closest(".dinext-scope-chart");
+					const instance = host.ownerDocument.defaultView.echarts.getInstanceByDom(host);
+					const [x, y] = label ? pieSegmentPoint(instance, label) : [1, 1];
+					cy.wrap(canvas).trigger("mousemove", Math.round(x), Math.round(y), {
+						eventConstructor: "MouseEvent",
+						scrollBehavior: false,
+					});
+				});
+		};
+		chartOption(chart(title), (option) => expect(option.series[0].data).to.have.length(2));
+		move(fixture.title);
+		center().should("be.visible").and("have.text", "2");
+		chart(title)
+			.find(".dinext-scope-donut-tooltip")
+			.should("be.visible")
+			.should(($tooltip) => {
+				const tooltip = $tooltip[0];
+				const label = tooltip.closest(chartCard).querySelector(".dinext-scope-donut-count");
+				expect(tooltip.getBoundingClientRect().bottom).to.be.at.most(
+					label.getBoundingClientRect().top
+				);
+				expect($tooltip.css("pointer-events")).to.eq("none");
+			});
+		move(`${fixture.title} secondary`);
+		center().should("have.text", "1");
+		move(null);
+		center().should("have.text", "3");
+		resultFilter(title, "category").should("have.value", "");
+	});
+
 	it("recounts unique results after an actual pie segment filters the two shared branches", () => {
 		showResults(fixture.project);
 		const categoryChart = "Deliverables by category";
@@ -972,17 +1013,21 @@ describe("Project scope charts", () => {
 	it("repaints overview charts when switching theme in the same report", () => {
 		openReport(overview, { project: fixture.project });
 		const labels = "Requirements by category";
+		const center = () => cy.contains(chartCard, labels).find(".dinext-scope-donut-count");
 		let lightColor;
 		cy.window().then((window) => window.frappe.ui.set_theme("light"));
-		chartOption(chart(labels), (option) => {
-			lightColor = option.title[0].textStyle.color;
-			expect(option.title[0].text).to.eq("3");
-		});
+		center()
+			.should("have.text", "3")
+			.invoke("css", "color")
+			.then((color) => {
+				lightColor = color;
+			});
 		cy.window().then((window) => window.frappe.ui.set_theme("dark"));
-		chartOption(chart(labels), (option) => {
-			expect(option.title[0].textStyle.color).not.to.eq(lightColor);
-			expect(option.title[0].text).to.eq("3");
-		});
+		center()
+			.should("have.text", "3")
+			.should(($center) => {
+				expect($center.css("color")).not.to.eq(lightColor);
+			});
 		reportShown(overview, { project: fixture.project });
 	});
 

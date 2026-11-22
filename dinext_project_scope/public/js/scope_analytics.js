@@ -144,8 +144,8 @@
 				root.remove();
 				if (surfaces.get(host) === surface) surfaces.delete(host);
 			},
-			registerChart(element, option, onClick) {
-				charts.set(element, { option, onClick, instance: null });
+			registerChart(element, option, onMount) {
+				charts.set(element, { option, onMount, instance: null });
 				resize?.observe(element);
 				mount(element);
 			},
@@ -166,7 +166,7 @@
 				return;
 			}
 			item.instance = window.DinextCharts.mount(element, item.option());
-			if (item.onClick) item.instance?.on("click", item.onClick);
+			if (item.instance) item.onMount?.(item.instance);
 		}
 
 		const resize = window.ResizeObserver
@@ -892,7 +892,12 @@
 				(translate ? statusLabel(item.name) : item.name || __("Not specified")),
 			value: item.count,
 		}));
-		container.append(chart);
+		const total = String(data.reduce((sum, item) => sum + item.value, 0));
+		const count = node("span", "dinext-scope-donut-count", total);
+		count.setAttribute("aria-hidden", "true");
+		const plot = node("div", "dinext-scope-donut-plot");
+		plot.append(chart, count);
+		container.append(plot);
 		if (legend) {
 			const colors = palette();
 			const labels = node("div", "dinext-scope-chart-legend");
@@ -915,13 +920,16 @@
 				backgroundColor: "transparent",
 				animation: false,
 				aria: { enabled: describeChart },
-				title: {
-					text: String(items.reduce((sum, item) => sum + item.count, 0)),
-					left: "center",
-					top: "center",
-					textStyle: { color: chartColors().text, fontWeight: 600, fontSize: 23 },
+				tooltip: {
+					trigger: "item",
+					renderMode: "html",
+					enterable: false,
+					className: "dinext-scope-donut-tooltip",
+					position: (_point, _item, _element, _sector, { viewSize, contentSize }) => [
+						Math.max(0, (viewSize[0] - contentSize[0]) / 2),
+						0,
+					],
 				},
-				tooltip: { trigger: "item", renderMode: "richText" },
 				series: [
 					{
 						type: "pie",
@@ -931,7 +939,20 @@
 					},
 				],
 			}),
-			onSelect && ((event) => onSelect(items[event.dataIndex]))
+			(instance) => {
+				const showTotal = () => {
+					count.textContent = total;
+				};
+				showTotal();
+				instance.on("mouseover", "series.pie", ({ value }) => {
+					count.textContent = String(value);
+				});
+				instance.on("mouseout", "series.pie", showTotal);
+				instance.on("globalout", showTotal);
+				if (onSelect) {
+					instance.on("click", "series.pie", ({ dataIndex }) => onSelect(items[dataIndex]));
+				}
+			}
 		);
 	}
 
@@ -982,7 +1003,7 @@
 					],
 				};
 			},
-			(event) => onSelect(points[event.dataIndex])
+			(instance) => instance.on("click", (event) => onSelect(points[event.dataIndex]))
 		);
 	}
 
