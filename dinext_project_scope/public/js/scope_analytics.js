@@ -1138,7 +1138,7 @@
 	function resultColumns(container, rows, comparison) {
 		const type = __("Type");
 		const progressWidth = 116;
-		const deltaWidth = 94;
+		const deltaWidth = 100;
 		return [
 			["label", __("Deliverable / Work"), "label", 285, "left"],
 			["status", __("Status"), "status", 155],
