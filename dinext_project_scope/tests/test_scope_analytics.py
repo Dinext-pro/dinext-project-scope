@@ -45,6 +45,27 @@ class TestScopeAnalytics(TestCase):
 		self.assertIsNone(task["baseline_delta"])
 		self.assertNotIn("progress", other)
 
+	def test_task_baseline_and_delta_use_the_task_progress_journal(self):
+		reporting = date(2026, 11, 15)
+		baseline = date(2026, 11, 12)
+		task = {"document_type": "Task", "document": "task", "progress": 80}
+		history_field = frappe._dict(options="Task Progress History", fieldname="custom_progress_history")
+		events = [
+			frappe._dict(parent="task", changed_on=datetime(2026, 11, 12, 17), new_progress=15),
+			frappe._dict(parent="task", changed_on=datetime(2026, 11, 15, 10), new_progress=42),
+		]
+		with (
+			patch.object(data.frappe, "get_meta") as meta,
+			patch.object(data.frappe, "get_all", return_value=events) as get_all,
+		):
+			meta.return_value.get_field.return_value = history_field
+			data.add_result_progress([task], reporting, baseline, False, date(2026, 11, 24))
+		self.assertEqual([entry.args[0] for entry in get_all.call_args_list], ["Task Progress History"])
+		self.assertEqual(task["baseline_progress"], 15)
+		self.assertEqual(task["progress"], 42)
+		self.assertEqual(task["baseline_delta"], 27)
+		self.assertEqual(task["baseline_delta_direction"], "up")
+
 	def test_progress_dates_validate_and_keep_current_progress(self):
 		today = date(2026, 11, 21)
 		with patch.object(data, "result_progress_history") as history:

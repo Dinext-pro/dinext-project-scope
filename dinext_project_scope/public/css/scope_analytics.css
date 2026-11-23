@@ -670,10 +670,15 @@ button.dinext-scope-link:hover {
 	margin: 0;
 }
 
-.dinext-scope-progress-controls [data-fieldtype="Date"] > .form-group {
+.dinext-scope-progress-date {
 	display: flex;
 	align-items: center;
 	gap: 0.375rem;
+}
+
+.dinext-scope-progress-date-icon {
+	display: inline-flex;
+	color: var(--text-muted);
 }
 
 .dinext-scope-progress-controls label {
@@ -681,7 +686,7 @@ button.dinext-scope-link:hover {
 }
 
 .dinext-scope-progress-controls input[data-fieldtype="Date"] {
-	width: 7rem;
+	width: 8rem;
 	height: var(--input-height);
 }
 

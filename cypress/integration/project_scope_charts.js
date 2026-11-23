@@ -107,9 +107,23 @@ function resultsToolbarInOneRow() {
 		};
 		const items = panel.querySelectorAll(
 			".dinext-table-toolbar-item, .dinext-scope-progress-controls input[data-fieldtype], " +
-				".dinext-scope-progress-controls .control-label"
+				".dinext-scope-progress-date-icon"
 		);
-		expect(panel.querySelectorAll(".frappe-control .control-label")).to.have.length(2);
+		expect(panel.querySelectorAll(".dinext-scope-progress-controls .control-label")).to.have
+			.length(0);
+		for (const [field, icon] of [
+			["reporting_date", "today"],
+			["baseline_date", "calendar"],
+		]) {
+			const input = panel.querySelector(`input[data-fieldname="${field}"]`);
+			const badge = input.closest(".dinext-scope-progress-date").querySelector(
+				".dinext-scope-progress-date-icon"
+			);
+			expect(input.placeholder).not.to.be.empty;
+			expect(input.title).to.eq(input.placeholder);
+			expect(badge.title).to.eq(input.title);
+			expect(badge.querySelector("use").getAttribute("href")).to.eq(`#icon-${icon}`);
+		}
 		const reportingDate = panel.querySelector('input[data-fieldname="reporting_date"]');
 		for (const item of items) {
 			const label = item.title || item.dataset.fieldname || item.textContent.trim();
@@ -213,13 +227,10 @@ describe("Project scope charts", () => {
 
 		cy.get(control("show_plan")).should("not.be.checked");
 		cy.get(control("baseline_date")).should("have.value", "");
-		cy.window().then((win) => {
-			const today = win.frappe.datetime.get_today();
-			cy.get(control("reporting_date")).should(
-				"have.value",
-				win.frappe.datetime.str_to_user(today)
-			);
-		});
+		cy.get(control("reporting_date"))
+			.should("have.value", "")
+			.and("have.attr", "placeholder", "Reporting date");
+		cell("progress").find('[role="progressbar"]').should("have.attr", "aria-valuenow", "20");
 		cy.get(header("planned_progress")).should("not.exist");
 		cy.get(header("baseline_progress")).should("not.exist");
 		setDate("reporting_date", fixture.reporting_date);
@@ -293,6 +304,25 @@ describe("Project scope charts", () => {
 				setDate("baseline_date", "");
 				cy.get(grid).should("have.attr", "aria-colcount", String(Number(count) - 4));
 			});
+		cy.get(`${resultHost} .ag-body-horizontal-scroll-viewport`).scrollTo(0, 0, {
+			ensureScrollable: false,
+		});
+		setDate("reporting_date", "");
+		cy.get(control("reporting_date")).should("have.value", "");
+		cell("progress").find('[role="progressbar"]').should("have.attr", "aria-valuenow", "20");
+		cy.window().then(({ frappe }) => setDate("baseline_date", frappe.datetime.get_today()));
+		rowLink(`${fixture.title} shared component`)
+			.first()
+			.closest(".ag-cell")
+			.find(".dinext-table-tree-toggle")
+			.click();
+		const task = () => workCells(`${fixture.title} work group`);
+		task()
+			.find('[col-id="baseline_progress"] [role="progressbar"]')
+			.should("have.attr", "aria-valuenow", "20");
+		task()
+			.find('[col-id="baseline_delta"] [data-direction="flat"]')
+			.should("contain.text", "→ 0");
 	});
 
 	it("shows the Task type and omits empty optional work in the expanded results tree", () => {

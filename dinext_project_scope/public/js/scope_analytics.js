@@ -1189,20 +1189,31 @@
 		const element = node("div", "dinext-scope-progress-controls");
 		const controls = {};
 		const values = {};
-		for (const [fieldname, fieldtype, label, initial] of [
+		for (const [fieldname, fieldtype, label, initial, icon] of [
 			["show_plan", "Check", __("Plan"), 0],
-			["reporting_date", "Date", __("Reporting date"), frappe.datetime.get_today()],
-			["baseline_date", "Date", __("Baseline date"), ""],
+			["reporting_date", "Date", __("Reporting date"), "", "today"],
+			["baseline_date", "Date", __("Baseline date"), "", "calendar"],
 		]) {
+			const parent = icon ? node("div", "dinext-scope-progress-date") : element;
+			if (icon) {
+				const glyph = node("span", "dinext-scope-progress-date-icon");
+				glyph.innerHTML = frappe.utils.icon(icon, "sm");
+				glyph.title = label;
+				glyph.setAttribute("aria-hidden", "true");
+				parent.append(glyph);
+				element.append(parent);
+			}
 			values[fieldname] = initial;
 			const control = frappe.ui.form.make_control({
-				parent: element,
+				parent,
 				doc: values,
-				df: { fieldname, fieldtype, label },
+				df: { fieldname, fieldtype, label, placeholder: icon ? label : undefined },
+				only_input: Boolean(icon),
 				render_input: true,
 			});
 			control.set_input(initial);
 			control.$input.attr("aria-label", label);
+			if (icon) control.$input.attr("title", label);
 			control.df.onchange = onChange;
 			controls[fieldname] = control;
 		}
@@ -1411,13 +1422,8 @@
 			);
 			appliedQuery = null;
 			const { reporting_date, baseline_date, show_plan } = comparison.controls;
-			const selectedDate = reporting_date.get_value();
-			const reporting = selectedDate || frappe.datetime.get_today();
+			const reporting = reporting_date.get_value() || frappe.datetime.get_today();
 			const baseline = baseline_date.get_value() || "";
-			if (!selectedDate) {
-				reporting_date.doc.reporting_date = reporting;
-				reporting_date.set_input(reporting);
-			}
 			if (baseline && baseline > reporting) {
 				setMessage(
 					surface,
