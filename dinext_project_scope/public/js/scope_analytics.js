@@ -1145,7 +1145,10 @@
 			["deliverable_type", type, "result_type", resultTypeWidth(container, type, rows)],
 			["category", __("Category"), null, 150],
 			...(comparison.baseline_date
-				? [["baseline_progress", __("Baseline progress"), "result_progress", progressWidth]]
+				? [
+						["baseline_progress", __("Baseline progress"), "result_progress", progressWidth],
+						["baseline_delta", __("Δ from baseline"), "result_delta", deltaWidth],
+				  ]
 				: []),
 			["progress", __("Progress"), "result_progress", progressWidth],
 			...(comparison.show_plan
@@ -1156,13 +1159,8 @@
 							"result_progress",
 							progressWidth,
 						],
+						["plan_delta", __("Δ from plan"), "result_delta", deltaWidth],
 				  ]
-				: []),
-			...(comparison.baseline_date
-				? [["baseline_delta", __("Δ from baseline"), "result_delta", deltaWidth]]
-				: []),
-			...(comparison.show_plan
-				? [["plan_delta", __("Δ from plan"), "result_delta", deltaWidth]]
 				: []),
 			["assignment", __("Assignment"), "result_assignment", 155],
 			[
@@ -1297,7 +1295,8 @@
 			{
 				id: "scope-responsibility-matrix",
 				type: "button",
-				label: __("Responsibility Matrix"),
+				label: "RACI",
+				title: __("Responsibility Matrix"),
 				iconSvg: frappe.utils.icon("dashboard-list", "sm"),
 				onClick: () => toReport("Project Responsibility Matrix", { project }),
 			},

@@ -254,20 +254,24 @@ def download_project_results(project, filters=None, reporting_date=None, baselin
 		column("category", _("Category"), width=150),
 	]
 	if comparison["baseline_date"]:
-		columns.append(column("baseline_progress", _("Baseline progress"), kind="progress"))
+		columns.extend(
+			[
+				column("baseline_progress", _("Baseline progress"), kind="progress"),
+				column("baseline_delta", _("Δ from baseline"), kind="delta"),
+			]
+		)
 	columns.append(column("progress", _("Progress"), kind="progress", width=105))
 	if comparison["show_plan"]:
-		columns.append(
-			column(
-				"planned_progress",
-				_("Planned progress", context="Dinext.ProjectScope.Comparison"),
-				kind="progress",
-			)
+		columns.extend(
+			[
+				column(
+					"planned_progress",
+					_("Planned progress", context="Dinext.ProjectScope.Comparison"),
+					kind="progress",
+				),
+				column("plan_delta", _("Δ from plan"), kind="delta"),
+			]
 		)
-	if comparison["baseline_date"]:
-		columns.append(column("baseline_delta", _("Δ from baseline"), kind="delta"))
-	if comparison["show_plan"]:
-		columns.append(column("plan_delta", _("Δ from plan"), kind="delta"))
 	columns.extend(
 		[
 			column("assignment", _("Assignment"), kind="assignment", width=170),

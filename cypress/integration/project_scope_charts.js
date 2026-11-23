@@ -112,7 +112,8 @@ function resultsToolbarInOneRow() {
 		expect(panel.querySelectorAll(".frappe-control .control-label")).to.have.length(2);
 		const reportingDate = panel.querySelector('input[data-fieldname="reporting_date"]');
 		for (const item of items) {
-			expect(centerY(item)).to.be.closeTo(centerY(reportingDate), 3);
+			const label = item.title || item.dataset.fieldname || item.textContent.trim();
+			expect(centerY(item), label).to.be.closeTo(centerY(reportingDate), 3);
 		}
 		expect(panel.ownerDocument.defaultView.getComputedStyle(panel).flexWrap).to.eq("nowrap");
 	});
@@ -240,9 +241,9 @@ describe("Project scope charts", () => {
 		});
 		const comparisonColumns = [
 			"baseline_progress",
+			"baseline_delta",
 			"progress",
 			"planned_progress",
-			"baseline_delta",
 			"plan_delta",
 		];
 		cy.get(`${resultHost} .ag-header-viewport .ag-header-cell`).should(($headers) => {
@@ -254,7 +255,7 @@ describe("Project scope charts", () => {
 				.filter(({ id }) => comparisonColumns.includes(id))
 				.sort((a, b) => a.left - b.left);
 			expect(columns.map(({ id }) => id)).to.deep.eq(comparisonColumns);
-			const [baseline, actual, plan, baselineDelta, planDelta] = columns;
+			const [baseline, baselineDelta, actual, plan, planDelta] = columns;
 			expect(actual.width).to.be.lessThan(130);
 			expect(baseline.width).to.eq(actual.width);
 			expect(plan.width).to.eq(actual.width);
@@ -537,9 +538,7 @@ describe("Project scope charts", () => {
 		const matrix = `${resultHost} .dinext-table-toolbar button[title="Responsibility Matrix"]`;
 		cy.get(matrix)
 			.should("be.visible")
-			.should(([button]) =>
-				expect(button.textContent.trim()).to.eq("Responsibility Matrix")
-			);
+			.should(([button]) => expect(button.textContent.trim()).to.eq("RACI"));
 		for (const theme of ["dark", "light"]) {
 			cy.window().then(({ frappe }) => frappe.ui.set_theme(theme));
 			cy.get(matrix)

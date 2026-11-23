@@ -656,6 +656,10 @@ button.dinext-scope-link:hover {
 	color: inherit;
 }
 
+.dinext-scope-results-table .dinext-table-toolbar-panel {
+	align-items: flex-start;
+}
+
 .dinext-scope-progress-controls {
 	display: flex;
 	align-items: center;

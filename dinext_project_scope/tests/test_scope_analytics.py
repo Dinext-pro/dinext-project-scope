@@ -82,7 +82,7 @@ class TestScopeAnalytics(TestCase):
 		sheet = load_workbook(BytesIO(content)).active
 		self.assertEqual(
 			[cell.value for cell in sheet[1][4:9]],
-			["Baseline progress", "Progress", "Planned progress", "Δ from baseline", "Δ from plan"],
+			["Baseline progress", "Δ from baseline", "Progress", "Planned progress", "Δ from plan"],
 		)
 		headers = {cell.value: cell.column for cell in sheet[1]}
 		self.assertEqual(sheet.cell(2, headers["Progress"]).value, 0.54)
