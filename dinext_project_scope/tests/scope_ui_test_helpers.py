@@ -277,7 +277,8 @@ def create_report_fixture(run_id):
 	project.save()
 
 	planned_end = add_days(getdate(), -2)
-	task_type = frappe.get_doc(doctype="Task Type", name=prefix).insert(set_name=prefix)
+	task_type_name = f"Task type {run_id}"
+	task_type = frappe.get_doc(doctype="Task Type", name=task_type_name).insert(set_name=task_type_name)
 	work = frappe.get_doc(
 		doctype="Task",
 		project=project.name,
@@ -444,6 +445,7 @@ def create_report_fixture(run_id):
 		shared=shared.name,
 		work=work.name,
 		task=task.name,
+		task_type=task_type.name,
 		child_requirement=child.name,
 		change=change.name,
 		change_date=str(getdate(change.creation)),
@@ -506,7 +508,10 @@ def remove_report_fixture(run_id):
 		"Project Scope Type",
 		"Task Type",
 	):
-		for name in (prefix, f"{prefix} secondary", f"{prefix} hidden"):
+		names = (prefix, f"{prefix} secondary", f"{prefix} hidden")
+		if doctype == "Task Type":
+			names += (f"Task type {run_id}",)
+		for name in names:
 			if frappe.db.exists(doctype, name):
 				frappe.delete_doc(doctype, name, force=True, delete_permanently=True)
 	for actor in actors:

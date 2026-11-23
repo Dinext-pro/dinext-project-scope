@@ -337,7 +337,7 @@ describe("Project scope charts", () => {
 			.click();
 		workCells(`${fixture.title} work group`)
 			.find('[col-id="deliverable_type"]')
-			.should("have.text", fixture.title)
+			.should("have.text", fixture.task_type)
 			.and(([cell]) => {
 				const label = cell.ownerDocument.createRange();
 				label.selectNodeContents(cell.querySelector("span"));
