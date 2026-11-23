@@ -80,6 +80,10 @@ class TestScopeAnalytics(TestCase):
 		name, extension, content = delivery.call_args.args
 		self.assertEqual((name, extension), ("project-results", "xlsx"))
 		sheet = load_workbook(BytesIO(content)).active
+		self.assertEqual(
+			[cell.value for cell in sheet[1][4:9]],
+			["Baseline progress", "Progress", "Planned progress", "Δ from baseline", "Δ from plan"],
+		)
 		headers = {cell.value: cell.column for cell in sheet[1]}
 		self.assertEqual(sheet.cell(2, headers["Progress"]).value, 0.54)
 		self.assertEqual(sheet.cell(2, headers["Δ from baseline"]).value, 29)

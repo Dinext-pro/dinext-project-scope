@@ -610,6 +610,15 @@
 				item.pinned = column.pinned;
 				item.lockPinned = true;
 			}
+			if (column.kind === "result_progress" || column.kind === "result_delta") {
+				Object.assign(item, {
+					minWidth: column.width,
+					maxWidth: column.width,
+					resizable: false,
+					wrapHeaderText: true,
+					autoHeaderHeight: true,
+				});
+			}
 			if (column.kind === "result_assignment") item.autoHeight = true;
 			if (resultTree && RESULT_FILTER_FIELDS.has(column.fieldname)) {
 				item.cellClassRules = {
@@ -1128,28 +1137,32 @@
 
 	function resultColumns(container, rows, comparison) {
 		const type = __("Type");
+		const progressWidth = 116;
+		const deltaWidth = 94;
 		return [
 			["label", __("Deliverable / Work"), "label", 285, "left"],
 			["status", __("Status"), "status", 155],
 			["deliverable_type", type, "result_type", resultTypeWidth(container, type, rows)],
 			["category", __("Category"), null, 150],
-			["progress", __("Progress"), "result_progress", 105],
 			...(comparison.baseline_date
-				? [
-						["baseline_progress", __("Baseline progress"), "result_progress", 173],
-						["baseline_delta", __("Δ from baseline"), "result_delta", 128],
-				  ]
+				? [["baseline_progress", __("Baseline progress"), "result_progress", progressWidth]]
 				: []),
+			["progress", __("Progress"), "result_progress", progressWidth],
 			...(comparison.show_plan
 				? [
 						[
 							"planned_progress",
 							__("Planned progress", null, "Dinext.ProjectScope.Comparison"),
 							"result_progress",
-							145,
+							progressWidth,
 						],
-						["plan_delta", __("Δ from plan"), "result_delta", 128],
 				  ]
+				: []),
+			...(comparison.baseline_date
+				? [["baseline_delta", __("Δ from baseline"), "result_delta", deltaWidth]]
+				: []),
+			...(comparison.show_plan
+				? [["plan_delta", __("Δ from plan"), "result_delta", deltaWidth]]
 				: []),
 			["assignment", __("Assignment"), "result_assignment", 155],
 			[

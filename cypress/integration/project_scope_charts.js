@@ -98,6 +98,26 @@ function workCells(label) {
 		.then((id) => cy.get(`${resultHost} .ag-center-cols-container [row-id="${id}"]`));
 }
 
+function resultsToolbarInOneRow() {
+	cy.get(`${resultHost} .dinext-table-toolbar-panel`).should(([panel]) => {
+		const centerY = (element) => {
+			const { top, height } = element.getBoundingClientRect();
+			expect(height).to.be.greaterThan(0);
+			return top + height / 2;
+		};
+		const items = panel.querySelectorAll(
+			".dinext-table-toolbar-item, .dinext-scope-progress-controls input[data-fieldtype], " +
+				".dinext-scope-progress-controls .control-label"
+		);
+		expect(panel.querySelectorAll(".frappe-control .control-label")).to.have.length(2);
+		const reportingDate = panel.querySelector('input[data-fieldname="reporting_date"]');
+		for (const item of items) {
+			expect(centerY(item)).to.be.closeTo(centerY(reportingDate), 3);
+		}
+		expect(panel.ownerDocument.defaultView.getComputedStyle(panel).flexWrap).to.eq("nowrap");
+	});
+}
+
 describe("Project scope charts", () => {
 	const fixture = useReportFixture();
 
@@ -122,6 +142,7 @@ describe("Project scope charts", () => {
 		cy.then(() => release());
 		cy.wait("@loadResults");
 		cy.get(spinner).should("not.exist");
+		resultsToolbarInOneRow();
 
 		// Cypress clicks do not grant the transient activation required by the Fullscreen API.
 		cy.window().then((view) => {
@@ -143,6 +164,7 @@ describe("Project scope charts", () => {
 			});
 		});
 		cy.get(`${resultHost} button[title="Fullscreen"]`).click();
+		resultsToolbarInOneRow();
 		let fullscreenTable;
 		const grid = `${resultHost} .dinext-table--fullscreen`;
 		cy.get(grid).then(([$element]) => {
@@ -213,8 +235,31 @@ describe("Project scope charts", () => {
 				cy.get(control("show_plan")).check();
 				cy.get(grid).should("have.attr", "aria-colcount", String(Number(count) + 2));
 			});
-		cy.get(`${resultHost} .ag-body-horizontal-scroll-viewport`).scrollTo(550, 0, {
+		cy.get(`${resultHost} .ag-body-horizontal-scroll-viewport`).scrollTo(330, 0, {
 			ensureScrollable: false,
+		});
+		const comparisonColumns = [
+			"baseline_progress",
+			"progress",
+			"planned_progress",
+			"baseline_delta",
+			"plan_delta",
+		];
+		cy.get(`${resultHost} .ag-header-viewport .ag-header-cell`).should(($headers) => {
+			const columns = [...$headers]
+				.map((header) => {
+					const { left, width } = header.getBoundingClientRect();
+					return { id: header.getAttribute("col-id"), left, width };
+				})
+				.filter(({ id }) => comparisonColumns.includes(id))
+				.sort((a, b) => a.left - b.left);
+			expect(columns.map(({ id }) => id)).to.deep.eq(comparisonColumns);
+			const [baseline, actual, plan, baselineDelta, planDelta] = columns;
+			expect(actual.width).to.be.lessThan(130);
+			expect(baseline.width).to.eq(actual.width);
+			expect(plan.width).to.eq(actual.width);
+			expect(baselineDelta.width).to.be.lessThan(actual.width);
+			expect(planDelta.width).to.eq(baselineDelta.width);
 		});
 		cell("planned_progress")
 			.find('[role="progressbar"]')
