@@ -18,7 +18,7 @@ function chart(group) {
 }
 
 function withChart(group, assertion) {
-	chart(group).should(([element]) => {
+	return chart(group).should(([element]) => {
 		const instance = element.ownerDocument.defaultView.echarts.getInstanceByDom(element);
 		expect(instance, "mounted ECharts").to.exist;
 		assertion(instance, instance.getOption());
