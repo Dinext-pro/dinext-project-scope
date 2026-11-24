@@ -1108,6 +1108,49 @@
 		container.append(note);
 	}
 
+	function resultChartToolbox(element, filename, colors) {
+		return {
+			top: 0,
+			right: 6,
+			iconStyle: { borderColor: colors.text },
+			feature: {
+				saveAsImage: {
+					type: "png",
+					title: __("Download PNG"),
+					name: filename,
+					pixelRatio: 2,
+					backgroundColor: getComputedStyle(element).getPropertyValue("--card-bg").trim(),
+				},
+			},
+		};
+	}
+
+	function resultDateMarkers(data, colors) {
+		const reporting = __("Reporting date");
+		const baseline = __("Baseline date");
+		const markers = [
+			{
+				name: data.baseline_date === data.reporting_date ? `${reporting} / ${baseline}` : reporting,
+				xAxis: wallTime(data.reporting_date),
+			},
+		];
+		if (data.baseline_date && data.baseline_date !== data.reporting_date) {
+			markers.push({
+				name: baseline,
+				xAxis: wallTime(data.baseline_date),
+				lineStyle: { type: "dotted" },
+				label: { position: "insideStartTop" },
+			});
+		}
+		return {
+			data: markers,
+			silent: true,
+			symbol: "none",
+			lineStyle: { type: "dashed", width: 1, color: colors.muted },
+			label: { position: "insideEndTop", formatter: "{b}", rotate: 0, color: colors.text, fontSize: 11 },
+		};
+	}
+
 	function resultDynamicsOption(element, group, data, filename) {
 		const context = "Dinext.ProjectScope.Dynamics";
 		const colors = chartColors();
@@ -1133,20 +1176,7 @@
 				valueFormatter: (value) =>
 					value == null || value === "-" ? "" : formatProgress(value),
 			},
-			toolbox: {
-				top: 0,
-				right: 6,
-				iconStyle: { borderColor: colors.text },
-				feature: {
-					saveAsImage: {
-						type: "png",
-						title: __("Download PNG"),
-						name: filename,
-						pixelRatio: 2,
-						backgroundColor: css.getPropertyValue("--card-bg").trim(),
-					},
-				},
-			},
+			toolbox: resultChartToolbox(element, filename, colors),
 			xAxis: {
 				type: "time",
 				min: wallTime(data.range[0]),
@@ -1180,42 +1210,76 @@
 				symbolSize: 5,
 				lineStyle: { type, width: 2 },
 				data: group.series[key].map(([day, value]) => [wallTime(day), value]),
+				...(key === "actual" && {
+					areaStyle: { opacity: 0.2 },
+					markLine: resultDateMarkers(data, colors),
+				}),
 			})),
 		};
 	}
 
-	function resultDynamics(surface, project, getQuery, allOption) {
+	function resultTreemapOption(chart, group, filename) {
+		const colors = chartColors();
+		const background = getComputedStyle(chart).getPropertyValue("--card-bg").trim();
+		return {
+			backgroundColor: "transparent",
+			animation: false,
+			aria: { enabled: true },
+			color: ["#255ca8", "#167262", "#794dab", "#9c4a28", "#806212", "#4f7149", "#a24560", "#525f93"],
+			tooltip: { trigger: "item", renderMode: "richText", confine: true },
+			toolbox: resultChartToolbox(chart, filename, colors),
+			series: [
+				{
+					type: "treemap",
+					top: 30,
+					bottom: 4,
+					left: 0,
+					right: 0,
+					roam: false,
+					nodeClick: false,
+					breadcrumb: { show: false },
+					itemStyle: { borderColor: background, borderWidth: 1, gapWidth: 3 },
+					label: {
+						formatter: "{participant|{b}}\n{count|{c}}",
+						color: "#fff",
+						overflow: "truncate",
+						rich: {
+							participant: { fontSize: 12, lineHeight: 19 },
+							count: { fontSize: 19, fontWeight: 600, lineHeight: 24 },
+						},
+					},
+					data: group.items.map(({ value, label, count }) => ({
+						id: value,
+						name: label || __("Unassigned"),
+						value: count,
+						...(value === group.selected && {
+							itemStyle: { borderColor: colors.text, borderWidth: 3 },
+							label: { fontWeight: "bold" },
+						}),
+					})),
+				},
+			],
+		};
+	}
+
+	function resultDynamics(surface, project, getQuery, onSelectResponsible) {
 		const element = node("div", "dinext-scope-dynamics");
 		element.hidden = true;
 		element.setAttribute("role", "region");
 		element.setAttribute("aria-label", __("Result dynamics"));
 
 		const panels = [
-			["category", __("By category"), __("Category"), __("No category")],
-			["responsible", __("By responsible person"), __("Responsible"), __("Unassigned")],
-		].map(([key, title, label, emptyLabel]) => {
+			["category", __("By category")],
+			["responsible", __("By responsible person")],
+		].map(([key, title]) => {
 			const card = node("section", "dinext-scope-dynamics-card");
 			card.dataset.dynamicsGroup = key;
 			const chart = node("div", "dinext-scope-chart dinext-scope-dynamics-chart");
-			const filter = node("div", "dinext-scope-result-filter");
 			const note = node("p", "dinext-scope-dynamics-note text-muted", __("Loading"));
 			note.setAttribute("role", "status");
-			card.append(node("h4", "dinext-scope-heading", title), chart, filter, note);
+			card.append(node("h4", "dinext-scope-heading", title), chart, note);
 			element.append(card);
-			const control = frappe.ui.form.make_control({
-				parent: filter,
-				only_input: true,
-				render_input: true,
-				df: {
-					fieldtype: "Select",
-					fieldname: `dynamics_${key}`,
-					label,
-					options: [allOption],
-					onchange: refresh,
-				},
-			});
-			control.$input.attr("aria-label", label);
-			return { key, chart, control, note, emptyLabel, rendered: null };
+			return { key, chart, note, rendered: null };
 		});
 		let revision = 0;
 		let requested = null;
@@ -1233,13 +1297,12 @@
 			},
 		};
 
-		async function refresh() {
+		async function refresh(query = getQuery()) {
 			if (element.hidden || !surface.active()) return;
-			const query = getQuery();
-			for (const { key, control } of panels) query[key] = control.get_value() || "";
-			const requestKey = JSON.stringify(query);
-			if (requested === requestKey) return;
-			requested = requestKey;
+			if (query.baseline_date && query.baseline_date > query.reporting_date) return;
+			const key = JSON.stringify(query);
+			if (requested === key) return;
+			requested = key;
 			const request = ++revision;
 			element.setAttribute("aria-busy", "true");
 			try {
@@ -1248,11 +1311,7 @@
 					query
 				);
 				if (!surface.active() || request !== revision) return;
-				for (const panel of panels) {
-					render(panel, data);
-					query[panel.key] = data[panel.key].selected;
-				}
-				requested = JSON.stringify(query);
+				for (const panel of panels) render(panel, data);
 			} catch {
 				if (!surface.active() || request !== revision) return;
 				requested = null;
@@ -1267,29 +1326,39 @@
 		}
 
 		function render(panel, data) {
-			const { key, control, emptyLabel, note, chart } = panel;
+			const { key, note, chart } = panel;
 			const group = data[key];
-			const selectedLabel =
-				group.options.find(({ value }) => value === group.selected)?.label ||
-				(group.selected ? emptyLabel : "all");
-			const renderKey = JSON.stringify([data.range, data.cutoff, group]);
+			const dateRange =
+				key === "category" ? [data.range, data.reporting_date, data.baseline_date] : null;
+			const renderKey = JSON.stringify([group, dateRange]);
 			if (panel.rendered === renderKey) return;
 			panel.rendered = renderKey;
-			control.df.options = [
-				allOption,
-				...group.options.map(({ value, label }) => ({
-					value,
-					label: frappe.utils.escape_html(label || emptyLabel),
-				})),
-			];
-			control.set_input(group.selected);
+			surface.unregisterChart(chart);
+			const fileKey = key === "category" ? `${key}-${data.reporting_date}` : key;
+			const filename = `${project}-result-dynamics-${fileKey}`.replace(/[<>:"/\\|?*]/g, "-");
+			if (key === "responsible") {
+				note.textContent = group.items.length ? "" : __("No records match the filters.");
+				if (group.items.length) {
+					surface.registerChart(
+						chart,
+						() => resultTreemapOption(chart, group, filename),
+						(instance) => {
+							instance.on("click", "series.treemap", ({ data }) => {
+								if (data?.id) onSelectResponsible(data.id);
+							});
+						}
+					);
+				}
+				return;
+			}
+
+			const hasActual = group.series.actual.some(([, value]) => value != null);
 			const notes = [];
 			if (!group.count) {
 				notes.push(__("No records match the filters."));
 			} else {
 				if (!group.series.planned.length) notes.push(__("Plan is incomplete"));
-				if (!group.series.actual.some(([, value]) => value != null))
-					notes.push(__("No actual progress has been recorded."));
+				if (!hasActual) notes.push(__("No actual progress has been recorded."));
 				if (group.forecast_missing)
 					notes.push(
 						__("Unfinished results without a valid expected end date: {0}", [
@@ -1298,20 +1367,8 @@
 					);
 			}
 			note.textContent = notes.join(" · ");
-			surface.unregisterChart(chart);
-			if (
-				group.series.planned.length ||
-				group.series.actual.some(([, value]) => value != null)
-			) {
-				const slice = selectedLabel.slice(0, 64);
-				const filename =
-					`${project}-result-dynamics-${key}-${slice}-${data.cutoff}`.replace(
-						/[<>:"/\\|?*]/g,
-						"-"
-					);
-				surface.registerChart(chart, () =>
-					resultDynamicsOption(chart, group, data, filename)
-				);
+			if (group.series.planned.length || hasActual) {
+				surface.registerChart(chart, () => resultDynamicsOption(chart, group, data, filename));
 			}
 		}
 	}
@@ -1606,8 +1663,12 @@
 		});
 		let revision = 0;
 		let appliedQuery = null;
+		let responsible = "";
 		const comparison = progressControls(surface, refresh);
-		const dynamics = resultDynamics(surface, project, dynamicsQuery, allOption);
+		const dynamics = resultDynamics(surface, project, dynamicsQuery, (value) => {
+			responsible = responsible === value ? "" : value;
+			return refresh();
+		});
 		surface.root.append(charts, dynamics.element, table);
 		const tableOptions = {
 			expand: "roots",
@@ -1635,6 +1696,7 @@
 		}
 
 		function clearFilters() {
+			responsible = "";
 			for (const { control } of panels) control.set_input("");
 			return refresh();
 		}
@@ -1643,11 +1705,13 @@
 			const filters = Object.fromEntries(
 				panels.map(({ key, control }) => [key, control.get_value() || ""])
 			);
+			if (responsible) filters.responsible = responsible;
+			const { reporting_date, baseline_date } = comparison.controls;
 			return {
 				project,
 				filters: JSON.stringify(filters),
-				reporting_date:
-					comparison.controls.reporting_date.get_value() || frappe.datetime.get_today(),
+				reporting_date: reporting_date.get_value() || frappe.datetime.get_today(),
+				baseline_date: baseline_date.get_value() || "",
 			};
 		}
 
@@ -1662,11 +1726,8 @@
 		async function refresh() {
 			const request = ++revision;
 			const outerQuery = dynamicsQuery();
-			dynamics.refresh();
 			appliedQuery = null;
-			const { baseline_date, show_plan } = comparison.controls;
-			const reporting = outerQuery.reporting_date;
-			const baseline = baseline_date.get_value() || "";
+			const { reporting_date: reporting, baseline_date: baseline } = outerQuery;
 			if (baseline && baseline > reporting) {
 				setMessage(
 					surface,
@@ -1674,10 +1735,10 @@
 				);
 				return;
 			}
+			dynamics.refresh(outerQuery);
 			const query = {
 				...outerQuery,
-				baseline_date: baseline,
-				show_plan: show_plan.get_value() ? 1 : 0,
+				show_plan: comparison.controls.show_plan.get_value() ? 1 : 0,
 			};
 			let result;
 			try {

@@ -86,10 +86,12 @@ def normalize_filters(filters=None, *, list_fields=()):
 
 
 def normalize_result_filters(filters):
-	return {
-		(f"{key}_missing" if value == ONLY_EMPTY else key): (1 if value == ONLY_EMPTY else value)
-		for key, value in normalize_filters(filters).items()
-	}
+	values = normalize_filters(filters).copy()
+	for key in RESULT_FILTERS:
+		if values.get(key) == ONLY_EMPTY:
+			values.pop(key)
+			values[f"{key}_missing"] = 1
+	return values
 
 
 def project_ids(project=None, *, required=False):
@@ -214,6 +216,20 @@ def participant_names(assignments):
 
 def participant(row):
 	return row.get("responsible_type") or "User", row.get("responsible")
+
+
+def result_participant_keys(participants):
+	keys = {
+		f"{doctype}:{name}" for doctype, name in participants if doctype in PARTICIPANT_IMAGE_FIELDS and name
+	}
+	return keys or {ONLY_EMPTY}
+
+
+def matches_result_responsible(responsibles, value):
+	participants = (
+		(person["doctype"], person["name"]) for group in responsibles.values() for person in group
+	)
+	return value in result_participant_keys(participants)
 
 
 def matches(row, filters, fields):
@@ -424,6 +440,12 @@ def results_view(
 	today = today or getdate()
 	# Compute the filtered document set once; a document may appear in more than one branch.
 	matching = matching_results(deliverables, filters, today)
+	if responsible := filters.get("responsible"):
+		matching = {
+			name: row
+			for name, row in matching.items()
+			if matches_result_responsible(responsibles.get(name, {}), responsible)
+		}
 	visible_structure = {
 		name: [slot for slot in slots if slot.get("element") or not cint(slot.get("is_optional"))]
 		for name, slots in structure.items()

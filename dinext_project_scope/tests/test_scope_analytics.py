@@ -95,9 +95,10 @@ class TestScopeAnalytics(TestCase):
 			}) as payload,
 			patch.object(export, "provide_binary_file") as delivery,
 		):
-			export.download_project_results("Project", "{}", "2026-11-15", "2026-11-12", 1)
+			filters = '{"responsible":"User:member"}'
+			export.download_project_results("Project", filters, "2026-11-15", "2026-11-12", 1)
 		permission.assert_called_once_with(data.DELIVERABLE, "export", throw=True)
-		payload.assert_called_once_with("Project", "{}", "2026-11-15", "2026-11-12", 1)
+		payload.assert_called_once_with("Project", filters, "2026-11-15", "2026-11-12", 1)
 		name, extension, content = delivery.call_args.args
 		self.assertEqual((name, extension), ("project-results", "xlsx"))
 		sheet = load_workbook(BytesIO(content)).active

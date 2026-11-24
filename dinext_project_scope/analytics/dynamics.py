@@ -8,22 +8,24 @@ from frappe.utils import cint, getdate
 
 from dinext_project_scope.analytics import data
 
-TREND_LOOKBACK = 14
 TREND_HORIZON = 90
 
 
 @frappe.whitelist(methods=["GET"])
-def project_result_dynamics(project, filters=None, reporting_date=None, category="", responsible=""):
+def project_result_dynamics(project, filters=None, reporting_date=None, baseline_date=None):
 	projects = data.project_ids(project, required=True)
 	today = getdate()
-	reporting, _ = data.result_progress_dates(reporting_date, None, today)
+	reporting, baseline = data.result_progress_dates(reporting_date, baseline_date, today)
 	cutoff = min(reporting, today)
-	eligible = {
-		name: row
-		for name, row in data.get_deliverables(projects).items()
-		if row.get("status") not in {"Cancelled", "Template"}
+	filters = data.normalize_result_filters(filters)
+	deliverables = {
+		name: row for name, row in data.get_deliverables(projects).items() if row.get("status") != "Template"
 	}
-	matching = data.matching_results(eligible, data.normalize_result_filters(filters), today)
+	matching = data.matching_results(deliverables, filters, today)
+	groups, labels = responsible_groups(matching)
+	responsible = filters.get("responsible") or ""
+
+	eligible = {name for name, row in deliverables.items() if row.get("status") != "Cancelled"}
 	structure = data.load_structure(eligible)
 	children = {
 		name: [
@@ -33,31 +35,24 @@ def project_result_dynamics(project, filters=None, reporting_date=None, category
 		]
 		for name, slots in structure.items()
 	}
-
-	categories = defaultdict(set)
-	for name, row in matching.items():
-		categories[row.get("category") or data.ONLY_EMPTY].add(name)
-	members, labels = responsible_groups(matching)
-
+	selection = groups.get(responsible, set()) if responsible else matching.keys()
+	roots = {name: matching[name] for name in slice_roots(eligible & selection, children)}
 	journal = defaultdict(list)
-	for event in data.deliverable_log_events(matching, cutoff):
+	for event in data.deliverable_log_events(roots, cutoff):
 		journal[event.deliverable].append(event)
-	expected_ends = expected_end_dates(matching, journal, cutoff, today)
-	time_range = chart_range(matching, journal, expected_ends, reporting, cutoff, today)
-	all_names = set(matching)
-	result = {"cutoff": str(cutoff), "range": [str(day) for day in time_range]}
-	for key, groups, selection, group_labels in (
-		("category", categories, category, {}),
-		("responsible", members, responsible, labels),
-	):
-		selection = selection if isinstance(selection, str) and selection in groups else ""
-		roots = [matching[name] for name in slice_roots(groups.get(selection, all_names), children)]
-		result[key] = {
-			"selected": selection,
-			"options": group_options(groups, group_labels),
-			**series_for(roots, journal, expected_ends, reporting, cutoff, today, time_range),
-		}
-	return result
+
+	expected_ends = expected_end_dates(roots, journal, cutoff, today)
+	category, time_range = series_for(
+		roots.values(), journal, expected_ends, reporting, baseline, cutoff, today
+	)
+	return {
+		"cutoff": str(cutoff),
+		"reporting_date": str(reporting),
+		"baseline_date": str(baseline) if baseline else None,
+		"range": [str(day) for day in time_range],
+		"category": category,
+		"responsible": {"selected": responsible, "items": group_items(groups, labels)},
+	}
 
 
 def responsible_groups(deliverables):
@@ -69,17 +64,11 @@ def responsible_groups(deliverables):
 	groups = defaultdict(set)
 	labels = {}
 	for name in deliverables:
-		participants = {
-			member
-			for row in selected.get(name, ())
-			if (member := data.participant(row))[0] in data.PARTICIPANT_IMAGE_FIELDS
-		}
-		if not participants:
-			groups[data.ONLY_EMPTY].add(name)
-		for doctype, member in participants:
-			value = f"{doctype}:{member}"
-			groups[value].add(name)
-			labels[value] = names.get((doctype, member), member)
+		for key in data.result_participant_keys(data.participant(row) for row in selected.get(name, ())):
+			groups[key].add(name)
+			if key != data.ONLY_EMPTY:
+				doctype, member = key.split(":", 1)
+				labels[key] = names.get((doctype, member), member)
 
 	duplicates = Counter(labels.values())
 	for value, label in labels.items():
@@ -88,13 +77,12 @@ def responsible_groups(deliverables):
 	return groups, labels
 
 
-def group_options(groups, labels):
-	options = [
-		{"value": name, "label": labels.get(name, name) if name != data.ONLY_EMPTY else ""} for name in groups
+def group_items(groups, labels):
+	items = [
+		{"value": name, "label": labels.get(name, ""), "count": len(documents)}
+		for name, documents in groups.items()
 	]
-	return sorted(
-		options, key=lambda option: (not option["label"], option["label"].casefold(), option["value"])
-	)
+	return sorted(items, key=lambda item: (not item["label"], item["label"].casefold(), item["value"]))
 
 
 def slice_roots(selected, children):
@@ -149,48 +137,38 @@ def snapshot_forecast_is_incomplete(snapshot):
 		return False
 
 
-def chart_range(rows, journal, expected_ends, reporting, cutoff, today):
-	# Use the shared outer filter, so switching a chart's selector leaves the other axis stable.
-	dates = {reporting, cutoff, *expected_ends.values()}
-	recent_days = set()
-	for row in rows.values():
+def chart_range(roots, series, reporting, baseline, cutoff):
+	dates = {reporting, cutoff}
+	if baseline:
+		dates.add(baseline)
+	for row in roots:
 		start, end, reason = data.plan_dates(row)
 		if not reason and not cint(row.get("plan_incomplete")):
 			dates.update((start, end))
 			if start == end and start > date.min:
 				dates.add(start - timedelta(days=1))
-		events = journal.get(row.name, ())
-		for event in events:
-			if event.progress is not None:
-				day = getdate(event.log_date)
-				dates.add(day)
-				if (cutoff - day).days < TREND_LOOKBACK:
-					recent_days.add(day)
-		if cutoff == today and row.get("progress") is not None:
-			recent_days.add(today)
-	if len(recent_days) > 1:
-		dates.add(cutoff + timedelta(days=TREND_HORIZON))
+	for points in series.values():
+		dates.update(date.fromisoformat(day) for day, _value in points)
 	first, last = min(dates), max(dates)
 	return (first, last) if first != last else (first, last + timedelta(days=1))
 
 
-def series_for(roots, journal, expected_ends, reporting, cutoff, today, time_range):
+def series_for(roots, journal, expected_ends, reporting, baseline, cutoff, today):
 	series = {key: [] for key in ("planned", "actual", "forecast", "trend")}
 	result = {"count": len(roots), "forecast_missing": 0, "series": series}
-	if not roots:
-		return result
-
-	planned = plan_series(roots, reporting, cutoff, time_range)
-	actual, facts = actual_progress(roots, journal, cutoff, today)
-	series.update(planned=planned, actual=actual)
-	if actual[-1][1] is not None:
-		series["forecast"], result["forecast_missing"] = forecast_series(
-			facts, expected_ends, reporting, cutoff
-		)
-		series["trend"] = trend_series(actual, cutoff)
-	if actual[-1][0] != str(cutoff):
-		actual.append([str(cutoff), actual[-1][1]])
-	return result
+	if roots:
+		actual, facts = actual_progress(roots, journal, cutoff, today)
+		series["actual"] = actual
+		if actual[-1][1] is not None:
+			series["forecast"], result["forecast_missing"] = forecast_series(
+				facts, expected_ends, reporting, cutoff
+			)
+			series["trend"] = trend_series(actual, cutoff)
+		if actual[-1][0] != str(cutoff):
+			actual.append([str(cutoff), actual[-1][1]])
+	time_range = chart_range(roots, series, reporting, baseline, cutoff)
+	series["planned"] = plan_series(roots, reporting, cutoff, time_range) if roots else []
+	return result, time_range
 
 
 def plan_series(roots, reporting, cutoff, time_range):
@@ -245,19 +223,17 @@ def forecast_series(facts, expected_ends, reporting, cutoff):
 
 
 def trend_series(observed, cutoff):
-	since = date.fromordinal(max(date.min.toordinal(), cutoff.toordinal() - TREND_LOOKBACK + 1))
-	recent = [
-		(date.fromisoformat(day), value) for day, value in observed if day >= str(since) and value is not None
-	]
-	if len(recent) < 2:
+	recorded = [(day, value) for day, value in observed if value is not None]
+	if len(recorded) < 2:
 		return []
-	(first_day, first), (last_day, last) = recent[0], recent[-1]
-	rate = (last - first) / (last_day - first_day).days
+	first_day, first = recorded[0]
+	last = recorded[-1][1]
+	rate = (last - first) / (cutoff - date.fromisoformat(first_day)).days
 	horizon = TREND_HORIZON
 	if rate:
 		room = 100 - last if rate > 0 else last
 		horizon = min(horizon, ceil(room / abs(rate)))
-	points = [[str(cutoff), last]]
+	points = [[first_day, first], [str(cutoff), last]]
 	if horizon:
 		points.append([str(cutoff + timedelta(days=horizon)), data.numeric_progress(last + rate * horizon)])
 	return points

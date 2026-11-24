@@ -6,7 +6,6 @@ const toggle = 'button[title="Result dynamics"]';
 const seriesApi =
 	"**/api/method/dinext_project_scope.analytics.dynamics.project_result_dynamics?*";
 const treeApi = "**/api/method/dinext_project_scope.analytics.data.project_results?*";
-const emptyValue = "__dinext_scope_no_value__";
 
 function openResults(project) {
 	cy.visit("/app/project/" + project);
@@ -26,8 +25,26 @@ function withChart(group, assertion) {
 	});
 }
 
-function select(group) {
-	return cy.get(widget + " .frappe-control[data-fieldname=dynamics_" + group + "] select");
+function clickTreemapTile(value) {
+	withChart("responsible", (_instance, option) => {
+		expect(option.series[0].type).to.eq("treemap");
+	}).then(([element]) => {
+		const instance = element.ownerDocument.defaultView.echarts.getInstanceByDom(element);
+		const series = instance.getModel().getSeriesByIndex(0);
+		const tile = series.getData().tree.root.children.find((item) => item.getId() === value);
+		expect(tile, "treemap tile").to.exist;
+		const { x, y, width, height } = tile.getLayout();
+		const offset = series.layoutInfo;
+		const canvas = element.querySelector("canvas");
+		canvas.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+		cy.wrap(canvas).click(
+			Math.round(offset.x + x + width / 2),
+			Math.round(offset.y + y + height / 2),
+			{
+				scrollBehavior: false,
+			}
+		);
+	});
 }
 
 function simulateFullscreen() {
@@ -55,10 +72,12 @@ function simulateFullscreen() {
 describe("Project result dynamics", () => {
 	const fixture = useReportFixture();
 
-	it("loads both charts lazily and keeps their selectors independent under the result filters", () => {
+	it("filters the other charts and results from a highlighted treemap tile", () => {
 		cy.login(fixture.actor, fixture.password);
 		cy.intercept("GET", seriesApi).as("dynamics");
+		cy.intercept("GET", treeApi).as("tree");
 		openResults(fixture.project);
+		cy.wait("@tree");
 		rowLink(fixture.title + " result").should("exist");
 		cy.get(widget).should("not.be.visible");
 		cy.get("@dynamics.all").should("have.length", 0);
@@ -70,40 +89,58 @@ describe("Project result dynamics", () => {
 		cy.get(host + " " + toggle).click();
 		cy.wait("@dynamics").its("response.body.message.category.count").should("eq", 2);
 		cy.get(host + " " + toggle).should("have.attr", "aria-pressed", "true");
-		select("category").should("have.value", "");
-		select("responsible").should("have.value", "");
-
-		let original;
-		withChart("responsible", (instance, option) => {
-			original = instance;
-			expect(option.yAxis[0]).to.include({ min: 0, max: 100 });
-			expect(option.series.find((line) => line.name === "Actual").step).to.eq("end");
+		cy.get(widget).find("select").should("not.exist");
+		const member = "Contact:" + fixture.contact;
+		withChart("responsible", (_instance, option) => {
+			const series = option.series[0];
+			expect(series.type).to.eq("treemap");
+			expect(series.data.map(({ id, value }) => [id, value])).to.deep.include([member, 1]);
 		});
-		select("category").select(fixture.title + " secondary");
+
+		clickTreemapTile(member);
 		cy.wait("@dynamics").then(({ response }) => {
 			expect(response.body.message.category.count).to.eq(1);
-			expect(response.body.message.responsible.selected).to.eq("");
+			expect(response.body.message.responsible.selected).to.eq(member);
+			expect(response.body.message.responsible.items).to.have.length(2);
 		});
-		withChart("responsible", (instance) => expect(instance).to.eq(original));
-
-		select("responsible").select("Contact:" + fixture.contact);
-		cy.wait("@dynamics").then(({ response }) => {
-			expect(response.body.message.responsible.count).to.eq(1);
-			expect(response.body.message.category.selected).to.eq(fixture.title + " secondary");
+		cy.wait("@tree").then(({ request, response }) => {
+			expect(JSON.parse(request.query.filters).responsible).to.eq(member);
+			for (const key of ["category", "deliverable_type", "status"]) {
+				expect(response.body.message.counts[key].map(({ count }) => count)).to.deep.eq([
+					1,
+				]);
+			}
 		});
-		rowLink(fixture.title + " result").should("exist");
-
-		cy.get(host + ' .frappe-control[data-fieldname="category"] select').select(fixture.title);
-		cy.wait("@dynamics").then(({ request, response }) => {
-			expect(JSON.parse(request.query.filters).category).to.eq(fixture.title);
-			expect(response.body.message.category.count).to.eq(2);
-			expect(response.body.message.responsible.count).to.eq(2);
+		withChart("responsible", (_instance, option) => {
+			const tile = option.series[0].data.find(({ id }) => id === member);
+			expect(tile.itemStyle.borderWidth).to.be.greaterThan(
+				option.series[0].itemStyle.borderWidth
+			);
 		});
-		select("category").should("have.value", "");
-		select("responsible").should("have.value", "");
+		rowLink(fixture.title + " shared component").should("exist");
+		clickTreemapTile(member);
+		cy.wait("@dynamics").its("response.body.message.responsible.selected").should("eq", "");
+		cy.wait("@tree").its("response.body.message.counts.category").should("have.length", 2);
+		clickTreemapTile(member);
+		cy.wait("@dynamics")
+			.its("response.body.message.responsible.selected")
+			.should("eq", member);
+		cy.wait("@tree");
+		cy.get(host + ' button[title="Clear filters"]').click();
+		cy.wait("@dynamics").its("response.body.message.responsible.selected").should("eq", "");
+		cy.wait("@tree");
+		cy.get(host + ' .dinext-scope-charts select[data-fieldname="category"]').select(
+			fixture.title + " secondary"
+		);
+		cy.wait("@dynamics")
+			.its("response.body.message")
+			.should((data) => {
+				expect(data.category.count).to.eq(1);
+				expect(data.responsible.items.map(({ value }) => value)).to.deep.eq([member]);
+			});
 	});
 
-	it("uses the reporting date and leaves the chart query unchanged for the table comparison controls", () => {
+	it("fills actual progress and marks both dates on the category chart", () => {
 		cy.intercept("GET", seriesApi).as("dynamics");
 		cy.intercept("GET", treeApi).as("tree");
 		openResults(fixture.project);
@@ -118,21 +155,39 @@ describe("Project result dynamics", () => {
 					.trigger("change")
 			);
 		};
+		withChart("category", (_instance, option) => {
+			const actual = option.series.find(({ name }) => name === "Actual");
+			expect(actual.step).to.eq("end");
+			expect(actual.areaStyle.opacity).to.be.within(0.01, 0.99);
+			expect(actual.markLine.data).to.have.length(1);
+		});
 		changeDate("reporting_date", fixture.reporting_date);
 		cy.wait("@dynamics").then(({ request, response }) => {
 			expect(request.query.reporting_date).to.eq(fixture.reporting_date);
 			expect(response.body.message.cutoff).to.eq(fixture.reporting_date);
-			for (const group of ["category", "responsible"]) {
-				const { actual } = response.body.message[group].series;
-				expect(actual.at(-1)[0]).to.eq(fixture.reporting_date);
-			}
+			expect(response.body.message.category.series.actual.at(-1)[0]).to.eq(
+				fixture.reporting_date
+			);
 		});
 		cy.wait("@tree");
 		changeDate("baseline_date", fixture.baseline_date);
+		cy.wait("@dynamics")
+			.its("request.query.baseline_date")
+			.should("eq", fixture.baseline_date);
+		withChart("category", (_instance, option) => {
+			expect(
+				option.series
+					.find(({ name }) => name === "Actual")
+					.markLine.data.map(({ name, xAxis }) => [name, xAxis])
+			).to.deep.eq([
+				["Reporting date", Date.parse(fixture.reporting_date)],
+				["Baseline date", Date.parse(fixture.baseline_date)],
+			]);
+		});
 		cy.wait("@tree");
 		cy.get(host + ' input[data-fieldname="show_plan"]').check();
 		cy.wait("@tree");
-		cy.get("@dynamics.all").should("have.length", 2);
+		cy.get("@dynamics.all").should("have.length", 3);
 	});
 
 	it("downloads a PNG from each ECharts toolbox", () => {
@@ -187,11 +242,11 @@ describe("Project result dynamics", () => {
 			expect(getComputedStyle(shell).overflowY).to.eq("hidden");
 			const cards = [...shell.querySelectorAll(widget + " section")];
 			expect(cards).to.have.length(2);
-			expect(cards[0].getBoundingClientRect().top).to.eq(
-				cards[1].getBoundingClientRect().top
-			);
+			const [left, right] = cards.map((card) => card.getBoundingClientRect());
+			expect(left.top).to.eq(right.top);
+			expect(left.width / right.width).to.be.closeTo(2, 0.02);
 		});
-		select("category").select(fixture.title + " secondary");
+		clickTreemapTile("Contact:" + fixture.contact);
 		cy.wait("@dynamics");
 		cy.get(viewport).should("be.visible");
 		cy.get(host + " " + toggle).click();

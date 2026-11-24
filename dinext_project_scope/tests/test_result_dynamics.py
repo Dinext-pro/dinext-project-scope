@@ -106,19 +106,26 @@ class TestResultDynamics(TestCase):
 		all_results = self.read()["category"]
 		self.assertEqual(all_results["count"], 3)
 		self.assertAlmostEqual(all_results["series"]["actual"][-1][1], (70 + 30 + 10) / 3)
-		rollout = self.read(category="Rollout")["category"]
+		rollout = self.read(filters={"category": "Rollout"})["category"]
 		self.assertEqual(rollout["count"], 2)
 		self.assertEqual(rollout["series"]["actual"][-1], [str(TODAY), 40])
-		filtered = self.read(filters={"category": "Rollout"}, category="Testing")
-		self.assertEqual(filtered["category"]["selected"], "")
+		filtered = self.read(filters={"category": "Rollout"})
 		self.assertEqual(filtered["category"]["count"], 2)
-		self.assertEqual(filtered["responsible"]["count"], 2)
+		self.assertEqual(
+			filtered["responsible"]["items"], [{"value": data.ONLY_EMPTY, "label": "", "count": 4}]
+		)
 
-	def test_assignments_use_configured_codes_and_distinguish_people(self):
-		self.add(deliverable("parent"), deliverable("child", progress=75), deliverable("unassigned", ""))
+	def test_treemap_counts_unique_results_and_filters_progress_by_configured_assignment(self):
+		self.add(
+			deliverable("parent"),
+			deliverable("child", progress=75),
+			deliverable("unassigned", ""),
+			deliverable("cancelled", status="Cancelled"),
+		)
 		self.structure = {"parent": nested("child")}
 		self.assignments = {
 			"parent": [assignment("excluded", code="Discontinued")],
+			"cancelled": [assignment("member")],
 			"child": [
 				assignment("member"),
 				assignment("member", code="Reviewer"),
@@ -126,18 +133,41 @@ class TestResultDynamics(TestCase):
 			],
 		}
 
-		payload = self.read(responsible="User:member")
-		self.assertEqual(payload["responsible"]["series"]["actual"][-1], [str(TODAY), 75])
-		self.assertEqual(payload["responsible"]["count"], 1)
-		self.assertEqual(payload["category"]["count"], 2)
-		options = {option["value"] for option in payload["responsible"]["options"]}
-		self.assertEqual(options, {"User:member", "Contact:member", data.ONLY_EMPTY})
-		self.assertEqual(self.read(responsible=data.ONLY_EMPTY)["responsible"]["count"], 2)
-		self.assertEqual(self.read(category=data.ONLY_EMPTY)["category"]["count"], 1)
+		payload = self.read(filters={"responsible": "User:member"})
+		self.assertEqual(payload["category"]["series"]["actual"][-1], [str(TODAY), 75])
+		self.assertEqual(payload["category"]["count"], 1)
+		self.assertEqual(payload["responsible"]["selected"], "User:member")
+		items = {item["value"]: item["count"] for item in payload["responsible"]["items"]}
+		self.assertEqual(items, {"User:member": 2, "Contact:member": 1, data.ONLY_EMPTY: 2})
+		self.assertEqual(payload["responsible"]["items"], self.read()["responsible"]["items"])
+		self.assertEqual(self.read(filters={"responsible": data.ONLY_EMPTY})["category"]["count"], 2)
+		self.assertEqual(self.read(filters={"category": data.ONLY_EMPTY})["category"]["count"], 1)
+		incompatible = self.read(filters={"responsible": "User:member", "category": data.ONLY_EMPTY})
+		self.assertEqual(incompatible["category"]["count"], 0)
+		self.assertEqual(incompatible["responsible"]["selected"], "User:member")
+		self.assertEqual(
+			incompatible["responsible"]["items"], [{"value": data.ONLY_EMPTY, "label": "", "count": 1}]
+		)
 		self.codes = []
 		self.assertEqual(
-			[option["value"] for option in self.read()["responsible"]["options"]], [data.ONLY_EMPTY]
+			self.read()["responsible"]["items"], [{"value": data.ONLY_EMPTY, "label": "", "count": 4}]
 		)
+
+	def test_responsible_filter_retains_tree_context_but_counts_shared_result_once(self):
+		self.add(deliverable("parent"), deliverable("peer"), deliverable("shared", "Integration"))
+		structure = {"parent": nested("shared"), "peer": nested("shared")}
+		with patch.object(data, "participant_profiles", return_value={}):
+			responsibles = data.result_tree_responsibles(
+				{"shared": [assignment("member"), assignment("member", code="Reviewer")]}, self.codes
+			)
+		rows, counts = data.results_view(
+			self.rows, structure, {}, responsibles, {"responsible": "User:member"}, today=TODAY
+		)
+
+		self.assertEqual({row["document"] for row in rows}, {"parent", "peer"})
+		self.assertTrue(all(row["context_only"] for row in rows))
+		self.assertTrue(all(row["children"][0]["document"] == "shared" for row in rows))
+		self.assertEqual(counts["category"], [{"name": "Integration", "count": 1}])
 
 	def test_historical_fact_plan_forecast_and_trend_use_reporting_date(self):
 		self.add(deliverable("a", progress=82), deliverable("b", progress=99, planned_end_date="2026-11-20"))
@@ -150,15 +180,18 @@ class TestResultDynamics(TestCase):
 			event("a", "2026-11-16T10:00", 70, "2026-12-10"),
 		]
 
-		payload = self.read(reporting_date="2026-11-15")
+		payload = self.read(reporting_date="2026-11-15", baseline_date="2026-10-15")
 		self.assertEqual(payload["cutoff"], "2026-11-15")
+		self.assertEqual(payload["reporting_date"], "2026-11-15")
+		self.assertEqual(payload["baseline_date"], "2026-10-15")
+		self.assertEqual(payload["range"][0], payload["baseline_date"])
 		group = payload["category"]
 		self.assertEqual(group["forecast_missing"], 1)
 		series = group["series"]
 		self.assertEqual(series["actual"], [["2026-11-12", 30], ["2026-11-14", 50], ["2026-11-15", 50]])
 		self.assertEqual(dict(series["planned"])["2026-11-15"], 37.5)
 		self.assertEqual(series["forecast"], [["2026-11-15", 50], ["2026-11-20", 80]])
-		self.assertEqual(series["trend"], [["2026-11-15", 50], ["2026-11-20", 100]])
+		self.assertEqual(series["trend"], [["2026-11-12", 30], ["2026-11-15", 50], ["2026-11-23", 100]])
 		self.assertLessEqual(payload["range"][0], "2026-11-12")
 		self.assertGreaterEqual(payload["range"][1], "2026-11-30")
 
@@ -195,7 +228,7 @@ class TestResultDynamics(TestCase):
 		self.assertEqual(current["series"]["forecast"], [])
 		self.assertIsNone(current["series"]["actual"][0][1])
 
-	def test_future_reporting_date_anchors_at_today_and_caps_trend(self):
+	def test_full_fact_history_sets_trend_direction_and_future_reporting_keeps_today_as_cutoff(self):
 		self.add(deliverable("a", progress=29))
 		self.journal = [
 			event("a", "2026-11-01T10:00", 99),
@@ -206,9 +239,12 @@ class TestResultDynamics(TestCase):
 		self.assertEqual(payload["cutoff"], str(TODAY))
 		series = payload["category"]["series"]
 		self.assertEqual(series["actual"][-1], [str(TODAY), 29])
-		self.assertEqual(series["trend"], [[str(TODAY), 29], ["2027-02-03", 100]])
+		self.assertEqual(series["trend"], [["2026-11-01", 99], [str(TODAY), 29], ["2026-12-04", 0]])
 		self.assertEqual(payload["range"][1], "2027-04-01")
+		self.assertEqual(payload["reporting_date"], "2027-04-01")
+		self.assertIsNone(payload["baseline_date"])
 
+		self.journal[0].progress = 26
 		self.rows["a"].progress = 26
 		series = self.read()["category"]["series"]
 		self.assertEqual(series["trend"][-1], [str(TODAY + timedelta(days=90)), 26])
@@ -229,5 +265,5 @@ class TestResultDynamics(TestCase):
 			patch.object(data, "get_deliverables") as read_deliverables,
 			self.assertRaises(frappe.PermissionError),
 		):
-			project_result_dynamics("foreign", category="private", responsible="User:private")
+			project_result_dynamics("foreign", filters={"category": "private", "responsible": "User:private"})
 		read_deliverables.assert_not_called()
