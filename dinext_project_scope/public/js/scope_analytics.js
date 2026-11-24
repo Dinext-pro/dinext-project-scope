@@ -1108,6 +1108,214 @@
 		container.append(note);
 	}
 
+	function resultDynamicsOption(element, group, data, filename) {
+		const context = "Dinext.ProjectScope.Dynamics";
+		const colors = chartColors();
+		const css = getComputedStyle(element);
+		const lines = [
+			["planned", __("Plan"), "dashed"],
+			["forecast", __("Forecast", null, context), "solid"],
+			["actual", __("Actual", null, context), "solid", "end"],
+			["trend", __("Trend", null, context), "dotted"],
+		];
+		return {
+			useUTC: true,
+			backgroundColor: "transparent",
+			animation: false,
+			aria: { enabled: true },
+			color: lines.map(([key]) => css.getPropertyValue(`--scope-dynamics-${key}`).trim()),
+			grid: { left: 45, right: 22, top: 36, bottom: 54 },
+			legend: { type: "scroll", bottom: 2, textStyle: { color: colors.text } },
+			tooltip: {
+				trigger: "axis",
+				renderMode: "richText",
+				confine: true,
+				valueFormatter: (value) =>
+					value == null || value === "-" ? "" : formatProgress(value),
+			},
+			toolbox: {
+				top: 0,
+				right: 6,
+				iconStyle: { borderColor: colors.text },
+				feature: {
+					saveAsImage: {
+						type: "png",
+						title: __("Download PNG"),
+						name: filename,
+						pixelRatio: 2,
+						backgroundColor: css.getPropertyValue("--card-bg").trim(),
+					},
+				},
+			},
+			xAxis: {
+				type: "time",
+				min: wallTime(data.range[0]),
+				max: wallTime(data.range[1]),
+				minInterval: 86400000,
+				axisLabel: {
+					color: colors.muted,
+					hideOverlap: true,
+					formatter(value) {
+						return frappe.datetime.str_to_user(
+							new Date(value).toISOString().slice(0, 10)
+						);
+					},
+				},
+			},
+			yAxis: {
+				type: "value",
+				min: 0,
+				max: 100,
+				interval: 25,
+				axisLabel: { color: colors.muted, formatter: "{value}%" },
+				splitLine: { lineStyle: { color: colors.border } },
+			},
+			series: lines.map(([key, name, type, step]) => ({
+				type: "line",
+				name,
+				step,
+				connectNulls: false,
+				showSymbol: group.series[key].filter(([, value]) => value != null).length === 1,
+				symbol: "circle",
+				symbolSize: 5,
+				lineStyle: { type, width: 2 },
+				data: group.series[key].map(([day, value]) => [wallTime(day), value]),
+			})),
+		};
+	}
+
+	function resultDynamics(surface, project, getQuery, allOption) {
+		const element = node("div", "dinext-scope-dynamics");
+		element.hidden = true;
+		element.setAttribute("role", "region");
+		element.setAttribute("aria-label", __("Result dynamics"));
+
+		const panels = [
+			["category", __("By category"), __("Category"), __("No category")],
+			["responsible", __("By responsible person"), __("Responsible"), __("Unassigned")],
+		].map(([key, title, label, emptyLabel]) => {
+			const card = node("section", "dinext-scope-dynamics-card");
+			card.dataset.dynamicsGroup = key;
+			const chart = node("div", "dinext-scope-chart dinext-scope-dynamics-chart");
+			const filter = node("div", "dinext-scope-result-filter");
+			const note = node("p", "dinext-scope-dynamics-note text-muted", __("Loading"));
+			note.setAttribute("role", "status");
+			card.append(node("h4", "dinext-scope-heading", title), chart, filter, note);
+			element.append(card);
+			const control = frappe.ui.form.make_control({
+				parent: filter,
+				only_input: true,
+				render_input: true,
+				df: {
+					fieldtype: "Select",
+					fieldname: `dynamics_${key}`,
+					label,
+					options: [allOption],
+					onchange: refresh,
+				},
+			});
+			control.$input.attr("aria-label", label);
+			return { key, chart, control, note, emptyLabel, rendered: null };
+		});
+		let revision = 0;
+		let requested = null;
+		return {
+			element,
+			refresh,
+			invalidate() {
+				requested = null;
+			},
+			toggle() {
+				element.hidden = !element.hidden;
+				requested = null;
+				if (element.hidden) revision++;
+				else refresh();
+			},
+		};
+
+		async function refresh() {
+			if (element.hidden || !surface.active()) return;
+			const query = getQuery();
+			for (const { key, control } of panels) query[key] = control.get_value() || "";
+			const requestKey = JSON.stringify(query);
+			if (requested === requestKey) return;
+			requested = requestKey;
+			const request = ++revision;
+			element.setAttribute("aria-busy", "true");
+			try {
+				const data = await call(
+					"dinext_project_scope.analytics.dynamics.project_result_dynamics",
+					query
+				);
+				if (!surface.active() || request !== revision) return;
+				for (const panel of panels) {
+					render(panel, data);
+					query[panel.key] = data[panel.key].selected;
+				}
+				requested = JSON.stringify(query);
+			} catch {
+				if (!surface.active() || request !== revision) return;
+				requested = null;
+				for (const panel of panels) {
+					surface.unregisterChart(panel.chart);
+					panel.rendered = null;
+					panel.note.textContent = __("Could not load result dynamics.");
+				}
+			} finally {
+				if (request === revision) element.removeAttribute("aria-busy");
+			}
+		}
+
+		function render(panel, data) {
+			const { key, control, emptyLabel, note, chart } = panel;
+			const group = data[key];
+			const selectedLabel =
+				group.options.find(({ value }) => value === group.selected)?.label ||
+				(group.selected ? emptyLabel : "all");
+			const renderKey = JSON.stringify([data.range, data.cutoff, group]);
+			if (panel.rendered === renderKey) return;
+			panel.rendered = renderKey;
+			control.df.options = [
+				allOption,
+				...group.options.map(({ value, label }) => ({
+					value,
+					label: frappe.utils.escape_html(label || emptyLabel),
+				})),
+			];
+			control.set_input(group.selected);
+			const notes = [];
+			if (!group.count) {
+				notes.push(__("No records match the filters."));
+			} else {
+				if (!group.series.planned.length) notes.push(__("Plan is incomplete"));
+				if (!group.series.actual.some(([, value]) => value != null))
+					notes.push(__("No actual progress has been recorded."));
+				if (group.forecast_missing)
+					notes.push(
+						__("Unfinished results without a valid expected end date: {0}", [
+							group.forecast_missing,
+						])
+					);
+			}
+			note.textContent = notes.join(" · ");
+			surface.unregisterChart(chart);
+			if (
+				group.series.planned.length ||
+				group.series.actual.some(([, value]) => value != null)
+			) {
+				const slice = selectedLabel.slice(0, 64);
+				const filename =
+					`${project}-result-dynamics-${key}-${slice}-${data.cutoff}`.replace(
+						/[<>:"/\\|?*]/g,
+						"-"
+					);
+				surface.registerChart(chart, () =>
+					resultDynamicsOption(chart, group, data, filename)
+				);
+			}
+		}
+	}
+
 	function formHost(frm, fieldname) {
 		return frm.fields_dict[fieldname]?.$wrapper?.get(0);
 	}
@@ -1248,7 +1456,7 @@
 	function resultToolbar(
 		frm,
 		surface,
-		{ refresh, clearFilters, canDelete, comparison, exportResults }
+		{ refresh, clearFilters, dynamics, canDelete, comparison, exportResults }
 	) {
 		const project = frm.doc.name;
 		let deleting = false;
@@ -1304,6 +1512,17 @@
 				onClick: clearFilters,
 			},
 			{
+				id: "scope-result-dynamics",
+				type: "button",
+				title: __("Result dynamics"),
+				iconSvg: frappe.utils.icon("chart", "sm"),
+				active: () => !dynamics.element.hidden,
+				onClick({ table }) {
+					dynamics.toggle();
+					table.refreshToolbar();
+				},
+			},
+			{
 				id: "scope-responsibility-matrix",
 				type: "button",
 				label: "RACI",
@@ -1355,7 +1574,6 @@
 		const canDelete = frm.has_perm("write") && frappe.model.can_delete(DELIVERABLE);
 		const charts = node("div", "dinext-scope-charts");
 		const table = node("div", "dinext-scope-table dinext-scope-results-table");
-		surface.root.append(charts, table);
 		const profiles = [
 			["category", __("Category"), __("Deliverables by category")],
 			["deliverable_type", __("Deliverable type"), __("Deliverables by type")],
@@ -1389,14 +1607,20 @@
 		let revision = 0;
 		let appliedQuery = null;
 		const comparison = progressControls(surface, refresh);
+		const dynamics = resultDynamics(surface, project, dynamicsQuery, allOption);
+		surface.root.append(charts, dynamics.element, table);
 		const tableOptions = {
 			expand: "roots",
 			resultTree: true,
 			canCheckRow: ({ row }) => canDelete && isResultRow(row),
 			toggleResultFilter,
 			toolbarItems: resultToolbar(frm, surface, {
-				refresh,
+				refresh: () => {
+					dynamics.invalidate();
+					return refresh();
+				},
 				clearFilters,
+				dynamics,
 				canDelete,
 				comparison: comparison.element,
 				exportResults: () => downloadResultTree(appliedQuery, surface),
@@ -1415,14 +1639,33 @@
 			return refresh();
 		}
 
-		async function refresh() {
-			const request = ++revision;
+		function dynamicsQuery() {
 			const filters = Object.fromEntries(
 				panels.map(({ key, control }) => [key, control.get_value() || ""])
 			);
+			return {
+				project,
+				filters: JSON.stringify(filters),
+				reporting_date:
+					comparison.controls.reporting_date.get_value() || frappe.datetime.get_today(),
+			};
+		}
+
+		function clearDonuts() {
+			for (const { chart } of panels) {
+				const donut = chart.querySelector(".dinext-scope-chart--donut");
+				if (donut) surface.unregisterChart(donut);
+				chart.replaceChildren();
+			}
+		}
+
+		async function refresh() {
+			const request = ++revision;
+			const outerQuery = dynamicsQuery();
+			dynamics.refresh();
 			appliedQuery = null;
-			const { reporting_date, baseline_date, show_plan } = comparison.controls;
-			const reporting = reporting_date.get_value() || frappe.datetime.get_today();
+			const { baseline_date, show_plan } = comparison.controls;
+			const reporting = outerQuery.reporting_date;
 			const baseline = baseline_date.get_value() || "";
 			if (baseline && baseline > reporting) {
 				setMessage(
@@ -1432,9 +1675,7 @@
 				return;
 			}
 			const query = {
-				project,
-				filters: JSON.stringify(filters),
-				reporting_date: reporting,
+				...outerQuery,
 				baseline_date: baseline,
 				show_plan: show_plan.get_value() ? 1 : 0,
 			};
@@ -1445,14 +1686,14 @@
 				if (surface.active() && request === revision) {
 					surface.table?.clearRowCheck();
 					surface.table?.refresh([]);
-					surface.clearCharts();
-					for (const { chart } of panels) chart.replaceChildren();
+					clearDonuts();
 					setMessage(surface, __("Could not load project results."));
 				}
 				return;
 			}
 			if (!surface.active() || request !== revision) return;
-			surface.clearCharts();
+			clearDonuts();
+			const filters = JSON.parse(outerQuery.filters);
 			for (const { key, chart, control } of panels) {
 				control.df.options = [
 					allOption,
@@ -1464,7 +1705,6 @@
 					})),
 				];
 				control.set_input(filters[key]);
-				chart.replaceChildren();
 				drawDonut(
 					surface,
 					chart,

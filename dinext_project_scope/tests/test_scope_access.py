@@ -9,7 +9,7 @@ from frappe.desk.query_report import run
 from frappe.tests.utils import FrappeTestCase
 from openpyxl import load_workbook
 
-from dinext_project_scope.analytics import export
+from dinext_project_scope.analytics import dynamics, export
 from dinext_project_scope.tests.project_fixture import make_project, project_user_roles
 from dinext_project_scope.tests.scope_ui_test_helpers import create_report_fixture
 
@@ -59,6 +59,9 @@ class TestScopeReportPermissions(FrappeTestCase):
 		).insert()
 		try:
 			frappe.set_user(user.name)
+			self.assertEqual(dynamics.project_result_dynamics(project.name)["category"]["count"], 0)
+			with self.assertRaises(frappe.PermissionError):
+				dynamics.project_result_dynamics(other.name)
 			for report in ("Project Scope Overview", "Project Constraint Register"):
 				with self.subTest(report=report):
 					result = run(report, filters={"project": project.name}, ignore_prepared_report=True)

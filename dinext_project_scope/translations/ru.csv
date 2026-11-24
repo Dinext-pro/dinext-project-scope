@@ -601,3 +601,13 @@ pp,п.п.,
 Export XLSX,Скачать Excel,
 Enter a valid progress date.,Укажите корректную дату прогресса.,
 The baseline date must be on or before the reporting date.,Исходная дата должна быть не позднее отчётной.,
+Result dynamics,Динамика результатов,
+By category,По категориям,
+By responsible person,По ответственным,
+Unassigned,Без назначения,
+Forecast,Прогноз,Dinext.ProjectScope.Dynamics
+Actual,Факт,Dinext.ProjectScope.Dynamics
+Trend,Тренд,Dinext.ProjectScope.Dynamics
+Download PNG,Скачать PNG,
+Could not load result dynamics.,Не удалось загрузить динамику результатов.,
+Unfinished results without a valid expected end date: {0},Незавершённые результаты без действующего ожидаемого срока: {0},

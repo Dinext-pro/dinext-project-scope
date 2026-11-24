@@ -85,6 +85,13 @@ def normalize_filters(filters=None, *, list_fields=()):
 	return values
 
 
+def normalize_result_filters(filters):
+	return {
+		(f"{key}_missing" if value == ONLY_EMPTY else key): (1 if value == ONLY_EMPTY else value)
+		for key, value in normalize_filters(filters).items()
+	}
+
+
 def project_ids(project=None, *, required=False):
 	from dinext_project_scope.access import check_project, has_project_access, readable_projects
 
@@ -403,16 +410,20 @@ def distribution(rows, key):
 	]
 
 
+def matching_results(deliverables, filters, today):
+	return {
+		name: row
+		for name, row in deliverables.items()
+		if matches(row, filters, RESULT_FILTERS) and (not cint(filters.get("overdue")) or is_late(row, today))
+	}
+
+
 def results_view(
 	deliverables, structure, tasks, responsibles, filters, today=None, *, other_work=None, assigned_work=None
 ):
 	today = today or getdate()
 	# Compute the filtered document set once; a document may appear in more than one branch.
-	matching = {
-		name: row
-		for name, row in deliverables.items()
-		if matches(row, filters, RESULT_FILTERS) and (not cint(filters.get("overdue")) or is_late(row, today))
-	}
+	matching = matching_results(deliverables, filters, today)
 	visible_structure = {
 		name: [slot for slot in slots if slot.get("element") or not cint(slot.get("is_optional"))]
 		for name, slots in structure.items()
@@ -469,16 +480,22 @@ def result_progress_dates(reporting_date, baseline_date, today):
 	return reporting, baseline
 
 
+def deliverable_log_events(names, through):
+	if not names:
+		return []
+	return frappe.get_all(
+		"Project Deliverable Log",
+		filters={"deliverable": ["in", sorted(names)], "log_date": ["<", through + timedelta(days=1)]},
+		fields=["name", "deliverable", "log_date", "progress", "expected_end_date"],
+		order_by="log_date asc, creation asc, name asc",
+	)
+
+
 def result_progress_history(documents, through):
 	history = defaultdict(list)
 	until = ["<", through + timedelta(days=1)]
 	if names := documents.get(DELIVERABLE):
-		for event in frappe.get_all(
-			"Project Deliverable Log",
-			filters={"deliverable": ["in", sorted(names)], "log_date": until},
-			fields=["deliverable", "log_date", "progress"],
-			order_by="log_date asc, creation asc, name asc",
-		):
+		for event in deliverable_log_events(names, through):
 			if event.progress is not None:
 				history[DELIVERABLE, event.deliverable].append((getdate(event.log_date), event.progress))
 	if names := documents.get("Task"):
@@ -618,11 +635,15 @@ def participant_avatar(doctype, member, profiles):
 	}
 
 
-def result_tree_responsibles(assignments, codes):
-	selected = {
+def select_result_assignments(assignments, codes):
+	return {
 		name: [row for row in rows if row.get("responsibility") in codes and row.get("responsible")]
 		for name, rows in assignments.items()
 	}
+
+
+def result_tree_responsibles(assignments, codes):
+	selected = select_result_assignments(assignments, codes)
 	profiles = participant_profiles(selected)
 	responsibles = {}
 	for name, rows in selected.items():
@@ -719,7 +740,7 @@ def available_tasks(project, structure):
 
 @frappe.whitelist(methods=["GET"])
 def project_results(project, filters=None, reporting_date=None, baseline_date=None, show_plan=0):
-	filters = normalize_filters(filters)
+	filters = normalize_result_filters(filters)
 	projects = project_ids(project, required=True)
 	today = getdate()
 	reporting, baseline = result_progress_dates(reporting_date, baseline_date, today)
@@ -742,10 +763,6 @@ def project_results(project, filters=None, reporting_date=None, baseline_date=No
 	responsibles = result_tree_responsibles(load_assignments(deliverables), codes) if codes else {}
 	tasks = available_tasks(project, structure)
 	other_work = available_other_work(project, structure)
-	filters = {
-		(f"{key}_missing" if value == ONLY_EMPTY else key): (1 if value == ONLY_EMPTY else value)
-		for key, value in filters.items()
-	}
 	rows, counts = results_view(
 		deliverables,
 		structure,

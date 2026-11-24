@@ -170,11 +170,60 @@
 	margin-block: 0.75rem;
 }
 
-.dinext-scope-chart-card {
+.dinext-scope-chart-card,
+.dinext-scope-dynamics-card {
 	min-width: 0;
 	border: 1px solid var(--border-color);
 	border-radius: var(--border-radius-md);
 	padding: 0.75rem;
+}
+
+.dinext-scope-dynamics {
+	--scope-dynamics-planned: #2868db;
+	--scope-dynamics-forecast: #8246bf;
+	--scope-dynamics-actual: #087b60;
+	--scope-dynamics-trend: #a56b09;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+	gap: 0.75rem;
+	margin-block-end: 0.75rem;
+}
+
+.dinext-scope-dynamics[hidden] {
+	display: none;
+}
+
+[data-theme="dark"] .dinext-scope-dynamics {
+	--scope-dynamics-planned: #6d9fff;
+	--scope-dynamics-forecast: #c090f4;
+	--scope-dynamics-actual: #63c8a1;
+	--scope-dynamics-trend: #edba56;
+}
+
+.dinext-scope-dynamics-chart {
+	height: 16rem;
+}
+
+.dinext-scope-dynamics-note {
+	margin: 0.35rem 0 0;
+	font-size: var(--text-xs);
+}
+
+.dinext-scope-dynamics-note:empty {
+	display: none;
+}
+
+.dinext-scope-results:has(.dinext-table--fullscreen) .dinext-scope-dynamics {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dinext-scope-results:has(.dinext-table--fullscreen) .dinext-scope-dynamics-chart {
+	height: min(13rem, 25dvh);
+}
+
+.dinext-scope-results:has(.dinext-table--fullscreen):has(.dinext-scope-dynamics:not([hidden]))
+	.dinext-scope-chart--donut {
+	height: min(7.5rem, 18dvh);
 }
 
 .dinext-scope-heading {
