@@ -173,9 +173,11 @@ describe("Project result dynamics", () => {
 		cy.get(host + ' button[title="Fullscreen"]').click();
 		const viewport = host + " .dinext-table--fullscreen .ag-body-viewport";
 		let closedHeight;
-		cy.get(viewport).then(([element]) => {
-			closedHeight = element.clientHeight;
-		});
+		cy.get(viewport)
+			.should(([element]) => expect(element.clientHeight).to.be.greaterThan(300))
+			.then(([element]) => {
+				closedHeight = element.clientHeight;
+			});
 		cy.get(host + " " + toggle).click();
 		cy.wait("@dynamics");
 		cy.get(viewport).should(([element]) => {

@@ -751,7 +751,7 @@
 			fullscreen: {
 				target: "shell",
 				shell: options.fullscreenShell || surface.root,
-				...(options.responsibilityMatrix && {
+				...((options.resultTree || options.responsibilityMatrix) && {
 					onEnter: ({ table }) => table.setOption("layout", { height: "host" }),
 					onExit: ({ table }) => table.setOption("layout", layout),
 				}),

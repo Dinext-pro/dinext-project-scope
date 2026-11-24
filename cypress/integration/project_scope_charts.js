@@ -724,7 +724,7 @@ describe("Project scope charts", () => {
 		cy.contains(`${resultHost} [role="status"]`, "No records match the filters.").should(
 			"be.visible"
 		);
-		cy.get(`${resultHost} select`).should("have.length", 3);
+		cy.get(`${resultHost} .dinext-scope-charts select`).should("have.length", 3);
 		const clear = `${resultHost} .dinext-table-toolbar button[title="Clear filters"]`;
 		cy.get(clear)
 			.should(([button]) => expect(button.textContent.trim()).to.eq(""))
