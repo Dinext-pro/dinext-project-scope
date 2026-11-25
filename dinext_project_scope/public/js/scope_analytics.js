@@ -1359,12 +1359,6 @@
 			} else {
 				if (!group.series.planned.length) notes.push(__("Plan is incomplete"));
 				if (!hasActual) notes.push(__("No actual progress has been recorded."));
-				if (group.forecast_missing)
-					notes.push(
-						__("Unfinished results without a valid expected end date: {0}", [
-							group.forecast_missing,
-						])
-					);
 			}
 			note.textContent = notes.join(" · ");
 			if (group.series.planned.length || hasActual) {

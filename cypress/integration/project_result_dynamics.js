@@ -255,4 +255,27 @@ describe("Project result dynamics", () => {
 			expect(element.clientHeight).to.be.closeTo(closedHeight, 1)
 		);
 	});
+
+	it("hides the incomplete forecast count under the category chart", () => {
+		cy.call("frappe.client.set_value", {
+			doctype: "Task",
+			name: fixture.work,
+			fieldname: "exp_end_date",
+			value: fixture.planned_end,
+		});
+		cy.intercept("GET", seriesApi).as("incompleteForecast");
+		openResults(fixture.project);
+		cy.get(host + " " + toggle).click();
+		cy.wait("@incompleteForecast")
+			.its("response.body.message.category.forecast_missing")
+			.should("eq", 2);
+		withChart("category", (_instance, option) => {
+			const actual = option.series.find(({ name }) => name === "Actual");
+			expect(actual.data).to.not.be.empty;
+		});
+		cy.get(widget + ' [data-dynamics-group="category"] [role="status"]').should(
+			"not.contain.text",
+			"Unfinished results without a valid expected end date"
+		);
+	});
 });

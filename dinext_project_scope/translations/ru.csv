@@ -610,4 +610,3 @@ Actual,Факт,Dinext.ProjectScope.Dynamics
 Trend,Тренд,Dinext.ProjectScope.Dynamics
 Download PNG,Скачать PNG,
 Could not load result dynamics.,Не удалось загрузить динамику результатов.,
-Unfinished results without a valid expected end date: {0},Незавершённые результаты без действующего ожидаемого срока: {0},
