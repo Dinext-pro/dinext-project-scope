@@ -146,3 +146,11 @@ class TestScopeAccess(TestCase):
 		doc = frappe._dict(doctype="Project Change Request", project="unreadable", status="Draft")
 		with patch("dinext_project_scope.access.has_project_access", return_value=False):
 			self.assertIs(project_document_permission(doc, "read", "user@example.test"), False)
+
+	def test_permission_hook_denies_saved_deliverables_without_a_project(self):
+		from dinext_project_scope.access import project_document_permission
+
+		doc = frappe._dict(doctype="Project Deliverable", project=None, status="Template", is_new=lambda: False)
+		for permission in ("read", "select"):
+			with self.subTest(permission=permission):
+				self.assertIs(project_document_permission(doc, permission, "user@example.test"), False)

@@ -169,17 +169,13 @@ def _decision_details(doc, workflow, next_state):
 
 def validate_save(doc, before, state, missing):
 	doc.flags.acceptance_decision = None
-	doc.acceptance_approver = (
-		approvers.current_manager(doc.project, current=True)
-		if doc.project and doc.status != "Template"
-		else None
-	)
+	doc.acceptance_approver = approvers.current_manager(doc.project, current=True)
 	finalizing = bool(getattr(frappe.flags, "in_dinext_workflow_finalization", False))
 	_validate_responsibilities(
 		missing, engine.WorkflowDomainRollbackError if finalizing else frappe.ValidationError
 	)
 	if not before:
-		if doc.status not in ("Not Started", "Template"):
+		if doc.status != "Not Started":
 			frappe.throw(_("Create a working result in Not Started status."))
 		return
 

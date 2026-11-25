@@ -95,7 +95,6 @@ def default_routes():
 				"Acceptance",
 				"Completed",
 				"Cancelled",
-				"Template",
 			)
 		],
 		[
@@ -166,9 +165,7 @@ def ensure_default_workflows():
 				"override_status": 0,
 				"workflow_state_field": "workflow_state",
 				"custom_selection_order": 1,
-				"custom_activation_condition": 'doc.status not in ("Template", "Cancelled")'
-				if doctype == "Project Deliverable"
-				else None,
+				"custom_activation_condition": 'doc.status != "Cancelled"' if doctype == "Project Deliverable" else None,
 				"states": states,
 				"transitions": transitions,
 			}

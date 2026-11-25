@@ -534,7 +534,7 @@
 				case "result_delta":
 					return resultDelta(row, column.fieldname, column.label);
 				case "result_type":
-					return resultType(row, value);
+					return resultType(row, catalogLabel(column.fieldname, value, row.document_type));
 				case "result_assignment":
 					return resultAvatars(row, value);
 				case "project":
@@ -576,7 +576,7 @@
 				case "count":
 					return node("span", "", value ?? "");
 				default:
-					return node("span", "", value ?? "");
+					return node("span", "", catalogLabel(column.fieldname, value, row.document_type));
 			}
 		};
 	}
@@ -886,7 +886,7 @@
 		container,
 		items,
 		onSelect,
-		{ legend = true, translate = false, palette = () => chartPalette } = {}
+		{ legend = true, formatLabel = (name) => name, palette = () => chartPalette } = {}
 	) {
 		if (!items.length) {
 			container.append(node("div", "dinext-scope-empty", __("No data")));
@@ -896,9 +896,8 @@
 		const describeChart = !onSelect || !legend;
 		chart.setAttribute("aria-hidden", String(!describeChart));
 		const data = items.map((item) => ({
-			name:
-				item.label ||
-				(translate ? statusLabel(item.name) : item.name || __("Not specified")),
+			id: item.name || EMPTY,
+			name: item.label || formatLabel(item.name) || __("Not specified"),
 			value: item.count,
 		}));
 		const total = String(data.reduce((sum, item) => sum + item.value, 0));
@@ -1371,8 +1370,20 @@
 		return frm.fields_dict[fieldname]?.$wrapper?.get(0);
 	}
 
-	function statusLabel(name) {
-		return name ? __(name, null, DELIVERABLE) : __("Not specified");
+	function catalogLabel(field, value, documentType) {
+		if (!value) return value;
+		if (field === "category")
+			return __(value, null, documentType === "Project Requirement"
+				? "Requirement Kind"
+				: "Project Deliverable Category");
+		if (field === "deliverable_type" && documentType === DELIVERABLE)
+			return __(value, null, "Project Deliverable Type");
+		return value;
+	}
+
+	function resultFilterLabel(field, value) {
+		if (!value) return __("Not specified");
+		return field === "status" ? __(value, null, DELIVERABLE) : catalogLabel(field, value, DELIVERABLE);
 	}
 
 	function resultTypeWidth(container, heading, rows) {
@@ -1754,9 +1765,7 @@
 					allOption,
 					...result.options[key].map(({ name }) => ({
 						value: name || EMPTY,
-						label: frappe.utils.escape_html(
-							key === "status" ? statusLabel(name) : name || __("Not specified")
-						),
+						label: frappe.utils.escape_html(resultFilterLabel(key, name)),
 					})),
 				];
 				control.set_input(filters[key]);
@@ -1767,7 +1776,7 @@
 					(item) => toggleResultFilter(key, item.name),
 					{
 						legend: false,
-						translate: key === "status",
+						formatLabel: (name) => resultFilterLabel(key, name),
 						palette: () =>
 							document.documentElement.dataset.theme === "dark"
 								? chartPalette
@@ -1835,7 +1844,7 @@
 			meter.setAttribute(
 				"aria-description",
 				__(
-					"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded."
+					"Average progress of unique root deliverables with equal weight for each. Cancelled deliverables are excluded."
 				)
 			);
 			const fill = node("div", "progress-bar-fill");

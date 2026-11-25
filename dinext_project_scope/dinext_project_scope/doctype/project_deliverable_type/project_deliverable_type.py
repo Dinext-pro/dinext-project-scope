@@ -1,18 +1,14 @@
 # Copyright (c) 2026, Dinext and Contributors
 # See license.txt
 
-import frappe
 from frappe.model.document import Document
 
+from dinext_project_scope.catalogs import preserve_fixture_settings
 from dinext_project_scope.deliverable_structure import WORK_FILTERS, validate_type_definition
 
 
 class ProjectDeliverableType(Document):
-	def before_import(self):
-		if frappe.flags.in_fixtures and (
-			configured_icon := frappe.db.get_value(self.doctype, self.name, "icon")
-		):
-			self.icon = configured_icon
+	before_import = preserve_fixture_settings
 
 	def _validate_links(self):
 		for row in self.elements:

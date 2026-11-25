@@ -6,7 +6,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from dinext_project_scope import deliverable_structure as structure
 from dinext_project_scope import deliverables
-from dinext_project_scope.tests.project_fixture import make_project
+from dinext_project_scope.tests.project_fixture import make_project, project_user_roles
 
 
 class TestProjectDeliverable(FrappeTestCase):
@@ -41,7 +41,7 @@ class TestProjectDeliverable(FrappeTestCase):
 		return frappe.get_doc(
 			doctype="Project Deliverable",
 			title="Scope test result",
-			project=self.project.name,
+			project=kwargs.pop("project", self.project.name),
 			deliverable_type=kind.name,
 			category=self.category.name,
 			table_xuct=rows,
@@ -57,6 +57,92 @@ class TestProjectDeliverable(FrappeTestCase):
 			custom_planned_start_date="2026-11-01",
 			**kwargs,
 		).insert()
+
+	def test_insert_requires_a_project_and_supported_status(self):
+		kind = self.kind()
+		for values in ({"project": None}, {"status": "Template"}):
+			with self.subTest(values=values), self.assertRaises(frappe.ValidationError):
+				self.result(kind, **values)
+
+	def test_edit_validates_unchanged_project_and_status(self):
+		kind = self.kind()
+		for field, value in (("project", None), ("status", "Template")):
+			with self.subTest(field=field):
+				result = self.result(kind)
+				frappe.db.set_value(result.doctype, result.name, field, value)
+				result.reload()
+				result.title = "Editing an old result"
+				with self.assertRaises(frappe.ValidationError):
+					result.save()
+
+	def test_project_reader_cannot_read_list_or_select_an_old_result_without_a_project(self):
+		self.assert_old_result_is_hidden()
+
+	def test_sharing_cannot_widen_the_project_boundary(self):
+		from frappe.model.db_query import DatabaseQuery
+		from frappe import permissions
+
+		if not (
+			hasattr(permissions, "has_final_permission")
+			and getattr(DatabaseQuery, "final_permission_query_conditions_version", 0)
+		):
+			self.skipTest("This Frappe version does not implement post-share permission policies.")
+		self.assert_old_result_is_hidden(share_result=True)
+
+	def assert_old_result_is_hidden(self, *, share_result=False):
+		from frappe.desk.search import search_widget
+		from frappe.share import add as share
+
+		kind = self.kind()
+		allowed = self.result(kind)
+		orphan = self.result(kind)
+		frappe.db.set_value(orphan.doctype, orphan.name, {"project": None, "status": "Template"})
+		user = frappe.get_doc(
+			doctype="User",
+			email=f"scope-reader-{frappe.generate_hash(length=8)}@example.test",
+			first_name="Scope project reader",
+			send_welcome_email=0,
+			user_type="System User",
+			roles=project_user_roles(),
+		).insert()
+		share("Project", self.project.name, user=user.name, read=1, notify=0)
+		frappe.get_doc(
+			doctype="User Permission",
+			user=user.name,
+			allow="Project",
+			for_value=self.project.name,
+			apply_to_all_doctypes=1,
+		).insert()
+		if share_result:
+			share(orphan.doctype, orphan.name, user=user.name, read=1, notify=0)
+		filters = {"name": ("in", [allowed.name, orphan.name])}
+		previous = frappe.session.user
+		try:
+			frappe.set_user(user.name)
+			allowed.check_permission("read")
+			with self.assertRaises(frappe.PermissionError):
+				orphan.reload().check_permission("read")
+			self.assertEqual(frappe.get_list(allowed.doctype, filters=filters, pluck="name"), [allowed.name])
+			for ignore_user_permissions in (False, True):
+				with self.subTest(ignore_user_permissions=ignore_user_permissions):
+					matches = search_widget(
+						allowed.doctype,
+						allowed.title,
+						filters=filters,
+						ignore_user_permissions=ignore_user_permissions,
+					)
+					self.assertEqual([row[0] for row in matches], [allowed.name])
+			self.assertEqual(
+				search_widget(
+					allowed.doctype,
+					allowed.name,
+					filters=[[allowed.doctype, "name", "=", allowed.name]],
+					as_dict=True,
+				),
+				[{"name": allowed.name, "label": allowed.title, "title": allowed.title}],
+			)
+		finally:
+			frappe.set_user(previous)
 
 	def test_delete_results_checks_links_and_removes_a_selected_parent_first(self):
 		kind = self.kind()

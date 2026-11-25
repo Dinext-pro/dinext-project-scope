@@ -86,6 +86,10 @@
 			const editable = frm.is_new() || ["Draft", "Rejected"].includes(frm.doc.status);
 			for (const field of content)
 				frm.toggle_enable(field, editable && (field !== "project" || frm.is_new()));
+			frm.toggle_enable(
+				["implementation_date", "implementation_note", "implementation_items"],
+				frm.doc.status === "Approved" && !frm.doc.implemented_at
+			);
 			if (frm.is_new()) return;
 			frm.add_custom_button(__("Approval History"), () => showHistory(frm));
 			frm.add_custom_button(__("Project Change Impact Matrix"), () => {

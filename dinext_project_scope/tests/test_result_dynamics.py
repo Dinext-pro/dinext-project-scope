@@ -95,7 +95,6 @@ class TestResultDynamics(TestCase):
 			deliverable("other-parent", "Testing", progress=30),
 			deliverable("another-root", progress=10),
 			deliverable("cancelled", status="Cancelled", progress=90),
-			deliverable("template", status="Template", progress=100),
 		)
 		self.structure = {
 			"parent": nested("intermediate"),

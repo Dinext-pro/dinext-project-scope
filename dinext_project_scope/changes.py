@@ -7,7 +7,7 @@ import frappe
 from dinext_common.workflow_approval.engine import WorkflowDomainRollbackError
 from dinext_common.workflow_approval.scenarios.compat import is_authorized_finalization, transition_execution
 from frappe import _
-from frappe.utils import now_datetime
+from frappe.utils import get_datetime, getdate, now_datetime
 
 from dinext_project_scope.access import (
 	check_document,
@@ -100,7 +100,25 @@ def _previous_implementation(doc):
 	}
 
 
+def _implementation_is_closed(doc):
+	return bool(doc and (doc.get("implemented_at") or doc.workflow_state == IMPLEMENTED))
+
+
+def _implementation_record(doc):
+	return (
+		getdate(doc.implementation_date) if doc.implementation_date else None,
+		doc.implementation_note or "",
+		[tuple(row.get(field) or "" for field in IMPLEMENTATION_FIELDS) for row in doc.get("implementation_items") or []],
+		doc.implemented_by or "",
+		get_datetime(doc.implemented_at) if doc.implemented_at else None,
+	)
+
+
 def _validate_implementation(doc, previous):
+	if _implementation_is_closed(previous):
+		if _implementation_record(doc) != _implementation_record(previous):
+			raise frappe.ValidationError(_("The completed implementation record cannot be changed."))
+		return
 	state = doc.workflow_state
 	items = doc.get("implementation_items") or []
 	entered = bool(doc.implementation_date or doc.implementation_note or items)
@@ -127,10 +145,6 @@ def _validate_implementation(doc, previous):
 		raise frappe.ValidationError(
 			_("Enter an implementation date, explanation, and the changed documents.")
 		)
-	if previous and previous.workflow_state == IMPLEMENTED:
-		doc.implemented_by = previous.implemented_by
-		doc.implemented_at = previous.implemented_at
-		return
 	if frappe.session.user != doc.implementation_responsible:
 		raise frappe.PermissionError(_("Only the implementation owner can complete this change request."))
 	frappe.has_permission(CHANGE, "write", doc=doc, throw=True)
@@ -355,7 +369,7 @@ def validate_change(doc, *, cancelling=False):
 	if cancelling and state != CANCELLED:
 		raise WorkflowDomainRollbackError(_("Use the workflow cancellation action and enter a reason."))
 	_validate_implementation(doc, previous)
-	if state not in {IMPLEMENTED, CANCELLED}:
+	if state not in {IMPLEMENTED, CANCELLED} and not _implementation_is_closed(previous):
 		doc.implemented_by = None
 		doc.implemented_at = None
 	elif state == CANCELLED and previous:

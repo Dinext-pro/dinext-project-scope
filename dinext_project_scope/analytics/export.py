@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 from io import BytesIO
 from itertools import groupby
@@ -14,6 +16,7 @@ from openpyxl.cell.text import InlineFont
 from openpyxl.styles import Alignment, Font, PatternFill
 
 from dinext_project_scope.analytics import data
+from dinext_project_scope.analytics.contracts import FilterValue, ReportFilterValue
 from dinext_project_scope.analytics.reports import REPORTS, column, dataset, flatten_rows
 
 HEADER_FILL = PatternFill("solid", fgColor="FFDCE8F2")
@@ -105,22 +108,27 @@ def write_report_value(cell, row, column, legend):
 		if impact and (color := rgb(impact.get("color"))):
 			cell.fill = PatternFill("solid", fgColor=color)
 			cell.font = Font(bold=True, color="FF161616" if impact["level"] == "Moderate" else "FFFFFFFF")
-	elif kind == "trace_state":
+	elif kind in {"status", "trace_state"}:
 		parts = [_(value, context=document_type)] if value else []
-		if row.get("progress") is not None:
+		if kind == "trace_state" and row.get("progress") is not None:
 			parts.append(f"{flt(row['progress']):.2f}".rstrip("0").rstrip(".") + "%")
 		if row.get("status_note"):
 			parts.append(_(row["status_note"]))
 		if row.get("approval_stale"):
 			parts.append(_("Reapproval required"))
+		elif row.get("requires_recheck"):
+			parts.append(_("Acceptance needs review"))
 		value = " · ".join(parts)
 	elif kind == "accountable":
 		if document_type == data.DELIVERABLE:
 			value = " / ".join(f"{member['label']} ({_(member['doctype'])})" for member in value or []) or _(
 				"Responsible person not assigned"
 			)
-	elif kind == "status" and value:
-		value = _(value, context=document_type)
+	elif value and field == "deliverable_type" and document_type == data.DELIVERABLE:
+		value = _(value, context="Project Deliverable Type")
+	elif value and field == "category":
+		context = "Requirement Kind" if document_type == data.REQUIREMENT else "Project Deliverable Category"
+		value = _(value, context=context)
 	if kind in {"status", "trace_state"} and (color := STATE_FILLS.get(row.get("status_tone"))):
 		cell.fill = PatternFill("solid", fgColor=rgb(color))
 	if kind == "progress" and value is not None:
@@ -234,7 +242,8 @@ def make_workbook(report_name, columns, rows):
 
 
 @frappe.whitelist(methods=["GET"])
-def download(report_name, filters=None):
+def download(report_name: str, filters: dict[str, ReportFilterValue] | str | None = None) -> None:
+	"""Send the requested report workbook through Frappe's file response."""
 	if not isinstance(report_name, str) or report_name not in REPORTS:
 		frappe.throw(_("This report is unavailable."))
 	report = get_report_doc(report_name)
@@ -243,7 +252,14 @@ def download(report_name, filters=None):
 	provide_binary_file(frappe.scrub(report_name), "xlsx", make_workbook(report_name, columns, rows))
 
 @frappe.whitelist(methods=["GET"])
-def download_project_results(project, filters=None, reporting_date=None, baseline_date=None, show_plan=0):
+def download_project_results(
+	project: str,
+	filters: dict[str, FilterValue] | str | None = None,
+	reporting_date: str | None = None,
+	baseline_date: str | None = None,
+	show_plan: int | str | bool = 0,
+) -> None:
+	"""Send an XLSX with the same data and comparison columns as the results tree."""
 	frappe.has_permission(data.DELIVERABLE, "export", throw=True)
 	view = data.project_results(project, filters, reporting_date, baseline_date, show_plan)
 	comparison = view["comparison"]

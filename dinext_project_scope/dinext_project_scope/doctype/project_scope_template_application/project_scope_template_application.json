@@ -29,7 +29,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Template Doctype",
-   "options": "Project Requirement Specification Template\nProject Constraints Template\nProject Deliverables Template",
+   "options": "Project Requirement Specification Template\nProject Constraints Template",
    "reqd": 1
   },
   {
@@ -68,7 +68,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-18 00:55:56.119884",
+ "modified": "2026-11-26 02:25:07.256761",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Scope Template Application",

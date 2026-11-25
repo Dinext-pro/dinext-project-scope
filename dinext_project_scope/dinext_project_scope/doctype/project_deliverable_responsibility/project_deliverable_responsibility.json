@@ -18,7 +18,8 @@
   {
    "fieldname": "description",
    "fieldtype": "Small Text",
-   "label": "Description"
+   "label": "Description",
+   "translatable": 1
   },
   {
    "fieldname": "color",
@@ -56,7 +57,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-18 00:56:40.687544",
+ "modified": "2026-11-26 02:04:13.938307",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Deliverable Responsibility",

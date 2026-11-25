@@ -1,5 +1,10 @@
 """Validate and manage scope and assumptions in the canonical Project tables."""
 
+from __future__ import annotations
+
+from datetime import date
+from typing import TypedDict
+
 import frappe
 from frappe import _
 from frappe.utils import now_datetime
@@ -29,6 +34,37 @@ CONSTRAINT_FIELDS = (
 	"responsible",
 )
 VERIFICATION_FIELDS = ("verification_status", "verification_note", "verification_evidence")
+
+
+class ConstraintAssignmentFormInput(TypedDict):
+	doctype: str
+	name: str
+
+
+class ConstraintPreviewRow(TypedDict):
+	subject: str
+	record_type: str
+	category: str | None
+	description: str | None
+	consequences: str | None
+	review_date: date | str | None
+	responsible_type: str | None
+	responsible: str | None
+	source: str
+	needs_assignment: bool
+
+
+class ConstraintsTemplatePreviewResponse(TypedDict):
+	rows: list[ConstraintPreviewRow]
+	digest: str
+	participants: list[tuple[str, str]]
+
+
+class ConstraintsTemplateResponse(TypedDict):
+	constraints: dict[str, str]
+
+
+ConstraintAssignments = dict[str, ConstraintAssignmentFormInput] | str | None
 
 
 def _value_changed(row, prior, keys):
@@ -132,7 +168,7 @@ def project_change_rows(project):
 	)
 
 
-def _constraint_preview(project, template, assignments=None):
+def _constraint_preview(project: str, template: str, assignments: ConstraintAssignments = None) -> ConstraintsTemplatePreviewResponse:
 	check_project(project, "write")
 	source = check_document(CONSTRAINT_TEMPLATE, template)
 	if source.docstatus == 2:
@@ -162,15 +198,22 @@ def _constraint_preview(project, template, assignments=None):
 
 
 @frappe.whitelist()
-def preview_constraints_template(project, template, assignments=None):
+def preview_constraints_template(
+	project: str, template: str, assignments: ConstraintAssignments = None,
+) -> ConstraintsTemplatePreviewResponse:
+	"""Preview copied constraints and resolve assignments in the target project."""
 	return _constraint_preview(project, template, assignments)
 
 
 @frappe.whitelist(methods=["POST"])
-def apply_constraints_template(project, template, request_key, preview_digest, assignments=None):
+def apply_constraints_template(
+	project: str, template: str, request_key: str, preview_digest: str,
+	assignments: ConstraintAssignments = None,
+) -> ConstraintsTemplateResponse:
+	"""Create the reviewed constraints once and return their new row IDs."""
 	check_project(project, "write")
 
-	def create():
+	def create() -> ConstraintsTemplateResponse:
 		preview = _constraint_preview(project, template, assignments)
 		if preview["digest"] != preview_digest:
 			raise frappe.ValidationError(

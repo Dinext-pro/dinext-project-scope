@@ -113,12 +113,10 @@ def default_assignments(suggestions, existing=(), definitions=None):
 
 
 def validate_assignments(doc, before):
-	members = (
-		current_members(doc.project, current=True) if doc.project and doc.status != "Template" else set()
-	)
+	members = current_members(doc.project, current=True)
 	definitions = responsibility_definitions()
 	allowed = configured_roles([doc.category])[doc.category]
-	if not before and doc.project and doc.status != "Template":
+	if not before:
 		category = category_suggestions(doc.project, doc.category, members=members, definitions=definitions)
 		doc.extend(
 			"deliverable_responsibles",
@@ -140,12 +138,7 @@ def validate_assignments(doc, before):
 		seen.add(key)
 		definition = definitions.get(responsibility)
 		if key not in prior:
-			if (
-				not doc.project
-				or doc.status == "Template"
-				or not role
-				or (role, doctype, name) not in members
-			):
+			if not role or (role, doctype, name) not in members:
 				frappe.throw(_("Choose a current project participant in the selected role."))
 			if not definition or not definition.enabled:
 				frappe.throw(_("Choose an active responsibility."))
@@ -163,11 +156,7 @@ def validate_assignments(doc, before):
 						frappe.bold(escape_html(responsibility))
 					)
 				)
-	return (
-		missing_responsibilities(doc.deliverable_responsibles, allowed, definitions, members=members)
-		if doc.project and doc.status != "Template"
-		else []
-	)
+	return missing_responsibilities(doc.deliverable_responsibles, allowed, definitions, members=members)
 
 
 def missing_responsibilities(rows, allowed, definitions=None, *, members=None):

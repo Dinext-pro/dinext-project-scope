@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from collections import Counter, defaultdict
+from typing import cast
 from urllib.parse import quote
 
 import frappe
@@ -6,6 +9,13 @@ from frappe import _
 from frappe.utils import cint, getdate
 
 from dinext_project_scope.analytics import data
+from dinext_project_scope.analytics.contracts import (
+	ReportColumn,
+	ReportFiltersFormInput,
+	ReportFilterValue,
+	ReportResponse,
+	ScriptReportResponse,
+)
 from dinext_project_scope.deliverable_responsibility import configured_roles, missing_responsibilities
 
 TRACEABILITY = "Requirement Traceability Matrix"
@@ -48,7 +58,10 @@ CONSTRAINT_FILTERS = (
 )
 
 
-def column(field, label, *, kind=None, width=130, group=None, group_id=None):
+def column(
+	field: str, label: str, *, kind: str | None = None, width: int = 130,
+	group: str | None = None, group_id: str | None = None,
+) -> ReportColumn:
 	fieldtype = {"date": "Date", "datetime": "Datetime", "progress": "Percent", "count": "Int"}.get(
 		kind, "Data"
 	)
@@ -282,7 +295,7 @@ def responsibility_matrix(deliverables, assignments, definitions, participant_pr
 			entries = [
 				{
 					"code": code,
-					"label": definitions.get(code, {}).get("responsibility") or code,
+					"label": _(definitions.get(code, {}).get("responsibility") or code, context="Project Deliverable Responsibility"),
 					"color": definitions.get(code, {}).get("color"),
 				}
 				for code in sorted(codes)
@@ -295,7 +308,7 @@ def responsibility_matrix(deliverables, assignments, definitions, participant_pr
 	tree = [
 		{
 			"id": f"category-{quote(category, safe='')}",
-			"label": category or _("No category"),
+			"label": _(category, context="Project Deliverable Category") if category else _("No category"),
 			"is_group": True,
 			"children": sorted(children, key=lambda row: (row["label"].casefold(), row["document"])),
 		}
@@ -391,7 +404,7 @@ def impact_matrix(requests, impacts, active_types, filters):
 		columns.append(
 			column(
 				field,
-				impact_type or _("Impact type not specified"),
+				_(impact_type, context="Project Change Relation Type") if impact_type else _("Impact type not specified"),
 				kind="impact",
 				group=_("Impact"),
 				group_id="impact",
@@ -527,7 +540,7 @@ def missing_required(assignments, definitions, allowed):
 	return [
 		{
 			"code": code,
-			"label": definitions[code].get("responsibility") or code,
+			"label": _(definitions[code].get("responsibility") or code, context="Project Deliverable Responsibility"),
 			"color": definitions[code].get("color"),
 		}
 		for code in missing_responsibilities(assignments, allowed, definitions)
@@ -711,7 +724,7 @@ def overview(filters):
 	metrics[0]["progress_deliverable"] = next(iter(deliverables), None)
 	for rows, key, chart, report, context in [
 		(requirements, "status", "requirement_status", TRACEABILITY, data.REQUIREMENT),
-		(requirements, "kind", "requirement_category", TRACEABILITY, None),
+		(requirements, "kind", "requirement_category", TRACEABILITY, "Requirement Kind"),
 		(deliverables, "status", "deliverable_status", DELIVERABLE_REGISTER, data.DELIVERABLE),
 		(requests, "status", "change_status", CHANGE_REGISTER, None),
 	]:
@@ -746,14 +759,18 @@ REPORTS = {
 }
 
 
-def dataset(report_name, filters=None):
+def dataset(report_name: str, filters: dict[str, ReportFilterValue] | str | None = None) -> ReportResponse:
 	if report_name not in REPORTS:
 		frappe.throw(_("This report is unavailable."))
 	list_fields = ("responsibility",) if report_name == RESPONSIBILITY else ()
-	return REPORTS[report_name](data.normalize_filters(filters, list_fields=list_fields))
+	selected = cast(ReportFiltersFormInput, data.normalize_filters(filters, list_fields=list_fields))
+	return REPORTS[report_name](selected)
 
 
-def execute_report(report_name, filters=None):
+def execute_report(
+	report_name: str, filters: dict[str, ReportFilterValue] | str | None = None
+) -> ScriptReportResponse:
+	"""Provide the filtered data through Frappe's Script Report contract."""
 	columns, rows = dataset(report_name, filters)
 	columns[0]["scope_report"] = report_name
 	return columns, rows, None, None, None, True

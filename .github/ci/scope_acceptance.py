@@ -15,6 +15,45 @@ BENCH = WORK / "dinext-test-bench"
 RESULTS = WORK / "scope-acceptance"
 SITE = "localhost"
 URL = "http://127.0.0.1:8000"
+APP = "dinext_project_scope"
+APP_FIXTURES = Path(APP) / "fixtures"
+CATALOG_PROBE = "CI Catalog Roundtrip"
+BLANK_ICON_TYPE = "Работа"
+CATALOG_IDS = {
+	"Project Change Relation Type": ("Сроки", "Трудозатраты", "Фин. результат", "Качество", "Объем"),
+	"Project Deliverable Category": (
+		"Управление проектом",
+		"Проектирование",
+		"Конфигурирование",
+		"Техническая архитектура и инфраструктура",
+		"Интеграция",
+		"Разработка",
+		"Отчетность",
+		"Орг. изменения",
+		"Тестирование",
+		"Обучение",
+		"Начальная миграция",
+		"Поддержка",
+	),
+	"Project Deliverable Responsibility": ("И", "О", "С", "К", "У", "Д"),
+	"Project Deliverable Type": ("Документ", "Работа", "Разработка", "Тестирование", "Миграция данных"),
+	"Project Scope Type": (
+		"Географический",
+		"Процессный",
+		"Интеграционный",
+		"Организационный",
+		"Функциональный",
+	),
+	"Requirement Kind": (
+		"Организационные",
+		"Регуляторные",
+		"Финансовые",
+		"Функциональные",
+		"Технические",
+		"Стратегические",
+	),
+}
+AUDIT_FIELDS = {"owner", "creation", "modified", "modified_by", "idx", "parent", "parentfield", "parenttype"}
 REVISIONS = {
 	"frappe": ("dinext_platform", "de9b663eb808e8ffbe7d38a0a3233a45745831a6"),
 	"erpnext": ("dinext_erp", "548e80297397ba5d3ca4fb111a923fe784a37f4e"),
@@ -127,9 +166,178 @@ def install():
 		"--kwargs",
 		json.dumps({"args": setup}),
 	)
-	# CI checks a fresh installation. The full installed stack is migrated on localhost.
+	# Build once for acceptance. The server suite probes repeat migration after its tests.
 	run("bench", "use", SITE)
 	run("bench", "build")
+
+
+def read_catalog_data(directory):
+	catalogs = {}
+	for doctype in CATALOG_IDS:
+		filename = f"{doctype.lower().replace(' ', '_')}.json"
+		catalogs[doctype] = json.loads((directory / filename).read_text(encoding="utf-8"))
+	return catalogs
+
+
+def assert_catalog_ids(catalogs, stage):
+	for doctype, ids in CATALOG_IDS.items():
+		actual = sorted(row["name"] for row in catalogs[doctype])
+		if actual != sorted(ids):
+			raise RuntimeError(f"{stage} has unexpected {doctype} IDs: {actual!r}")
+
+
+def catalog_values(row, *, child=False):
+	ignored = AUDIT_FIELDS | {"doctype", "docstatus", "name"} if child else AUDIT_FIELDS
+	return {
+		field: [catalog_values(item, child=True) for item in value] if isinstance(value, list) else value
+		for field, value in row.items()
+		if field not in ignored
+	}
+
+
+def catalog_snapshot_values(catalogs):
+	return {
+		doctype: {row["name"]: catalog_values(row) for row in rows}
+		for doctype, rows in catalogs.items()
+	}
+
+
+def matches_shipped_values(shipped, installed):
+	# Import can fill defaults for fields that are absent from fixture JSON.
+	for field, expected in shipped.items():
+		actual = installed.get(field)
+		if isinstance(expected, list):
+			if not isinstance(actual, list) or len(expected) != len(actual):
+				return False
+			children_match = (
+				matches_shipped_values(left, right) for left, right in zip(expected, actual, strict=True)
+			)
+			if not all(children_match):
+				return False
+		elif expected != actual and (expected not in (None, "") or actual not in (None, "")):
+			return False
+	return True
+
+
+def assert_same_catalog_values(expected, actual, stage):
+	for doctype in CATALOG_IDS:
+		record_names = expected[doctype].keys() | actual[doctype].keys()
+		changed = sorted(
+			name for name in record_names if expected[doctype].get(name) != actual[doctype].get(name)
+		)
+		if changed:
+			raise RuntimeError(f"{stage} changed values for {doctype}: {changed!r}")
+
+
+def execute_catalog_probe(method, *args):
+	result = subprocess.run(
+		[
+			"bench",
+			"--site",
+			SITE,
+			"execute",
+			f"{APP}.tests.catalog_migration_acceptance.{method}",
+			"--args",
+			repr([list(CATALOG_IDS), *args]),
+		],
+		cwd=BENCH,
+		check=True,
+		text=True,
+		stdout=subprocess.PIPE,
+		timeout=120,
+	)
+	return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+def export_catalog_data():
+	fixtures_path = BENCH / "apps" / APP / APP_FIXTURES
+	if not fixtures_path.resolve().is_relative_to(BENCH.resolve()):
+		raise RuntimeError("The fixture exporter must write to the disposable bench.")
+	original = {path.name: path.read_bytes() for path in fixtures_path.glob("*.json")}
+	repository = {path.name: path.read_bytes() for path in (SOURCE / APP_FIXTURES).glob("*.json")}
+	if not original or original != repository:
+		raise RuntimeError("Bench fixtures do not match the checked-out app.")
+	try:
+		run("bench", "--site", SITE, "export-fixtures", "--app", APP)
+		return read_catalog_data(fixtures_path)
+	finally:
+		for path in fixtures_path.glob("*.json"):
+			if path.name not in original:
+				path.unlink()
+		for name, data in original.items():
+			(fixtures_path / name).write_bytes(data)
+
+
+def run_server_acceptance():
+	report = {"site": SITE, "outcome": "failed", "migrations": []}
+	try:
+		shipped = read_catalog_data(SOURCE / APP_FIXTURES)
+		assert_catalog_ids(shipped, "Checked-out fixtures")
+		factory = execute_catalog_probe("snapshot")
+		report["clean_install"] = catalog_snapshot_values(factory)
+		assert_catalog_ids(factory, "Clean installation")
+		shipped_values = catalog_snapshot_values(shipped)
+		for doctype, records in shipped_values.items():
+			for name, row in records.items():
+				if not matches_shipped_values(row, report["clean_install"][doctype][name]):
+					raise RuntimeError(f"Clean installation changed fixture settings in {doctype} {name!r}.")
+
+		run(
+			"bench",
+			"--site",
+			SITE,
+			"run-tests",
+			"--app",
+			APP,
+			"--skip-test-records",
+			f"--junit-xml-output={RESULTS}/server.xml",
+		)
+
+		prepared = execute_catalog_probe("configure", CATALOG_PROBE, BLANK_ICON_TYPE)
+		installed = catalog_snapshot_values(prepared)
+		report["before_migrate"] = installed
+		expected_export = {
+			doctype: {name: installed[doctype][name] for name in ids}
+			for doctype, ids in CATALOG_IDS.items()
+		}
+		for doctype in CATALOG_IDS:
+			if CATALOG_PROBE not in installed[doctype]:
+				raise RuntimeError(f"Missing extra user record in {doctype}.")
+			if expected_export[doctype] == report["clean_install"][doctype]:
+				raise RuntimeError(f"No customized shipped record in {doctype}.")
+
+		exported = export_catalog_data()
+		report["export"] = catalog_snapshot_values(exported)
+		assert_catalog_ids(exported, "Native fixture export")
+		assert_same_catalog_values(expected_export, report["export"], "Native fixture export")
+
+		type_doctype = "Project Deliverable Type"
+		factory_icon = shipped_values[type_doctype][BLANK_ICON_TYPE]["icon"]
+		if not factory_icon:
+			raise RuntimeError("The fixture must ship a factory result icon.")
+		blank_icon = installed[type_doctype][BLANK_ICON_TYPE]
+		if blank_icon["icon"]:
+			raise RuntimeError("The fallback test must start with an empty result icon.")
+		expected = {
+			**installed,
+			type_doctype: {
+				**installed[type_doctype],
+				BLANK_ICON_TYPE: {**blank_icon, "icon": factory_icon},
+			},
+		}
+		for _ in range(2):
+			run("bench", "--site", SITE, "migrate", "--skip-search-index")
+			migrated = catalog_snapshot_values(execute_catalog_probe("snapshot"))
+			report["migrations"].append(migrated)
+			assert_same_catalog_values(expected, migrated, "Repeated migrate")
+		report["outcome"] = "passed"
+	except Exception as error:
+		report["error"] = str(error)
+		raise
+	finally:
+		(RESULTS / "catalog-roundtrip.json").write_text(
+			json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+		)
 
 
 def wait_for_site(server):
@@ -245,16 +453,7 @@ if __name__ == "__main__":
 	install()
 	try:
 		if sys.argv[1] == "server":
-			run(
-				"bench",
-				"--site",
-				SITE,
-				"run-tests",
-				"--app",
-				"dinext_project_scope",
-				"--skip-test-records",
-				f"--junit-xml-output={RESULTS}/server.xml",
-			)
+			run_server_acceptance()
 		else:
 			run_cypress()
 	finally:

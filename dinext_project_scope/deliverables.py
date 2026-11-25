@@ -96,7 +96,6 @@ def _linked_results(doctype, name, project):
 			& (row.element_type == doctype)
 			& (row.element == name)
 			& (parent.project == project)
-			& (parent.status != "Template")
 		)
 		.for_update()
 		.run()
@@ -140,7 +139,7 @@ class ProjectWork:
 		rows = (
 			_select_rows(DELIVERABLE, RESULT_FIELDS, {"project": project}, current=current) if project else []
 		)
-		self.results = {row.name: row for row in rows if row.status != "Template"}
+		self.results = {row.name: row for row in rows}
 		self.slots = defaultdict(list)
 		if self.results:
 			for row in sorted(
@@ -379,11 +378,15 @@ def validate_deliverable(doc):
 
 	before = doc.get_doc_before_save()
 	doc.title = cstr(doc.title).strip()
-	doc.status = doc.status or "Not Started"
+	if not doc.project:
+		frappe.throw(_("Project is required for a result."), frappe.MandatoryError)
+	if doc.status in (None, ""):
+		doc.status = "Not Started"
+	if not isinstance(doc.status, str) or doc.status not in deliverable_workflow.WORKING_STATUSES:
+		frappe.throw(_("Choose a valid result status."))
 	if before and before.project != doc.project:
 		frappe.throw(_("The project of an existing result cannot be changed."))
-	if doc.status != "Template":
-		access.check_project(doc.project)
+	access.check_project(doc.project)
 	if not before or doc.category != before.category:
 		access.check_document(CATEGORY, doc.category)
 		if not frappe.db.get_value(CATEGORY, doc.category, "enabled"):
@@ -409,7 +412,7 @@ def validate_deliverable(doc):
 
 
 def on_deliverable_update(doc):
-	if doc.project and doc.status != "Template":
+	if doc.project:
 		source = doc.flags.structural_source or (DELIVERABLE, doc.name)
 		_recalculate(doc.project, {doc.name}, source, saved=doc)
 
@@ -427,9 +430,7 @@ def delete_project_results(project: str, results):
 	access.lock_project(project)
 	selected = {}
 	for name in dict.fromkeys(names):
-		if not frappe.db.exists(
-			DELIVERABLE, {"name": name, "project": project, "status": ("!=", "Template")}
-		):
+		if not frappe.db.exists(DELIVERABLE, {"name": name, "project": project}):
 			frappe.throw(_("Select results from the current project."))
 		selected[name] = access.check_document(DELIVERABLE, name, "delete")
 
@@ -518,7 +519,7 @@ def get_deliverable_details(deliverable: str):
 	from dinext_project_scope import deliverable_workflow
 
 	doc = access.check_document(DELIVERABLE, deliverable)
-	if doc.status == "Template":
+	if not doc.project:
 		return {}
 	graph = ProjectWork(doc.project)
 	state = graph.evaluate({doc.name})[doc.name]
@@ -563,7 +564,9 @@ def work_query(doctype, txt, searchfield, start, page_len, filters):
 		query = structure.other_work_filters(meta, project)
 	else:
 		title = "subject" if doctype == structure.TASK else "title"
-		query = {"project": project, "status": ("!=", "Template")}
+		query = {"project": project}
+		if doctype == structure.TASK:
+			query["status"] = ("!=", "Template")
 		if filters.get("filter_type"):
 			query[structure.WORK_TYPES[doctype][1]] = filters["filter_type"]
 	if not other and doctype == DELIVERABLE and filters.get("deliverable"):

@@ -11,9 +11,6 @@ from openpyxl import load_workbook
 
 from dinext_project_scope import requirements
 from dinext_project_scope.analytics import data, export, reports
-from dinext_project_scope.dinext_project_scope.doctype.project_deliverable_type.project_deliverable_type import (
-	ProjectDeliverableType,
-)
 
 
 class TestScopeAnalytics(TestCase):
@@ -113,6 +110,26 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual(sheet["A3"].data_type, "s")
 		self.assertEqual(sheet.row_dimensions[3].outlineLevel, 1)
 
+	@patch.object(export, "_", lambda string, **_: string)
+	def test_acceptance_recheck_is_exported_with_status_tone(self):
+		row = {
+			"document_type": data.DELIVERABLE,
+			"status": "Completed",
+			"status_tone": "green",
+			"progress": 95,
+			"requires_recheck": True,
+		}
+		for kind, expected in (
+			("status", "Completed · Acceptance needs review"),
+			("trace_state", "Completed · 95% · Acceptance needs review"),
+		):
+			with self.subTest(kind=kind):
+				columns = [reports.column("status", "Status", kind=kind)]
+				workbook = export.make_workbook("Scope test", columns, [row])
+				cell = load_workbook(BytesIO(workbook)).active["A2"]
+				self.assertEqual(cell.value, expected)
+				self.assertEqual(cell.fill.fgColor.rgb, "FFCFEBD6")
+
 	@patch("dinext_project_scope.access.has_project_access", side_effect=lambda project: project == "public")
 	@patch("dinext_project_scope.access.readable_projects", return_value=["public", "private"])
 	def test_cross_project_scope_checks_each_project(self, _listed, _accessible):
@@ -132,7 +149,7 @@ class TestScopeAnalytics(TestCase):
 		self.assertIn("verified_at", child_rows.call_args.args[4])
 
 	@patch.object(export, "_", lambda string, **_: string)
-	@patch.object(reports, "_", lambda string: string)
+	@patch.object(reports, "_", lambda string, **_: string)
 	def test_constraint_register_exports_actual_verification_separately_from_plan(self):
 		planned = date(2026, 11, 29)
 		verified = datetime(2026, 11, 20, 10, 30)
@@ -232,7 +249,6 @@ class TestScopeAnalytics(TestCase):
 			"parent-b": {"progress": 80},
 			"shared": {"progress": 99},
 			"cancelled": {"status": "Cancelled", "progress": 80},
-			"template": {"status": "Template", "progress": 0},
 		}
 		structure = {
 			"parent-a": [{"element_type": "Project Deliverable", "element": "shared"}],
@@ -241,7 +257,7 @@ class TestScopeAnalytics(TestCase):
 		}
 		self.assertEqual(data.root_progress(deliverables, structure), {"count": 2, "progress": 50})
 		self.assertEqual(
-			data.root_progress({"template": deliverables["template"]}, {}), {"count": 0, "progress": None}
+			data.root_progress({"cancelled": deliverables["cancelled"]}, {}), {"count": 0, "progress": None}
 		)
 
 	def test_root_plan_averages_linear_progress_of_the_same_results_as_fact(self):
@@ -478,24 +494,6 @@ class TestScopeAnalytics(TestCase):
 			asset = app / "public" / icon.removeprefix("/assets/dinext_project_scope/")
 			self.assertTrue(asset.is_file(), icon)
 
-	def test_deliverable_type_fixture_import_preserves_configured_icon(self):
-		kind = SimpleNamespace(
-			doctype="Project Deliverable Type", name="Document", icon="/assets/default.svg"
-		)
-		db = Mock()
-		db.get_value.return_value = "/files/custom.svg"
-		with (
-			patch.object(frappe, "db", db),
-			patch.object(frappe, "flags", frappe._dict(in_fixtures=True)),
-		):
-			ProjectDeliverableType.before_import(kind)
-			self.assertEqual(kind.icon, "/files/custom.svg")
-
-			db.get_value.return_value = None
-			kind.icon = "/assets/default.svg"
-			ProjectDeliverableType.before_import(kind)
-			self.assertEqual(kind.icon, "/assets/default.svg")
-
 	def test_history_has_no_synthetic_actual_values(self):
 		events = [
 			{"log_date": datetime(2026, 11, 8, 10), "progress": 25},
@@ -592,7 +590,7 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual(unlinked["status_tone"], "red")
 		self.assertTrue(unlinked["approval_stale"])
 
-	@patch.object(reports, "_", lambda string: string)
+	@patch.object(reports, "_", lambda string, **_: string)
 	def test_impact_filters_match_one_row_and_preserve_unfiltered_maximum(self):
 		requests = {"cr": {"name": "cr", "creation": datetime(2026, 11, 17, 23, 59, 59)}}
 		impacts = {
@@ -626,8 +624,8 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual([item["matched"] for item in schedule["details"]], [False, True, False])
 		self.assertEqual(schedule["details"][1]["estimation"], "3\u20135")
 
-	@patch.object(export, "_", lambda string: string)
-	@patch.object(reports, "_", lambda string: string)
+	@patch.object(export, "_", lambda string, **_: string)
+	@patch.object(reports, "_", lambda string, **_: string)
 	def test_impact_workbook_retains_colors_matches_and_text(self):
 		columns, rows = reports.impact_matrix(
 			{"cr": {"name": "cr", "title": "@User text", "creation": datetime(2026, 11, 17, 23, 59, 59)}},
@@ -658,8 +656,8 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual(details["F3"].value, "3\u20135")
 		self.assertEqual(details["K3"].value, "Yes")
 
-	@patch.object(export, "_", lambda string: string)
-	@patch.object(reports, "_", lambda string: string)
+	@patch.object(export, "_", lambda string, **_: string)
+	@patch.object(reports, "_", lambda string, **_: string)
 	def test_workbook_keeps_role_groups_typed_values_and_all_codes(self):
 		definitions = {
 			"Do": {"responsibility": "Does the work", "color": "#12ABFF"},
@@ -750,7 +748,7 @@ class TestScopeAnalytics(TestCase):
 		)
 		self.assertEqual(book["Legend"]["B2"].value, "Does the work")
 
-	@patch.object(export, "_", lambda string: string)
+	@patch.object(export, "_", lambda string, **_: string)
 	@patch.object(export, "dataset", side_effect=frappe.PermissionError)
 	@patch.object(export, "get_report_doc")
 	@patch.object(frappe, "has_permission", return_value=True)

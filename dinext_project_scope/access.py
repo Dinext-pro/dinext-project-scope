@@ -3,6 +3,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.types.filter import Filters
 from frappe.utils import getdate
 
 PROJECT_DOCUMENTS = {
@@ -99,15 +100,13 @@ def validate_project_target(project, doctype, name, *, require_membership=True, 
 		row = _owned_row(doctype, name)
 		owner_project = row.parent
 	else:
-		fields = (
-			["project", "status"]
-			if doctype in {"Project Requirement", "Project Deliverable"}
-			else ["project"]
-		)
+		fields = ["project", "status"] if doctype == "Project Requirement" else ["project"]
 		owner = frappe.db.get_value(doctype, name, fields, as_dict=True)
 		if not owner:
 			raise frappe.DoesNotExistError(_("The selected document does not exist."))
-		owner_project = owner.project if owner.get("status") != "Template" else None
+		owner_project = owner.project
+		if doctype == "Project Requirement" and owner.status == "Template":
+			owner_project = None
 	if owner_project != project:
 		raise frappe.ValidationError(_("Select a record from the same project."))
 	if check_permission:
@@ -121,10 +120,12 @@ def validate_project_target(project, doctype, name, *, require_membership=True, 
 
 def project_document_permission(doc, ptype="read", user=None, **kwargs):
 	"""Deny access outside Project permissions while preserving DocType role checks."""
+	if doc.doctype == "Project Deliverable" and (user or frappe.session.user) == "Administrator":
+		return None
 	project = doc.get("project")
 	if project and not has_project_access(project, "read", user):
 		return False
-	if not project and doc.doctype not in {"Project Requirement", "Project Deliverable"} and not doc.is_new():
+	if not project and doc.doctype != "Project Requirement" and not doc.is_new():
 		return False
 	return None
 
@@ -140,7 +141,7 @@ def scoped_queries(doctype, user=None):
 		if projects
 		else "1=0"
 	)
-	if doctype in {"Project Requirement", "Project Deliverable"}:
+	if doctype == "Project Requirement":
 		clause = f"({clause} or ({table}.status = 'Template' and coalesce({table}.project, '') = ''))"
 	return clause
 
@@ -197,6 +198,40 @@ def project_participants(project, doctype=None, *, current=False):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
+def deliverable_link_query(
+	doctype, txt, searchfield, start, page_len, filters, as_dict=False, reference_doctype=None
+):
+	if doctype != "Project Deliverable":
+		return []
+	query_filters = Filters(frappe.parse_json(filters) or [], doctype=doctype)
+	if frappe.session.user != "Administrator":
+		projects = readable_projects()
+		if not projects:
+			return []
+		query_filters.append([doctype, "project", "in", projects])
+	pattern = f"%{txt}%"
+	skip_permissions_for = frappe.flags.get("ignore_user_permissions_for_doctype")
+	try:
+		# Native link search can skip user permissions for its target DocType.
+		if skip_permissions_for == doctype:
+			frappe.flags.ignore_user_permissions_for_doctype = None
+		return frappe.get_list(
+			doctype,
+			fields=["name", "title as label", "title"],
+			filters=query_filters,
+			or_filters={field: ("like", pattern) for field in ("name", "title")} if txt else None,
+			as_list=not as_dict,
+			start=start,
+			page_length=page_len,
+			order_by="idx desc, modified desc, name asc",
+			reference_doctype=reference_doctype,
+		)
+	finally:
+		frappe.flags.ignore_user_permissions_for_doctype = skip_permissions_for
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
 def project_target_query(doctype, txt, searchfield, start, page_len, filters):
 	filters = frappe._dict(frappe.parse_json(filters) or {})
 	project = filters.get("project")
@@ -229,7 +264,7 @@ def project_target_query(doctype, txt, searchfield, start, page_len, filters):
 	meta = frappe.get_meta(doctype)
 	title = meta.title_field or "name"
 	query = {"project": project} if doctype in PROJECT_TARGETS else {}
-	if doctype in {"Project Requirement", "Project Deliverable"}:
+	if doctype == "Project Requirement":
 		query["status"] = ("!=", "Template")
 	if doctype == "Project Requirement" and filters.get("current_scope"):
 		from dinext_project_scope.requirements import project_membership

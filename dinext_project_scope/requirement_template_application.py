@@ -111,7 +111,7 @@ def _plan(
 	return TemplatePlan(graph, template, selected, order, digest)
 
 
-def preview(project: str, template: str, assignments) -> dict:
+def preview(project: str, template: str, assignments) -> req.SpecificationTemplatePreviewResponse:
 	access.check_project(project, "write")
 	doc = frappe.get_doc("Project", project)
 	assignees = _project_assignees(doc)
@@ -205,7 +205,7 @@ def _copy_specifications(
 	return created
 
 
-def _replay(application_name: str, request_digest: str) -> dict | None:
+def _replay(application_name: str, request_digest: str) -> req.SpecificationTemplateResponse | None:
 	row = frappe.db.get_value(
 		APPLICATION, application_name, ["request_digest", "created_map"], as_dict=True, for_update=True
 	)
@@ -220,7 +220,7 @@ def _replay(application_name: str, request_digest: str) -> dict | None:
 	return result
 
 
-def apply(project: str, template: str, request_key: str, preview_digest: str, assignments) -> dict:
+def apply(project: str, template: str, request_key: str, preview_digest: str, assignments) -> req.SpecificationTemplateResponse:
 	if not request_key or len(request_key) > 140 or not preview_digest or len(preview_digest) != 64:
 		frappe.throw(_("Open the template preview before applying it."))
 	selected = _parse_assignments(assignments)
@@ -243,7 +243,7 @@ def apply(project: str, template: str, request_key: str, preview_digest: str, as
 	try:
 		requirement_names = _copy_requirements(plan, project)
 		specification_names = _copy_specifications(plan, project, requirement_names)
-		result = {
+		result: req.SpecificationTemplateResponse = {
 			"root": specification_names[template],
 			"specifications": specification_names,
 			"requirements": requirement_names,

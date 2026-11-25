@@ -49,7 +49,7 @@ def other_work_filters(meta, project):
 	filters = (
 		{"project": project} if field and field.fieldtype == "Link" and field.options == "Project" else {}
 	)
-	if meta.name in WORK_TYPES:
+	if meta.name == TASK:
 		filters["status"] = ("!=", "Template")
 	return filters
 
@@ -162,12 +162,7 @@ def seed_structure(doc, new_rows):
 
 def validate_saved_structure(doc, before):
 	if not before:
-		seed_structure(
-			doc,
-			doc.flags.initial_structure
-			if doc.flags.initial_structure is not None
-			else from_type(doc.deliverable_type, current=True),
-		)
+		seed_structure(doc, from_type(doc.deliverable_type, current=True))
 		return
 	if doc.flags.structure_refresh:
 		return
@@ -185,8 +180,6 @@ def validate_links(doc, before):
 	for table_field, link_field, target in PROJECT_LINKS:
 		prior = {row.get(link_field) for row in before.get(table_field)} if before else set()
 		for name in {row.get(link_field) for row in doc.get(table_field)} - {None, ""}:
-			if not doc.project or doc.status == "Template":
-				frappe.throw(_("A result template cannot link to project records."))
 			access.validate_project_target(
 				doc.project,
 				target,
@@ -225,7 +218,7 @@ def target_matches(row, project, *, for_update=False):
 	return bool(
 		work
 		and work.project == project
-		and work.status != "Template"
+		and (row["element_type"] != TASK or work.status != "Template")
 		and (not row["filter_type"] or work.get(WORK_TYPES[row["element_type"]][1]) == row["filter_type"])
 	)
 
@@ -239,8 +232,6 @@ def validate_work_links(doc, before):
 		row = snapshot([stored])[0]
 		if not row["element"]:
 			continue
-		if not doc.project or doc.status == "Template":
-			frappe.throw(_("A result template cannot link to project work."))
 		if stored.element_doctype == DELIVERABLE and row["element"] == doc.name:
 			frappe.throw(_("A result cannot be included in its own structure."))
 		if not target_matches(row, doc.project, for_update=True):
@@ -261,10 +252,12 @@ def validate_referenced_work(doc, before):
 	if not before:
 		return
 	type_field = WORK_TYPES[doc.doctype][1]
-	if (doc.project, doc.get(type_field), doc.status == "Template") == (
+	task_is_template = doc.doctype == TASK and doc.status == "Template"
+	task_was_template = doc.doctype == TASK and before.status == "Template"
+	if (doc.project, doc.get(type_field), task_is_template) == (
 		before.project,
 		before.get(type_field),
-		before.status == "Template",
+		task_was_template,
 	):
 		return
 	table = frappe.qb.DocType(STRUCTURE)
@@ -283,7 +276,7 @@ def validate_referenced_work(doc, before):
 	for row in rows:
 		if (
 			doc.project != before.project
-			or doc.status == "Template"
+			or task_is_template
 			or (row.filter_type and doc.get(type_field) != row.filter_type)
 		):
 			frappe.throw(

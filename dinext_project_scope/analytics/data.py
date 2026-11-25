@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from collections import Counter, defaultdict
 from datetime import date, timedelta
+from typing import cast
 from urllib.parse import quote
 
 import frappe
@@ -7,6 +10,16 @@ from frappe import _
 from frappe.utils import cint, flt, getdate
 
 from dinext_project_scope import deliverable_structure as work_structure
+from dinext_project_scope.analytics.contracts import (
+	DeliverableProgressResponse,
+	DistributionItem,
+	FilterValue,
+	Participant,
+	ProjectResultsResponse,
+	ResultFiltersFormInput,
+	ResultRow,
+	RootProgressResponse,
+)
 
 DELIVERABLE = "Project Deliverable"
 REQUIREMENT = "Project Requirement"
@@ -85,13 +98,13 @@ def normalize_filters(filters=None, *, list_fields=()):
 	return values
 
 
-def normalize_result_filters(filters):
+def normalize_result_filters(filters: dict[str, FilterValue] | str | None) -> ResultFiltersFormInput:
 	values = normalize_filters(filters).copy()
 	for key in RESULT_FILTERS:
 		if values.get(key) == ONLY_EMPTY:
 			values.pop(key)
 			values[f"{key}_missing"] = 1
-	return values
+	return cast(ResultFiltersFormInput, values)
 
 
 def project_ids(project=None, *, required=False):
@@ -137,9 +150,7 @@ def child_rows(doctype, parents, parenttype, parentfield, fields):
 def get_deliverables(projects):
 	if not projects:
 		return {}
-	return select_rows(
-		DELIVERABLE, {"project": ["in", projects], "status": ["!=", "Template"]}, RESULT_FIELDS
-	)
+	return select_rows(DELIVERABLE, {"project": ["in", projects]}, RESULT_FIELDS)
 
 
 def get_requests(projects):
@@ -244,7 +255,7 @@ def matches(row, filters, fields):
 
 
 def is_late(row, today):
-	if not row.get("planned_end_date") or row.get("status") in {"Completed", "Cancelled", "Template"}:
+	if not row.get("planned_end_date") or row.get("status") in {"Completed", "Cancelled"}:
 		return False
 	end_date = getdate(row["planned_end_date"])
 	return bool(end_date and end_date < today)
@@ -296,12 +307,10 @@ def average_planned_progress(results, today):
 	return sum(values) / len(values)
 
 
-def root_progress(deliverables, structure, *, plan_date=None):
-	eligible = {
-		name: row for name, row in deliverables.items() if row.get("status") not in {"Cancelled", "Template"}
-	}
+def root_progress(deliverables, structure, *, plan_date=None) -> RootProgressResponse:
+	eligible = {name: row for name, row in deliverables.items() if row.get("status") != "Cancelled"}
 	roots = [eligible[name] for name in root_names(eligible, structure)]
-	result = {
+	result: RootProgressResponse = {
 		"count": len(roots),
 		"progress": sum(numeric_progress(row.get("progress")) for row in roots) / len(roots)
 		if roots
@@ -418,7 +427,7 @@ class StructureTree:
 		}
 
 
-def distribution(rows, key):
+def distribution(rows, key) -> list[DistributionItem]:
 	counts = Counter(row.get(key) or "" for row in rows)
 	return [
 		{"name": value, "count": count}
@@ -585,7 +594,7 @@ def add_result_progress(rows, reporting, baseline, show_plan, today):
 			add_progress_delta(row, "plan_delta", plan, tolerance=(plan or 0) * 0.05)
 
 
-def progress_series(deliverable, events, today=None):
+def progress_series(deliverable, events, today=None) -> DeliverableProgressResponse:
 	today = today or getdate()
 	actual = []
 	for event in events:
@@ -596,7 +605,7 @@ def progress_series(deliverable, events, today=None):
 		if not actual or actual[-1][1] != progress:
 			actual.append([str(event["log_date"]).replace(" ", "T"), progress])
 	start, end, reason = plan_dates(deliverable)
-	result = {
+	result: DeliverableProgressResponse = {
 		"planned": [],
 		"actual": actual,
 		"plan_step": False,
@@ -647,7 +656,7 @@ def result_tree_responsibilities():
 	return [code for code in codes if definitions.get(code, {}).get("enabled")]
 
 
-def participant_avatar(doctype, member, profiles):
+def participant_avatar(doctype, member, profiles) -> Participant:
 	profile = profiles.get((doctype, member), {})
 	return {
 		"doctype": doctype,
@@ -761,7 +770,14 @@ def available_tasks(project, structure):
 
 
 @frappe.whitelist(methods=["GET"])
-def project_results(project, filters=None, reporting_date=None, baseline_date=None, show_plan=0):
+def project_results(
+	project: str,
+	filters: dict[str, FilterValue] | str | None = None,
+	reporting_date: str | None = None,
+	baseline_date: str | None = None,
+	show_plan: int | str | bool = 0,
+) -> ProjectResultsResponse:
+	"""Return the readable results tree and chart counts for the requested project."""
 	filters = normalize_result_filters(filters)
 	projects = project_ids(project, required=True)
 	today = getdate()
@@ -796,7 +812,7 @@ def project_results(project, filters=None, reporting_date=None, baseline_date=No
 	)
 	add_result_progress(rows, reporting, baseline, show_plan, today)
 	return {
-		"rows": rows,
+		"rows": cast(list[ResultRow], rows),
 		"comparison": {
 			"reporting_date": str(reporting),
 			"baseline_date": str(baseline) if baseline else None,
@@ -809,14 +825,16 @@ def project_results(project, filters=None, reporting_date=None, baseline_date=No
 
 
 @frappe.whitelist(methods=["GET"])
-def project_progress(project):
+def project_progress(project: str) -> RootProgressResponse:
+	"""Return actual and planned progress over the readable root deliverables."""
 	projects = project_ids(project, required=True)
 	deliverables = get_deliverables(projects)
 	return root_progress(deliverables, load_structure(deliverables), plan_date=getdate())
 
 
 @frappe.whitelist(methods=["GET"])
-def deliverable_progress(deliverable):
+def deliverable_progress(deliverable: str) -> DeliverableProgressResponse:
+	"""Return the current plan and the journal series of one readable result."""
 	from dinext_project_scope.access import check_document
 
 	if not isinstance(deliverable, str) or not deliverable:

@@ -3,14 +3,7 @@
 
 (() => {
 	const api = "dinext_project_scope.deliverables.";
-	const workingStatuses = [
-		"Not Started",
-		"In Progress",
-		"Acceptance",
-		"Completed",
-		"Cancelled",
-		"Template",
-	];
+	const workingStatuses = ["Not Started", "In Progress", "Acceptance", "Completed", "Cancelled"];
 	const projectLinks = {
 		deliverable_scopes: false,
 		deliverable_requirements: true,
@@ -59,7 +52,7 @@
 	}
 
 	async function loadDefaults(frm, { work = false, assignments = false } = {}) {
-		if (!frm.is_new() || !frm.doc.project || frm.doc.status === "Template") return;
+		if (!frm.is_new() || !frm.doc.project) return;
 		const { name, project, deliverable_type, category } = frm.doc;
 		const { message } = await frappe.call({
 			method: api + "new_result_defaults",
@@ -277,10 +270,10 @@
 			frm.set_df_property(
 				"status",
 				"options",
-				(frm.is_new() ? ["Not Started", "Template"] : workingStatuses).join("\n")
+				frm.is_new() ? "Not Started" : workingStatuses.join("\n")
 			);
 			frm.toggle_enable("status", frm.is_new());
-			if (frm.is_new() || frm.doc.status === "Template") return;
+			if (frm.is_new() || !frm.doc.project) return;
 			const name = frm.doc.name;
 			if (frm.has_perm("write")) {
 				frm.add_custom_button(__("Review result structure"), () => {
@@ -342,10 +335,6 @@
 		},
 		category(frm) {
 			return loadDefaults(frm, { assignments: true });
-		},
-		status(frm) {
-			if (frm.is_new() && frm.doc.status === "Template")
-				return frm.set_value("project", null);
 		},
 	});
 

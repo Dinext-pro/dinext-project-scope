@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 from json import JSONDecodeError, loads
@@ -7,20 +9,31 @@ import frappe
 from frappe.utils import cint, getdate
 
 from dinext_project_scope.analytics import data
+from dinext_project_scope.analytics.contracts import (
+	CategoryDynamics,
+	DynamicsSeries,
+	FilterValue,
+	ProjectResultDynamicsResponse,
+	ResponsibleItem,
+)
 
 TREND_HORIZON = 90
 
 
 @frappe.whitelist(methods=["GET"])
-def project_result_dynamics(project, filters=None, reporting_date=None, baseline_date=None):
+def project_result_dynamics(
+	project: str,
+	filters: dict[str, FilterValue] | str | None = None,
+	reporting_date: str | None = None,
+	baseline_date: str | None = None,
+) -> ProjectResultDynamicsResponse:
+	"""Return deliverable progress series and assignment counts for the selected slice."""
 	projects = data.project_ids(project, required=True)
 	today = getdate()
 	reporting, baseline = data.result_progress_dates(reporting_date, baseline_date, today)
 	cutoff = min(reporting, today)
 	filters = data.normalize_result_filters(filters)
-	deliverables = {
-		name: row for name, row in data.get_deliverables(projects).items() if row.get("status") != "Template"
-	}
+	deliverables = data.get_deliverables(projects)
 	matching = data.matching_results(deliverables, filters, today)
 	groups, labels = responsible_groups(matching)
 	responsible = filters.get("responsible") or ""
@@ -77,7 +90,7 @@ def responsible_groups(deliverables):
 	return groups, labels
 
 
-def group_items(groups, labels):
+def group_items(groups, labels) -> list[ResponsibleItem]:
 	items = [
 		{"value": name, "label": labels.get(name, ""), "count": len(documents)}
 		for name, documents in groups.items()
@@ -153,9 +166,9 @@ def chart_range(roots, series, reporting, baseline, cutoff):
 	return (first, last) if first != last else (first, last + timedelta(days=1))
 
 
-def series_for(roots, journal, expected_ends, reporting, baseline, cutoff, today):
-	series = {key: [] for key in ("planned", "actual", "forecast", "trend")}
-	result = {"count": len(roots), "forecast_missing": 0, "series": series}
+def series_for(roots, journal, expected_ends, reporting, baseline, cutoff, today) -> tuple[CategoryDynamics, tuple[date, date]]:
+	series: DynamicsSeries = {"planned": [], "actual": [], "forecast": [], "trend": []}
+	result: CategoryDynamics = {"count": len(roots), "forecast_missing": 0, "series": series}
 	if roots:
 		actual, facts = actual_progress(roots, journal, cutoff, today)
 		series["actual"] = actual

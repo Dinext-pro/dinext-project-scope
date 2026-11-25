@@ -155,15 +155,6 @@ def create_fixture(run_id: str) -> dict:
 			for kind, title in (("Constraint", "capacity limit"), ("Assumption", "availability"))
 		],
 	).insert().name
-	result_template = frappe.get_doc(
-		doctype="Project Deliverables Template",
-		template_name=f"{label} results",
-		deliverables=[
-			dict(item_key=key, title=f"{label} template {key}", deliverable_type=kind.name, category=category.name)
-			for key, kind in (("parent", parent_type), ("nested", work_type))
-		],
-		elements=[dict(owner_item_key="parent", source_element_key="child", nested_item_key="nested")],
-	).insert(set_name=f"{label} results").name
 	impact = frappe.get_doc(
 		doctype="Project Change Relation Type",
 		enabled=1,
@@ -217,7 +208,6 @@ def create_fixture(run_id: str) -> dict:
 		requirement=requirement.name,
 		finished_on=add_days(today(), -2),
 		constraint_template=constraint_template,
-		result_template=result_template,
 		impact=impact.name,
 	)
 
@@ -244,7 +234,6 @@ def remove_fixture(run_id: str) -> None:
 		frappe.delete_doc("Project", name, force=True, delete_permanently=True)
 	for doctype, field, match in (
 		("Project Constraints Template", "template_name", f"{label} constraints"),
-		("Project Deliverables Template", "template_name", f"{label} results"),
 		("Project Deliverable Type", "name", ("in", [f"{label} parent", f"{label} work"])),
 		("Project Deliverable Category", "name", label),
 		("Project Deliverable Responsibility", "name", label),

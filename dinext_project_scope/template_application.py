@@ -13,7 +13,6 @@ APPLICATION = "Project Scope Template Application"
 TEMPLATE_TYPES = {
 	"Project Requirement Specification Template",
 	"Project Constraints Template",
-	"Project Deliverables Template",
 }
 
 
@@ -44,10 +43,7 @@ def apply_once(project, template_doctype, template_name, request_key, payload, c
 		if previous.request_digest != fingerprint:
 			raise frappe.ValidationError(_("This request was already used with different template data."))
 		result = frappe.parse_json(previous.created_map)
-		if template_doctype == "Project Deliverables Template":
-			for name in result.values():
-				check_document("Project Deliverable", name)
-		elif template_doctype == "Project Constraints Template":
+		if template_doctype == "Project Constraints Template":
 			for name in result.get("constraints", {}).values():
 				check_document("Project Constraint", name)
 		return result

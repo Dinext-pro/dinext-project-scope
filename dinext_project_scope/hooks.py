@@ -1,3 +1,5 @@
+from dinext_project_scope.catalogs import SHIPPED_CATALOG_NAMES as _SHIPPED_CATALOG_NAMES
+
 app_name = "dinext_project_scope"
 app_title = "Dinext Project Scope"
 app_publisher = "Dinext"
@@ -12,6 +14,10 @@ required_apps = ["erpnext", "dinext_common", "dinext_projects", "dinext_goals"]
 
 fixtures = [
 	{"doctype": "Custom Field", "filters": [["module", "=", "Dinext Project Scope"], ["dt", "=", "Project"]]},
+	*[
+		{"doctype": doctype, "filters": [["name", "in", list(names)]]}
+		for doctype, names in _SHIPPED_CATALOG_NAMES.items()
+	],
 ]
 
 # Each item in the list will be shown as an app in the apps page
@@ -254,7 +260,11 @@ after_migrate = "dinext_project_scope.install.after_migrate"
 # ignore_translatable_strings_from = []
 
 
-doctype_js = {"Project": "public/js/project_scope.js"}
+doctype_js = {
+	"Project": "public/js/project_scope.js",
+	**{doctype: "public/js/scope_catalogs.js" for doctype in _SHIPPED_CATALOG_NAMES},
+}
+doctype_list_js = {doctype: "public/js/scope_catalogs.js" for doctype in _SHIPPED_CATALOG_NAMES}
 
 doc_events = {
 	"Project": {
@@ -303,6 +313,12 @@ permission_query_conditions = {
 	"Project Scope Template Application": "dinext_project_scope.access.journal_queries",
 	"Project Deliverable Log": "dinext_project_scope.access.journal_queries",
 }
+
+final_has_permission = {"Project Deliverable": has_permission["Project Deliverable"]}
+final_permission_query_conditions = {
+	"Project Deliverable": permission_query_conditions["Project Deliverable"],
+}
+standard_queries = {"Project Deliverable": "dinext_project_scope.access.deliverable_link_query"}
 
 workflow_approval_lock_dependencies = [
 	"dinext_project_scope.requirement_approval.lock_dependencies",

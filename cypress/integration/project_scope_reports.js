@@ -90,7 +90,7 @@ describe("Project scope reports", () => {
 		const card = '[data-pwa-bar="deliverables"]';
 		const readiness = `.form-graph ${card}`;
 		const formula =
-			"Average progress of unique root deliverables with equal weight for each. Cancelled and template deliverables are excluded.";
+			"Average progress of unique root deliverables with equal weight for each. Cancelled deliverables are excluded.";
 		cy.intercept({
 			method: "GET",
 			pathname: "/api/method/dinext_project_scope.analytics.data.project_progress",

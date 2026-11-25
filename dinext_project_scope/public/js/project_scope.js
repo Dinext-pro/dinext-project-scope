@@ -80,8 +80,8 @@
 	function requirementDetails(row) {
 		const content = node("div");
 		const details = node("dl", null, "scope-row-details");
-		for (const [label, value] of [
-			[__("Category"), row.kind],
+		for (const [label, value, context] of [
+			[__("Category"), row.kind, "Requirement Kind"],
 			[__("Priority"), row.priority],
 			[__("Importance"), row.requirement_importance],
 			[__("Author"), row.author],
@@ -89,7 +89,7 @@
 		]) {
 			if (!value) continue;
 			const field = node("div");
-			field.append(node("dt", label), node("dd", __(value)));
+			field.append(node("dt", label), node("dd", __(value, null, context)));
 			details.append(field);
 		}
 		content.append(details);

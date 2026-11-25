@@ -89,6 +89,21 @@ class TestProjectChangeRequest(FrappeTestCase):
 		self.assertEqual(change.status, "Implemented")
 		self.assertEqual(change.implemented_by, "Administrator")
 		self.assertEqual(change.implementation_items[0].reference_name, task.name)
+
+		for field, value in (
+			("implementation_date", "2026-01-01"),
+			("implementation_note", "Rewritten after completion"),
+			("implementation_items", []),
+			("implemented_by", None),
+			("implemented_at", None),
+		):
+			with self.subTest(field=field):
+				change.set(field, value)
+				with self.assertRaisesRegex(
+					frappe.ValidationError, frappe._("The completed implementation record cannot be changed.")
+				):
+					change.save()
+				change.reload()
 		self.vote(change, "Cancel", comment="Replaced by a revised request.")
 		self.assertEqual(change.docstatus, 2)
 		self.assertEqual(change.implemented_by, "Administrator")

@@ -492,41 +492,33 @@ describe("Project scope operations in Desk", () => {
 			});
 	});
 
-	it("copies the nested result from template preview and links to its new project instance", () => {
-		cy.viewport(1440, 1250);
+	it("requires a project before saving a new result", () => {
 		actor("author");
-		openForm("project-deliverables-template", fixture.result_template);
-		cy.contains(`${page} button`, "Apply to project").click();
-		chooseLink("project", fixture.project, modal);
-		cy.contains(`${modal} button.btn-primary`, "Preview").click();
-		cy.contains(`${modal} .section-head`, `${fixture.label} template parent`).click();
-		cy.get(modal).should(
-			"contain.text",
-			`Nested work will link to the new result ${fixture.label} template nested.`
-		);
-		chooseLink("result_0_work_0", fixture.baseline, modal, `${fixture.label} baseline`);
-		shot("operations-results-template-preview");
-		cy.contains(`${modal} button.btn-primary`, "Create results").click();
-		readForm((doc) => expect(doc.name).to.eq(fixture.project));
-		cy.get('button[data-fieldname="custom_результаты"]').click();
-		cy.contains(
-			".dinext-scope-table .dinext-scope-link",
-			`${fixture.label} template parent`
-		).dblclick();
-		readForm((doc) => {
-			expect(doc.project).to.eq(fixture.project);
-			expect(doc.status).to.eq("Not Started");
-			expect(doc.table_xuct[0].element).to.eq(fixture.baseline);
-			expect(doc.table_xuct[1].element).to.be.a("string");
-		});
-		cy.get(`${grid("acceptance_html")} details`).should("not.exist");
-		editRow("table_xuct", 2);
-		cy.get(fields("element", rowForm)).find("input").focus();
-		cy.get(fields("element", rowForm)).find(".btn-open").click();
-		readForm((doc) => {
-			expect(doc.title).to.eq(`${fixture.label} template nested`);
-			expect(doc.project).to.eq(fixture.project);
-		});
+		cy.openDesk("/app/project-deliverable");
+		cy.get(`${page} .page-actions .primary-action:visible`).click();
+		type("title", `${fixture.label} result without project`);
+		chooseLink("category", fixture.category);
+		chooseLink("deliverable_type", fixture.work_type);
+		cy.get(fields("project")).find("input:visible").should("have.value", "");
+		clickSave();
+		cy.get(\`${modal} .modal-title\`).should("have.text", "Missing Fields");
+		cy.contains(\`${modal} .modal-body li\`, "Project is required.").should("be.visible");
+		readForm((doc) => expect(Boolean(doc.__islocal)).to.be.true);
+	});
+
+	it("only offers Not Started when creating a result", () => {
+		actor("author");
+		cy.openDesk("/app/project-deliverable");
+		cy.get(`${page} .page-actions .primary-action:visible`).click();
+		cy.get(fields("status"))
+			.find("select:visible")
+			.should("have.value", "Not Started")
+			.find("option")
+			.should(($options) => {
+				expect([...$options].map((option) => option.value).filter(Boolean)).to.deep.equal([
+					"Not Started",
+				]);
+			});
 	});
 
 	it("preserves both change-review rounds and records implementation as the project owner", () => {

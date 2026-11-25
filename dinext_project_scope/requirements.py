@@ -39,6 +39,65 @@ _copying_template = ContextVar("copying_requirement_template", default=None)
 _approving_requirement = ContextVar("approving_project_requirement", default=None)
 
 
+class CompositionItemFormInput(TypedDict):
+	reference_doctype: str
+	reference_name: str
+
+
+class CompositionItem(CompositionItemFormInput):
+	title: str
+
+
+class DirectCompositionResponse(TypedDict):
+	items: list[CompositionItem]
+	can_edit: bool
+	modified: str
+
+
+class RequirementBranchItem(TypedDict):
+	name: str
+	title: str
+
+
+class RelatedRequirementDocument(TypedDict):
+	name: str
+	title: str | None
+
+
+class RelatedRequirementRecord(RelatedRequirementDocument):
+	status: str
+
+
+class RelatedRequirementDocumentsResponse(TypedDict):
+	goals: list[RelatedRequirementDocument]
+	deliverables: list[RelatedRequirementRecord]
+	changes: list[RelatedRequirementRecord]
+	in_scope: bool
+
+
+class TemplateSource(TypedDict):
+	name: str
+	title: str
+	responsible: str | None
+
+
+class RequirementTemplateSource(TemplateSource):
+	parent: str | None
+
+
+class SpecificationTemplatePreviewResponse(TypedDict):
+	digest: str
+	assignees: list[str]
+	specifications: list[TemplateSource]
+	requirements: list[RequirementTemplateSource]
+
+
+class SpecificationTemplateResponse(TypedDict):
+	root: str
+	specifications: dict[str, str]
+	requirements: dict[str, str]
+
+
 class RequirementRow(TypedDict):
 	name: str
 	title: str
@@ -451,6 +510,7 @@ def _rows(graph: Composition) -> list[RequirementRow]:
 
 @frappe.whitelist(methods=["GET", "POST"])
 def project_rows(project: str, specification: str | None = None) -> list[RequirementRow]:
+	"""Return direct and specification requirements in the same readable project tree."""
 	graph = _project_composition(project)
 	if specification:
 		graph.paths = {
@@ -476,15 +536,17 @@ def visible_specification_members(project: str, specification: str) -> set[str]:
 
 @frappe.whitelist(methods=["GET", "POST"])
 def composition_rows(doctype: str, name: str) -> list[RequirementRow]:
+	"""Return the effective requirement tree visible in the selected specification."""
 	doc = _get_specification(doctype, name)
 	return _rows(specification_graph(doc, mode="visible"))
 
 
 @frappe.whitelist(methods=["GET", "POST"])
-def direct_composition(doctype: str, name: str) -> dict:
+def direct_composition(doctype: str, name: str) -> DirectCompositionResponse:
+	"""Return editable direct members, their labels and the composition version."""
 	doc = _get_specification(doctype, name)
 	graph = specification_graph(doc, mode="visible")
-	items = []
+	items: list[CompositionItem] = []
 	for target_type, target_name in item_edges(doc):
 		targets = graph.requirements if target_type == REQUIREMENT else graph.specifications
 		if target := targets.get(target_name):
@@ -499,7 +561,8 @@ def direct_composition(doctype: str, name: str) -> dict:
 
 
 @frappe.whitelist(methods=["POST"])
-def replace_composition(doctype: str, name: str, modified: str, items: list | str) -> None:
+def replace_composition(doctype: str, name: str, modified: str, items: list[CompositionItemFormInput] | str) -> None:
+	"""Replace direct specification members after checking the version and links."""
 	if isinstance(items, str):
 		items = frappe.parse_json(items)
 	if not isinstance(items, list) or any(
@@ -524,7 +587,8 @@ def replace_composition(doctype: str, name: str, modified: str, items: list | st
 
 
 @frappe.whitelist(methods=["GET", "POST"])
-def linkable_requirement_branch(project: str, requirement: str) -> list[dict]:
+def linkable_requirement_branch(project: str, requirement: str) -> list[RequirementBranchItem]:
+	"""Return the readable branch of a working requirement in the requested project."""
 	access.check_project(project, "write")
 	access.check_document(REQUIREMENT, requirement)
 	root = frappe.get_doc(REQUIREMENT, requirement)
@@ -544,7 +608,8 @@ def linkable_requirement_branch(project: str, requirement: str) -> list[dict]:
 
 
 @frappe.whitelist(methods=["GET", "POST"])
-def related_documents(name: str) -> dict:
+def related_documents(name: str) -> RelatedRequirementDocumentsResponse:
+	"""Return readable goals, results and changes related to a requirement."""
 	doc = access.check_document(REQUIREMENT, name)
 	goals = [
 		{"name": row.goal, "title": frappe.db.get_value("Goal", row.goal, "subject")}
@@ -596,8 +661,9 @@ def related_documents(name: str) -> dict:
 
 @frappe.whitelist(methods=["GET", "POST"])
 def preview_specification_template(
-	project: str, template: str, assignments: dict | str | None = None
-) -> dict:
+	project: str, template: str, assignments: dict[str, str | None] | str | None = None
+) -> SpecificationTemplatePreviewResponse:
+	"""Preview the new specification tree and assignments for the target project."""
 	from dinext_project_scope.requirement_template_application import preview
 
 	return preview(project, template, assignments)
@@ -605,8 +671,10 @@ def preview_specification_template(
 
 @frappe.whitelist(methods=["POST"])
 def apply_specification_template(
-	project: str, template: str, request_key: str, preview_digest: str, assignments: dict | str | None = None
-) -> dict:
+	project: str, template: str, request_key: str, preview_digest: str,
+	assignments: dict[str, str | None] | str | None = None,
+) -> SpecificationTemplateResponse:
+	"""Apply a previously reviewed template once and return its new document IDs."""
 	from dinext_project_scope.requirement_template_application import apply
 
 	return apply(project, template, request_key, preview_digest, assignments)

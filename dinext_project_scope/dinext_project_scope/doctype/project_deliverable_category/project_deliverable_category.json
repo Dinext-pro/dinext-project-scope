@@ -21,7 +21,8 @@
   {
    "fieldname": "description",
    "fieldtype": "Small Text",
-   "label": "Description"
+   "label": "Description",
+   "translatable": 1
   },
   {
    "fieldname": "responsibilities",
@@ -33,7 +34,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-18 00:56:36.712300",
+ "modified": "2026-11-26 02:04:08.606983",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Deliverable Category",
@@ -110,5 +111,6 @@
  "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "translated_doctype": 1
 }
