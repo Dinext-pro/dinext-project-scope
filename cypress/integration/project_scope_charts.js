@@ -696,6 +696,61 @@ describe("Project scope charts", () => {
 		cy.location("pathname").should("eq", `/app/project-deliverable/${fixture.shared}`);
 	});
 
+	it("clears the active donut segment without clearing the other result filters", () => {
+		cy.intercept("GET", "**/api/method/dinext_project_scope.analytics.data.project_results?*").as(
+			"donutResults"
+		);
+		showResults(fixture.project);
+		cy.wait("@donutResults");
+		const statusChart = "Deliverables by status";
+		const categoryChart = "Deliverables by category";
+		const secondary = `${fixture.title} secondary`;
+		const statusFilter = () => resultFilter(statusChart, "status");
+		const categoryFilter = () => resultFilter(categoryChart, "category");
+		const assertCount = (total) => {
+			cy.wait("@donutResults")
+				.its("response.body.message.counts.category")
+				.should((counts) => {
+					expect(counts.reduce((sum, { count }) => sum + count, 0)).to.eq(total);
+				});
+		};
+
+		statusFilter().select("Not Started");
+		assertCount(3);
+		for (const [title, field] of [
+			[categoryChart, "category"],
+			["Deliverables by type", "deliverable_type"],
+		]) {
+			clickPieSegment(title, secondary);
+			assertCount(1);
+			resultFilter(title, field).should("have.value", secondary);
+			chartOption(chart(title), (option) => {
+				expect(option.series[0].data).to.deep.eq([{ name: secondary, value: 1 }]);
+			});
+			clickPieSegment(title, secondary);
+			assertCount(3);
+			resultFilter(title, field).should("have.value", "");
+			statusFilter().should("have.value", "Not Started");
+			chartOption(chart(title), (option) => {
+				expect(option.series[0].data).to.have.length(2);
+			});
+		}
+
+		categoryFilter().select(secondary);
+		assertCount(1);
+		clickPieSegment(statusChart, "Not Started");
+		assertCount(1);
+		statusFilter().should("have.value", "");
+		categoryFilter().should("have.value", secondary);
+		clickPieSegment(statusChart, "Not Started");
+		assertCount(1);
+		statusFilter().should("have.value", "Not Started");
+		clickPieSegment(statusChart, "Not Started");
+		assertCount(1);
+		statusFilter().should("have.value", "");
+		categoryFilter().should("have.value", secondary);
+	});
+
 	it("filters results with the Frappe dropdowns below the charts", () => {
 		showResults(fixture.project);
 		const filters = [

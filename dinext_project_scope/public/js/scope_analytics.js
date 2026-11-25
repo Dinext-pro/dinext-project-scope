@@ -1770,10 +1770,7 @@
 					surface,
 					chart,
 					result.counts[key],
-					(item) => {
-						control.set_input(item.name || EMPTY);
-						refresh();
-					},
+					(item) => toggleResultFilter(key, item.name),
 					{
 						legend: false,
 						translate: key === "status",
