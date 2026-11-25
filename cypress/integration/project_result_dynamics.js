@@ -257,6 +257,7 @@ describe("Project result dynamics", () => {
 	});
 
 	it("hides the incomplete forecast count under the category chart", () => {
+		cy.openDesk("/app/project");
 		cy.call("frappe.client.set_value", {
 			doctype: "Task",
 			name: fixture.work,
