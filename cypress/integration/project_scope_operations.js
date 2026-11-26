@@ -54,7 +54,7 @@ function chooseLink(name, value, host = page, search = value) {
 		.clear({ scrollBehavior: "center" })
 		.type(search, { delay: 0, scrollBehavior: "center" });
 	cy.wait(`@${alias}`).its("response.statusCode").should("eq", 200);
-	linkOption(field, value).click({ scrollBehavior: false });
+	linkOption(field, value).click({ scrollBehavior: "center" });
 	cy.get(field)
 		.find("input:visible")
 		.then(($input) => $input[0].blur());

@@ -58,6 +58,36 @@ class TestProjectDeliverable(FrappeTestCase):
 			**kwargs,
 		).insert()
 
+	def test_task_template_still_creates_linkable_project_work(self):
+		source = frappe.get_doc(
+			doctype="Task",
+			subject="Review warehouse cutover readiness",
+			is_template=1,
+			start=2,
+			duration=3,
+		).insert()
+		template = frappe.get_doc(doctype="Project Template", tasks=[{"task": source.name}]).insert(
+			set_name=f"Warehouse cutover {frappe.generate_hash(length=8)}"
+		)
+		self.project.project_template = template.name
+		self.project.copy_from_template()
+
+		task = frappe.db.get_value(
+			"Task",
+			{"project": self.project.name, "template_task": source.name},
+			["name", "subject", "status", "exp_start_date", "exp_end_date"],
+			as_dict=True,
+		)
+		self.assertIsNotNone(task)
+		self.assertEqual(task.subject, source.subject)
+		self.assertEqual(task.status, "Open")
+		self.assertLess(task.exp_start_date, task.exp_end_date)
+		self.assertEqual(frappe.db.get_value("Task", source.name, "status"), "Template")
+
+		kind = self.kind(("work", "Task", {}))
+		result = self.result(kind, table_xuct=[{"source_element_key": "work", "element": task.name}])
+		self.assertEqual(result.table_xuct[0].element, task.name)
+
 	def test_insert_requires_a_project_and_supported_status(self):
 		kind = self.kind()
 		for values in ({"project": None}, {"status": "Template"}):
