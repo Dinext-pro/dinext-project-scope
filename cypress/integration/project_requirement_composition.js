@@ -406,9 +406,9 @@ describe("Requirement specification composition", () => {
 			fixture.project
 		);
 		openProjectScope(fixture.project);
-		cy.contains(`${projectTree} tr`, title).within(() => {
+		cy.contains(`${projectTree} .ag-row`, title).within(() => {
 			cy.get(".scope-source-list").should("not.exist");
-			cy.contains("td", "—").should("be.visible");
+			cy.contains('.ag-cell[col-id="paths"]', "—").should("be.visible");
 		});
 	});
 

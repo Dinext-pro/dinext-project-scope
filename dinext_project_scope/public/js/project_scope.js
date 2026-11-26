@@ -544,10 +544,13 @@
 	}
 
 	async function scopeGrid(ui, surface, options) {
-		const { heading, rows, columns, toolbar, emptyMessage, drawCharts, tree } = options;
+		const { heading, rows, columns, controls, toolbar, emptyMessage, drawCharts, tree } =
+			options;
 		const charts = node("div", null, "dinext-scope-charts scope-embedded-charts");
 		const grid = node("div", null, "scope-embedded-grid");
-		surface.root.append(node("h5", heading, "scope-pane-title"), charts, grid);
+		surface.root.append(node("h5", heading, "scope-pane-title"), charts);
+		if (controls) surface.root.append(controls);
+		surface.root.append(grid);
 		ui.setMessage(surface, rows.length ? null : emptyMessage);
 		window.DinextCharts.load()
 			.then(() => {
@@ -567,7 +570,7 @@
 			edit: false,
 			layout: { height: "auto", maxHeight: "min(55vh, 560px)" },
 			gridOptions: { rowHeight: 29, headerHeight: 30, suppressNoRowsOverlay: true },
-			toolbar: { items: toolbar },
+			toolbar: { enabled: Boolean(toolbar), items: toolbar },
 		});
 		if (surface.active()) surface.table = instance;
 		else instance.destroy();
@@ -609,9 +612,7 @@
 							cellRenderer: ({ data }) => requirementSourceCell(data),
 						},
 					],
-					toolbar: [
-						{ id: "scope-requirements-actions", type: "custom", element: controls },
-					],
+					controls,
 					drawCharts(charts) {
 						for (const [heading, key, context, filter] of [
 							[__("Requirements by status"), "status", REQ, "status"],

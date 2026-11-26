@@ -115,7 +115,9 @@ describe("Project scope reports", () => {
 		cy.call("frappe.client.get_count", {
 			doctype: "Report",
 			filters: { name: "Project Scope Overview" },
-		}).should("eq", 0);
+		})
+			.its("body.message")
+			.should("eq", 0);
 	});
 
 	it("keeps deliverables progress in the Project dashboard after a rebuild and hides it without results", () => {

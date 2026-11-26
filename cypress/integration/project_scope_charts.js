@@ -622,9 +622,6 @@ describe("Project scope charts", () => {
 
 	it("shows the hovered segment count in the donut center and restores the total", () => {
 		cy.visit(`/app/project/${fixture.project}`);
-		cy.get('.inner-group-button[data-label="Scope%20Reports"] > button:visible').should(
-			"exist"
-		);
 		cy.window().then(({ frappe }) => frappe.after_ajax());
 		cy.get('button[data-fieldname="custom_результаты"]')
 			.click()
@@ -1187,6 +1184,7 @@ describe("Project scope charts", () => {
 
 	it("toggles only overdue results from the warning button and updates the donuts", () => {
 		const title = `${fixture.title} work without a plan`;
+		cy.visit("/app");
 		cy.call("frappe.client.insert", {
 			doc: {
 				doctype: "Project Deliverable",

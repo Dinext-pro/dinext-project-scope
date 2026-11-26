@@ -33,6 +33,12 @@
 	min-width: 0;
 }
 
+.dinext-project-scope > .scope-toolbar {
+	position: relative;
+	z-index: 2;
+	margin-bottom: var(--margin-xs);
+}
+
 .dinext-project-scope .scope-toolbar .btn,
 .dinext-project-scope .scope-toolbar summary {
 	white-space: nowrap;
