@@ -8,9 +8,11 @@
  "field_order": [
   "scope_title",
   "scope_type",
-  "description",
+  "column_break_gxjy",
   "linked_doctype",
-  "object_ref"
+  "object_ref",
+  "section_break_nbsv",
+  "description"
  ],
  "fields": [
   {
@@ -52,6 +54,14 @@
    "in_list_view": 1,
    "label": "Object",
    "options": "linked_doctype"
+  },
+  {
+   "fieldname": "column_break_gxjy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_nbsv",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,

@@ -28,10 +28,11 @@
   "old_parent",
   "column_break_yjpa",
   "reason",
-  "goals",
   "content_revision",
-  "template_source",
   "workflow_state",
+  "section_break_zrds",
+  "goals",
+  "template_source",
   "linked_documents_html"
  ],
  "fields": [
@@ -194,6 +195,10 @@
    "fieldname": "linked_documents_html",
    "fieldtype": "HTML",
    "label": "Related Documents"
+  },
+  {
+   "fieldname": "section_break_zrds",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
@@ -279,7 +284,28 @@
  "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
+ "states": [
+  {
+   "color": "Gray",
+   "title": "New"
+  },
+  {
+   "color": "Cyan",
+   "title": "Approved"
+  },
+  {
+   "color": "Blue",
+   "title": "In Progress"
+  },
+  {
+   "color": "Green",
+   "title": "Done"
+  },
+  {
+   "color": "Gray",
+   "title": "Cancelled"
+  }
+ ],
  "title_field": "requirement_title",
  "track_changes": 1
 }

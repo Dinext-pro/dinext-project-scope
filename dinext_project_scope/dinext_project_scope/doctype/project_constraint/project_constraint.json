@@ -9,24 +9,32 @@
   "category",
   "record_type",
   "status",
-  "description",
-  "consequences",
+  "column_break_qsnd",
   "responsible_type",
   "responsible",
   "review_date",
+  "section_break_fhah",
+  "description",
+  "column_break_rapl",
+  "consequences",
+  "section_break_xguk",
   "verification_status",
-  "verification_note",
   "verification_evidence",
+  "column_break_sggl",
+  "verified_by",
   "verified_at",
-  "verified_by"
+  "section_break_nplc",
+  "verification_note"
  ],
  "fields": [
   {
-   "columns": 3,
-   "fieldname": "subject",
-   "fieldtype": "Data",
+   "columns": 1,
+   "default": "New",
+   "fieldname": "status",
+   "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Subject",
+   "label": "Status",
+   "options": "New\nApproved\nCancelled\nTemplate",
    "reqd": 1
   },
   {
@@ -50,6 +58,14 @@
    "label": "Consequences / Impact"
   },
   {
+   "columns": 3,
+   "fieldname": "subject",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Subject",
+   "reqd": 1
+  },
+  {
    "columns": 2,
    "default": "Constraint",
    "fieldname": "record_type",
@@ -57,16 +73,6 @@
    "in_list_view": 1,
    "label": "Record Type",
    "options": "Constraint\nAssumption",
-   "reqd": 1
-  },
-  {
-   "columns": 1,
-   "default": "New",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Status",
-   "options": "New\nApproved\nCancelled\nTemplate",
    "reqd": 1
   },
   {
@@ -123,6 +129,30 @@
    "no_copy": 1,
    "options": "User",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_qsnd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_fhah",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_rapl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_xguk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_sggl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_nplc",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,

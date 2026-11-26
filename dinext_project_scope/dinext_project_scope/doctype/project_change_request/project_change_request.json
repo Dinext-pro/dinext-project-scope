@@ -11,9 +11,9 @@
  "field_order": [
   "title",
   "project",
-  "initiator",
   "column_break_uutl",
   "status",
+  "initiator",
   "section_break_kdrk",
   "description",
   "column_break_fviu",
