@@ -4,12 +4,7 @@
 	const TEMPLATE = "Project Requirement Specification Template";
 	const CONSTRAINT_TEMPLATE = "Project Constraints Template";
 	const PATH = "dinext_project_scope.";
-	const reports = [
-		"Project Scope Overview",
-		"Requirement Traceability Matrix",
-		"Project Responsibility Matrix",
-		"Project Change Impact Matrix",
-	];
+	const CHANGE_REQUEST = "Project Change Request";
 	const baseAPI = "dinext_project_scope.requirements.";
 	const FIELD = {
 		requirements: "custom_scope_requirements_html",
@@ -17,7 +12,6 @@
 		direct: "custom_project_requirements",
 		changes: "custom_scope_changes_html",
 	};
-	const calls = new WeakMap();
 
 	const rpc = async (method, args) => (await frappe.call({ method, args })).message;
 	const writable = (frm) => !frm.is_new() && frm.has_perm("write");
@@ -78,7 +72,7 @@
 	}
 
 	function requirementDetails(row) {
-		const content = node("div");
+		const content = node("div", null, "scope-requirement-info");
 		const details = node("dl", null, "scope-row-details");
 		for (const [label, value, context] of [
 			[__("Category"), row.kind, "Requirement Kind"],
@@ -105,70 +99,74 @@
 			}
 			content.append(paragraph);
 		}
-		return disclosure(__("Details"), content);
+		return content;
 	}
 
-	function requirementsTable(rows) {
-		const { host, body } = table([__("Requirement"), __("Status"), __("Specifications")]);
-		if (!rows.length) {
-			const cell = body.insertRow().insertCell();
-			cell.colSpan = 3;
-			cell.textContent = __("No requirements in the selected scope.");
-			return host;
+	function requirementTree(rows) {
+		const byName = new Map(
+			rows.map((row) => [row.name, { ...row, id: row.name, children: [] }])
+		);
+		const roots = [];
+		for (const row of byName.values()) {
+			const parent = byName.get(row.parent);
+			if (parent) parent.children.push(row);
+			else roots.push(row);
 		}
-		const children = new Map();
+		return roots;
+	}
+
+	function recordLink(row, doctype) {
+		const label = row.title || row.name;
+		const link = formLink(label, doctype, row.name);
+		link.classList.add("scope-cell-link");
+		link.title = label;
+		return link;
+	}
+
+	function requirementSourceCell(row) {
+		const content = node("div", null, "scope-source-cell");
+		const details = button(
+			__("Details"),
+			() => {
+				const dialog = new frappe.ui.Dialog({
+					title: row.title || row.name,
+					fields: [{ fieldname: "details", fieldtype: "HTML" }],
+				});
+				dialog.fields_dict.details.wrapper.append(requirementDetails(row));
+				dialog.show();
+			},
+			"btn btn-link scope-requirement-details"
+		);
+		details.title = __("Details");
+		details.setAttribute("aria-label", __("Details"));
+		details.innerHTML = frappe.utils.icon("solid-info", "sm");
+		content.append(requirementSources(row), details);
+		return content;
+	}
+
+	function statusCell(row, doctype) {
+		const label = __(row.status, null, doctype);
+		const status = node("span", label, "indicator-pill");
+		if (row.approval_stale) {
+			status.classList.add("orange");
+			status.title = `${label} · ${__("Reapproval Required")}`;
+		}
+		return status;
+	}
+
+	function groups(rows, value) {
+		const counts = new Map();
 		for (const row of rows) {
-			const parent = row.parent || null;
-			if (!children.has(parent)) children.set(parent, []);
-			children.get(parent).push(row);
+			const name = value(row) || "";
+			counts.set(name, (counts.get(name) || 0) + 1);
 		}
-		const collapsed = new Set();
-		function draw(parent, depth) {
-			for (const row of children.get(parent) || []) {
-				const entry = body.insertRow();
-				entry.dataset.requirement = row.name;
-				const holder = node("div", null, "scope-tree-label");
-				holder.style.setProperty("--scope-depth", Math.min(depth, 6));
-				const title = node("div");
-				title.append(
-					formLink(row.title || row.name, REQ, row.name),
-					node("small", row.name, "text-muted")
-				);
-				if (children.has(row.name)) {
-					const control = button(
-						collapsed.has(row.name) ? "▸" : "▾",
-						() => {
-							if (collapsed.has(row.name)) collapsed.delete(row.name);
-							else collapsed.add(row.name);
-							body.replaceChildren();
-							draw(null, 0);
-							[...body.querySelectorAll("button[data-fold]")]
-								.find((item) => item.dataset.fold === row.name)
-								?.focus();
-						},
-						"btn btn-link scope-fold"
-					);
-					control.dataset.fold = row.name;
-					control.setAttribute(
-						"aria-label",
-						__("Toggle requirement branch") + " " + row.name
-					);
-					control.setAttribute("aria-expanded", !collapsed.has(row.name));
-					holder.append(control);
-				} else holder.append(node("span", null, "scope-fold"));
-				holder.append(title);
-				entry.insertCell().append(holder);
-				const status = entry.insertCell();
-				status.append(node("span", __(row.status, null, REQ), "indicator-pill"));
-				if (row.approval_stale)
-					status.append(node("small", __("Reapproval Required"), "text-warning"));
-				const source = entry.insertCell();
-				source.append(requirementSources(row), requirementDetails(row));
-				if (!collapsed.has(row.name)) draw(row.name, depth + 1);
-			}
-		}
-		draw(null, 0);
-		return host;
+		return [...counts]
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([name, count]) => ({ name, count }));
+	}
+
+	function chartFilter(name, field) {
+		return name ? { [field]: name } : { [`${field}_missing`]: 1 };
 	}
 
 	function choose(label, doctype, query, perform) {
@@ -503,6 +501,7 @@
 		toolbar.append(filterHost);
 		const field = frappe.ui.form.make_control({
 			parent: filterHost,
+			only_input: true,
 			render_input: true,
 			df: {
 				fieldtype: "Link",
@@ -515,72 +514,216 @@
 				},
 			},
 		});
+		field.$input.attr({ placeholder: __("Specification"), "aria-label": __("Specification") });
 		if (selected) field.set_value(selected);
 		return toolbar;
 	}
 
-	async function showRequirements(frm, specification = "") {
-		const target = wrapper(frm, FIELD.requirements);
+	async function showScopePane(frm, field, fetchRows, render) {
+		const target = wrapper(frm, field);
 		if (!target) return;
-		const request = Symbol();
-		calls.set(frm, request);
 		if (frm.is_new()) {
 			target.replaceChildren(
 				node("p", __("Save the project to manage scope."), "text-muted")
 			);
 			return;
 		}
-		const rows = await rpc(baseAPI + "project_rows", { project: frm.doc.name, specification });
-		if (calls.get(frm) !== request) return;
-		const pane = node("section", null, "dinext-project-scope");
-		pane.append(
-			node("h5", __("Requirements")),
-			filterAndActions(frm, specification, (value) => showRequirements(frm, value)),
-			requirementsTable(rows)
+		const project = frm.doc.name;
+		const ui = window.DinextScopeAnalytics;
+		const surface = ui.createSurface(target, () =>
+			ui.routeMatches("Form", "Project", project)
 		);
-		target.replaceChildren(pane);
+		surface.root.classList.add("dinext-project-scope");
+		ui.setMessage(surface, __("Loading"));
+		try {
+			const [rows] = await Promise.all([fetchRows(project), ui.libraries()]);
+			if (surface.active()) await render(ui, surface, rows, project);
+		} catch {
+			if (surface.active()) ui.setMessage(surface, __("Could not load project scope."));
+		}
 	}
 
-	async function showChanges(frm) {
-		const target = wrapper(frm, FIELD.changes);
-		if (!target || frm.is_new()) return;
-		const project = frm.doc.name;
-		const rows = frappe.model.can_read("Project Change Request")
-			? await rpc(`${PATH}project_scope.project_change_rows`, { project })
-			: [];
-		if (project !== frm.doc.name) return;
-		const pane = node("section", null, "dinext-project-scope");
-		const toolbar = node("div", null, "scope-toolbar");
-		toolbar.append(node("h5", __("Change Requests")));
-		if (writable(frm) && frappe.model.can_create("Project Change Request")) {
-			toolbar.append(
-				button(__("New Change Request"), () =>
-					frappe.new_doc("Project Change Request", { project })
-				)
-			);
-		}
-		toolbar.append(
-			button(__("Project Change Request Register"), () =>
-				report(frm, "Project Change Request Register")
-			)
+	async function scopeGrid(ui, surface, options) {
+		const { heading, rows, columns, toolbar, emptyMessage, drawCharts, tree } = options;
+		const charts = node("div", null, "dinext-scope-charts scope-embedded-charts");
+		const grid = node("div", null, "scope-embedded-grid");
+		surface.root.append(node("h5", heading, "scope-pane-title"), charts, grid);
+		ui.setMessage(surface, rows.length ? null : emptyMessage);
+		window.DinextCharts.load()
+			.then(() => {
+				if (surface.active()) drawCharts(charts);
+			})
+			.catch(() => {
+				if (surface.active())
+					charts.append(node("div", __("Could not load charts."), "text-muted"));
+			});
+		const instance = await window.DinextTable.create({
+			container: grid,
+			data: rows,
+			columns,
+			expandedIds: tree ? ui.expansionIds(rows, "all") : [],
+			filter: { enabled: false },
+			sort: { enabled: false },
+			edit: false,
+			layout: { height: "auto", maxHeight: "min(55vh, 560px)" },
+			gridOptions: { rowHeight: 29, headerHeight: 30, suppressNoRowsOverlay: true },
+			toolbar: { items: toolbar },
+		});
+		if (surface.active()) surface.table = instance;
+		else instance.destroy();
+	}
+
+	function showRequirements(frm, specification = "") {
+		return showScopePane(
+			frm,
+			FIELD.requirements,
+			(project) => rpc(baseAPI + "project_rows", { project, specification }),
+			(ui, surface, rows) => {
+				const controls = filterAndActions(frm, specification, (value) =>
+					showRequirements(frm, value)
+				);
+				return scopeGrid(ui, surface, {
+					heading: __("Requirements"),
+					rows: requirementTree(rows),
+					tree: true,
+					emptyMessage: __("No requirements in the selected scope."),
+					columns: [
+						{
+							field: "title",
+							headerName: __("Requirement"),
+							flex: 2,
+							minWidth: 175,
+							render: ({ data }) => recordLink(data, REQ),
+						},
+						{
+							field: "status",
+							headerName: __("Status"),
+							width: 145,
+							cellRenderer: ({ data }) => statusCell(data, REQ),
+						},
+						{
+							field: "paths",
+							headerName: __("Specifications"),
+							flex: 2,
+							minWidth: 185,
+							cellRenderer: ({ data }) => requirementSourceCell(data),
+						},
+					],
+					toolbar: [
+						{ id: "scope-requirements-actions", type: "custom", element: controls },
+					],
+					drawCharts(charts) {
+						for (const [heading, key, context, filter] of [
+							[__("Requirements by status"), "status", REQ, "status"],
+							[__("Requirements by category"), "kind", "Requirement Kind", "kind"],
+						]) {
+							ui.donut(
+								surface,
+								charts,
+								heading,
+								groups(rows, (row) => row[key]),
+								({ name }) =>
+									report(frm, "Requirement Traceability Matrix", {
+										...chartFilter(name, filter),
+										specification: specification || undefined,
+									}),
+								{ legend: false, formatLabel: (name) => __(name, null, context) }
+							);
+						}
+					},
+				});
+			}
 		);
-		pane.append(toolbar);
-		const { host, body } = table([__("Change Request"), __("Status"), __("Responsible")]);
-		for (const row of rows) {
-			const entry = body.insertRow();
-			entry
-				.insertCell()
-				.append(formLink(row.title || row.name, "Project Change Request", row.name));
-			entry.insertCell().textContent = __(row.status);
-			entry.insertCell().textContent = row.implementation_responsible || "—";
-		}
-		if (!rows.length) {
-			const cell = body.insertRow().insertCell();
-			cell.colSpan = 3;
-			cell.textContent = __("No change requests.");
-		}
-		pane.append(host);
-		target.replaceChildren(pane);
+	}
+
+	function showChanges(frm) {
+		const canRead = frappe.model.can_read(CHANGE_REQUEST);
+		return showScopePane(
+			frm,
+			FIELD.changes,
+			(project) =>
+				canRead ? rpc(`${PATH}project_scope.project_change_rows`, { project }) : [],
+			(ui, surface, rows, project) => {
+				const toolbar = [];
+				if (writable(frm) && frappe.model.can_create(CHANGE_REQUEST)) {
+					toolbar.push({
+						id: "scope-add-change",
+						type: "button",
+						label: __("New Change Request"),
+						iconSvg: frappe.utils.icon("add", "sm"),
+						onClick: () => frappe.new_doc(CHANGE_REQUEST, { project }),
+					});
+				}
+				if (canRead) {
+					for (const [id, name, icon] of [
+						["scope-change-register", "Project Change Request Register", "list"],
+						["scope-change-impact", "Project Change Impact Matrix", "dashboard-list"],
+					]) {
+						toolbar.push({
+							id,
+							type: "button",
+							label: __(name),
+							iconSvg: frappe.utils.icon(icon, "sm"),
+							onClick: () => report(frm, name),
+						});
+					}
+				}
+				return scopeGrid(ui, surface, {
+					heading: __("Change Requests"),
+					rows: rows.map((row) => ({ ...row, id: row.name })),
+					emptyMessage: __("No change requests."),
+					columns: [
+						{
+							field: "title",
+							headerName: __("Change Request"),
+							flex: 2,
+							minWidth: 175,
+							render: ({ data }) => recordLink(data, CHANGE_REQUEST),
+						},
+						{
+							field: "status",
+							headerName: __("Status"),
+							width: 145,
+							cellRenderer: ({ data }) => statusCell(data),
+						},
+						{
+							field: "implementation_responsible",
+							headerName: __("Responsible"),
+							flex: 1,
+							minWidth: 130,
+							tooltipField: "implementation_responsible",
+							valueFormatter: ({ value }) => value || "—",
+						},
+					],
+					toolbar,
+					drawCharts(charts) {
+						ui.donut(
+							surface,
+							charts,
+							__("Change requests by stage"),
+							groups(rows, (row) => row.status),
+							({ name }) =>
+								report(
+									frm,
+									"Project Change Request Register",
+									chartFilter(name, "status")
+								),
+							{ legend: false, formatLabel: (name) => __(name) }
+						);
+						const dates = groups(
+							rows.filter((row) => row.creation),
+							(row) => row.creation.slice(0, 10)
+						);
+						ui.timeline(surface, charts, dates, ({ name }) =>
+							report(frm, "Project Change Request Register", {
+								from_date: name,
+								to_date: name,
+							})
+						);
+					},
+				});
+			}
+		);
 	}
 
 	function gridRowRoute(frm) {
@@ -609,36 +752,32 @@
 		},
 		async refresh(frm) {
 			frm.toggle_display("custom_scope_deliverables_progress_html", false);
-			await frappe.require("/assets/dinext_project_scope/css/project_scope.css");
+			await frappe.require([
+				"/assets/dinext_project_scope/css/project_scope.css",
+				"/assets/dinext_project_scope/js/scope_analytics.js",
+			]);
 			placeScopeGrids(frm);
-			const analytics =
-				!frm.is_new() &&
-				frappe.require("/assets/dinext_project_scope/js/scope_analytics.js").then(() => {
-					window.DinextScopeAnalytics?.renderResults(frm);
-					window.DinextScopeAnalytics?.renderProjectProgress(frm);
-				});
-			await Promise.all([showRequirements(frm), showChanges(frm), analytics]);
+			if (frm.is_new()) return showRequirements(frm);
+			window.DinextScopeAnalytics.renderResults(frm);
+			window.DinextScopeAnalytics.renderProjectProgress(frm);
+			const grid = frm.get_field("project_constraints")?.grid;
+			const apply = __("Apply Constraints Template");
+			if (grid && writable(frm)) {
+				grid.add_custom_button(apply, () =>
+					choose(apply, CONSTRAINT_TEMPLATE, undefined, (name) =>
+						showConstraintPreview(frm, name)
+					)
+				);
+			} else {
+				grid?.custom_buttons?.[apply]?.addClass("hidden");
+			}
+			await Promise.all([showRequirements(frm), showChanges(frm)]);
 			gridRowRoute(frm);
-			if (frm.is_new()) return;
 			if (writable(frm) && frappe.route_options?.scope_constraint_template) {
 				const template = frappe.route_options.scope_constraint_template;
 				delete frappe.route_options.scope_constraint_template;
 				showConstraintPreview(frm, template);
 			}
-			for (const name of reports)
-				frm.add_custom_button(__(name), () => report(frm, name), __("Scope Reports"));
-			if (writable(frm))
-				frm.add_custom_button(
-					__("Apply Constraints Template"),
-					() =>
-						choose(
-							__("Apply Constraints Template"),
-							CONSTRAINT_TEMPLATE,
-							undefined,
-							(name) => showConstraintPreview(frm, name)
-						),
-					__("Scope")
-				);
 		},
 	});
 

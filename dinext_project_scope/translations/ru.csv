@@ -296,7 +296,6 @@ Project Responsibility Matrix,Матрица ответственности,
 Responsibility Matrix,Матрица ответственности,
 Project Risk,Риск проекта,
 Project Role,Проектная роль,
-Project Scope Overview,Обзор содержания проекта,
 Project deliverables,Результаты проекта,
 Reapproval required,Требуется повторное согласование,
 Record type,Вид записи,
@@ -386,7 +385,6 @@ Requirement Specification Connections,Связи спецификаций тре
 Save the project before changing its requirements.,Сохраните проект перед изменением состава требований.
 Save the project to manage scope.,Сохраните проект для работы с объёмом.
 Scope Items,Элементы объёма
-Scope Reports,Отчёты по объёму
 Submit for Review,Подать на согласование
 Toggle requirement branch,Развернуть или свернуть ветвь требования
 Verification Evidence,Подтверждающее вложение
@@ -583,3 +581,4 @@ Choose a valid result status.,Выберите допустимый статус
 ExampleCustomer08 загрузки и миграции данных в тест и продуктив.,Подготовка и выполнение загрузки и миграции данных в тестовую и рабочую среды.,
 ExampleCustomer08 загрузки и миграции данных в тест и продуктив.,Подготовка и выполнение загрузки и миграции данных в тестовую и рабочую среды.,Project Deliverable Type
 Edit description,Редактировать описание,
+Could not load project scope.,Не удалось загрузить объём проекта.,

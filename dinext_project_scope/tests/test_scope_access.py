@@ -62,12 +62,11 @@ class TestScopeReportPermissions(FrappeTestCase):
 			self.assertEqual(dynamics.project_result_dynamics(project.name)["category"]["count"], 0)
 			with self.assertRaises(frappe.PermissionError):
 				dynamics.project_result_dynamics(other.name)
-			for report in ("Project Scope Overview", "Project Constraint Register"):
-				with self.subTest(report=report):
-					result = run(report, filters={"project": project.name}, ignore_prepared_report=True)
-					self.assertIn("result", result)
-					with self.assertRaises(frappe.PermissionError):
-						run(report, filters={"project": other.name}, ignore_prepared_report=True)
+			report = "Project Constraint Register"
+			result = run(report, filters={"project": project.name}, ignore_prepared_report=True)
+			self.assertIn("result", result)
+			with self.assertRaises(frappe.PermissionError):
+				run(report, filters={"project": other.name}, ignore_prepared_report=True)
 		finally:
 			frappe.set_user("Administrator")
 

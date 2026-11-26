@@ -14,6 +14,7 @@
  ],
  "fields": [
   {
+   "columns": 4,
    "fieldname": "scope_title",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -21,10 +22,11 @@
    "reqd": 1
   },
   {
+   "columns": 2,
    "fieldname": "scope_type",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Scope Type",
+   "label": "Type",
    "link_filters": "[[\"Project Scope Type\",\"enabled\",\"=\",1]]",
    "options": "Project Scope Type",
    "reqd": 1
@@ -44,8 +46,10 @@
    "read_only": 1
   },
   {
+   "columns": 4,
    "fieldname": "object_ref",
    "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
    "label": "Object",
    "options": "linked_doctype"
   }

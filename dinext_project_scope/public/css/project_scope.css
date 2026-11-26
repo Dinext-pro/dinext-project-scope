@@ -1,80 +1,126 @@
 .dinext-project-scope {
-	margin: var(--margin-md) 0;
+	margin: var(--margin-sm) 0;
+	min-width: 0;
 }
+
+.dinext-project-scope .scope-pane-title {
+	margin: 0 0 var(--margin-xs);
+}
+
+.dinext-project-scope .scope-embedded-charts {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--margin-sm);
+	margin: 0 0 var(--margin-xs);
+}
+
+.dinext-project-scope .scope-embedded-charts .dinext-scope-chart-card {
+	padding: var(--padding-sm);
+}
+
+.dinext-project-scope .scope-embedded-charts .dinext-scope-chart {
+	height: 142px;
+}
+
+.dinext-project-scope .scope-embedded-charts .dinext-scope-heading {
+	margin-bottom: 0;
+}
+
 .dinext-project-scope .scope-toolbar {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--margin-xs);
-	margin-bottom: var(--margin-xs);
+	min-width: 0;
 }
-.dinext-project-scope .scope-table-scroll {
-	overflow: auto;
+
+.dinext-project-scope .scope-toolbar .btn,
+.dinext-project-scope .scope-toolbar summary {
+	white-space: nowrap;
 }
-.dinext-project-scope .scope-table {
-	margin: 0;
-	table-layout: auto;
-}
-.dinext-project-scope .scope-table th,
-.dinext-project-scope .scope-table td {
-	vertical-align: top;
-}
+
 .dinext-project-scope .scope-link,
+.scope-requirement-info .scope-link,
 .scope-connection-list .scope-link {
 	padding: 0;
 	text-align: start;
-	white-space: normal;
 }
-.dinext-project-scope .scope-fold {
-	display: inline-block;
-	flex: 0 0 1rem;
-	padding: 0;
-	text-align: start;
-}
-.dinext-project-scope .scope-tree-label {
-	display: flex;
-	padding-inline-start: calc(12px * var(--scope-depth));
-}
-.dinext-project-scope .scope-tree-label small,
-.dinext-project-scope td > small {
+
+.dinext-project-scope .scope-cell-link,
+.dinext-project-scope .scope-source-list button {
 	display: block;
+	min-width: 0;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
+
+.dinext-project-scope .scope-source-cell,
+.dinext-project-scope .scope-source-list {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: var(--margin-xs);
+}
+
+.dinext-project-scope .scope-source-cell {
+	height: 100%;
+}
+
+.dinext-project-scope .scope-source-list {
+	flex: 1;
+	overflow: hidden;
+}
+
+.dinext-project-scope .scope-requirement-details {
+	flex: 0 0 auto;
+	margin-inline-start: auto;
+	padding: 0 var(--padding-xs);
+	color: var(--text-muted);
+	line-height: 1;
+}
+
 .dinext-project-scope summary {
 	cursor: pointer;
 }
-.dinext-project-scope .scope-source-list {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--margin-xs);
-}
+
 .dinext-project-scope .scope-compact-filter {
-	min-width: min(100%, 180px);
+	width: min(100%, 156px);
 }
+
 .dinext-project-scope .scope-compact-filter .frappe-control {
 	margin: 0;
 }
-.dinext-project-scope .scope-compact-filter .control-label {
-	font-size: var(--text-xs);
-}
-.dinext-project-scope .scope-row-details {
+
+.scope-requirement-info .scope-row-details {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--margin-sm);
-	margin: var(--margin-xs) 0;
+	margin: 0 0 var(--margin-sm);
 }
-.dinext-project-scope .scope-row-details dt {
+
+.scope-requirement-info .scope-row-details dt {
 	font-size: var(--text-xs);
 	color: var(--text-muted);
 }
-.dinext-project-scope .scope-row-details dd {
+
+.scope-requirement-info .scope-row-details dd {
 	margin: 0;
 }
+
 .dinext-project-scope .scope-actions-menu {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--margin-xs);
 	margin: var(--margin-xs) 0;
 }
+
+@media (max-width: 600px) {
+	.dinext-project-scope .scope-embedded-charts {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
 .scope-connection-list .scope-connection-row {
 	display: flex;
 	justify-content: space-between;

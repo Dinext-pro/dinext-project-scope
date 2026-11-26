@@ -108,7 +108,7 @@ function applyTemplate(project, template, prefix, excludedReviewer) {
 			expect(Object.keys(created.specifications)).to.have.length(3);
 			cy.get(modal).should("not.exist");
 			cy.get(
-				`${projectTree} tr[data-requirement="${Object.values(created.requirements)[0]}"]`
+				`${projectTree} .ag-row[row-id$="${Object.values(created.requirements)[0]}"]`
 			).should("be.visible");
 			return cy.wrap(created, { log: false });
 		});
@@ -274,37 +274,24 @@ describe("Requirement specification composition", () => {
 
 	it("shows one project requirement for direct and nested sources and filters that tree", () => {
 		openProjectScope(fixture.project);
-		cy.get(`${projectTree} tr[data-requirement="${fixture.working}"]`)
-			.should("have.length", 1)
-			.within(() => {
-				cy.get(".scope-source-list button").should("have.length", 2);
-				cy.contains("summary", "Details").click();
-				cy.get(".scope-source-path").should("have.length", 3);
-				cy.contains(".scope-source-path", "Included directly").should("be.visible");
-				cy.contains(".scope-row-details", "Must Have").should("be.visible");
-				cy.get(".scope-fold").click();
-			});
-		cy.get(`${projectTree} tr[data-requirement="${fixture.working}"] .scope-fold`).should(
-			"have.attr",
-			"aria-expanded",
-			"false"
-		);
-		cy.get(`${projectTree} tr[data-requirement="${fixture.nested_child}"]`).should(
-			"not.exist"
-		);
-		cy.focused().should("have.attr", "data-fold", fixture.working).click();
-		cy.get(
-			`${projectTree} tr[data-requirement="${fixture.nested_child}"] .scope-tree-label`
-		).should("have.attr", "style", "--scope-depth: 1;");
+		const row = `${projectTree} .ag-row[row-id$="${fixture.working}"]`;
+		const child = `${projectTree} .ag-row[row-id$="${fixture.nested_child}"]`;
+		cy.get(row).should("have.length", 1);
+		cy.get(`${row} .scope-source-list button`).should("have.length", 2);
+		cy.get(`${row} .scope-requirement-details`).click();
+		cy.get(".modal:visible .scope-source-path").should("have.length", 3);
+		cy.contains(".modal:visible .scope-source-path", "Included directly").should("be.visible");
+		cy.contains(".modal:visible .scope-row-details", "Must Have").should("be.visible");
+		cy.get(".modal:visible .btn-modal-close").click();
+		cy.get(`${row} .dinext-table-tree-toggle`).click();
+		cy.get(child).should("not.exist");
+		cy.get(`${row} .dinext-table-tree-toggle`).click();
+		cy.get(child).should("be.visible");
 		chooseLink("scope_specification_filter", fixture.nested);
-		cy.get(
-			`${projectTree} tr[data-requirement="${fixture.working}"] .scope-source-list button`
-		).should("have.length", 2);
-		cy.get(`${projectTree} tr[data-requirement="${fixture.working}"] summary`).click();
-		cy.get(`${projectTree} .scope-source-path`).should(
-			"not.contain.text",
-			"Included directly"
-		);
+		cy.get(`${row} .scope-requirement-details`).click();
+		cy.contains(".modal:visible .scope-source-path", "Included directly").should("not.exist");
+		cy.get(".modal:visible .scope-source-path").should("have.length", 1);
+		cy.get(".modal:visible .btn-modal-close").click();
 	});
 
 	it("reflects nested composition edits in the project without losing other sources", () => {
@@ -320,16 +307,9 @@ describe("Requirement specification composition", () => {
 		});
 		cy.get(`${compositionRows} a[href$="/${fixture.replacement}"]`).should("be.visible");
 		openProjectScope(fixture.project);
-		cy.get(`${projectTree} tr[data-requirement="${fixture.nested_child}"]`).should(
-			"not.exist"
-		);
-		cy.get(`${projectTree} tr[data-requirement="${fixture.replacement}"]`).should(
-			"be.visible"
-		);
-		cy.get(`${projectTree} tr[data-requirement="${fixture.working}"]`).should(
-			"have.length",
-			1
-		);
+		cy.get(`${projectTree} .ag-row[row-id$="${fixture.nested_child}"]`).should("not.exist");
+		cy.get(`${projectTree} .ag-row[row-id$="${fixture.replacement}"]`).should("be.visible");
+		cy.get(`${projectTree} .ag-row[row-id$="${fixture.working}"]`).should("have.length", 1);
 		cy.visit(requirementForm(fixture.nested_child));
 		cy.contains(".requirement-form", "Outside current project scope").should("be.visible");
 		cy.get('[data-fieldname="project"] a[data-name]').should(
@@ -375,8 +355,8 @@ describe("Requirement specification composition", () => {
 	it("keeps project scope actions and table details accessible at 800 px", () => {
 		cy.viewport(800, 820);
 		openProjectScope(fixture.project);
-		cy.get(`${projectTree} .scope-table th`).should(($columns) => {
-			expect([...$columns].map((column) => column.textContent)).to.deep.equal([
+		cy.get(`${projectTree} .ag-header-cell-text`).should(($columns) => {
+			expect([...$columns].map((column) => column.textContent.trim())).to.deep.equal([
 				"Requirement",
 				"Status",
 				"Specifications",
@@ -391,9 +371,9 @@ describe("Requirement specification composition", () => {
 		cy.contains(`${projectTree} summary`, "More Actions").click();
 		cy.contains(`${projectTree} button`, "Apply Specification Template").should("be.visible");
 		cy.contains(`${projectTree} summary`, "More Actions").click();
-		cy.get(`${projectTree} tr[data-requirement="${fixture.working}"]`).within(() => {
-			cy.contains("summary", "Details").then(([summary]) => summary.focus());
-			cy.focused().should("have.text", "Details");
+		cy.get(`${projectTree} .ag-row[row-id$="${fixture.working}"]`).within(() => {
+			cy.get(".scope-requirement-details").then(([button]) => button.focus());
+			cy.focused().should("have.attr", "title", "Details");
 			cy.then(async () => {
 				for (const type of ["keyDown", "keyUp"]) {
 					await Cypress.automation("remote:debugger:protocol", {
@@ -402,8 +382,9 @@ describe("Requirement specification composition", () => {
 					});
 				}
 			});
-			cy.contains(".scope-source-path", "Included directly").should("be.visible");
 		});
+		cy.contains(".modal:visible .scope-source-path", "Included directly").should("be.visible");
+		cy.get(".modal:visible .btn-modal-close").click();
 		fitsViewport();
 		cy.screenshot("project-scope-narrow", { capture: "viewport" });
 	});

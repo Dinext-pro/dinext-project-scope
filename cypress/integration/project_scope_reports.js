@@ -12,7 +12,6 @@ import {
 const traceability = "Requirement Traceability Matrix";
 const responsibility = "Project Responsibility Matrix";
 const impact = "Project Change Impact Matrix";
-const overview = "Project Scope Overview";
 const deliverables = "Project Deliverable Register";
 const constraints = "Project Constraint Register";
 
@@ -57,7 +56,9 @@ describe("Project scope reports", () => {
 		cy.get('button[data-fieldname="custom_объем"]').click();
 		cy.get('[data-fieldname="project_scopes"] .grid-body').should("be.visible");
 		cy.get('[data-fieldname="project_constraints"] .grid-body').should("be.visible");
-		cy.get('[data-fieldname="custom_scope_requirements_html"] .scope-table tbody tr')
+		cy.get(
+			'[data-fieldname="custom_scope_requirements_html"] .ag-center-cols-container .ag-row'
+		)
 			.should("have.length", 3)
 			.and("be.visible");
 		cy.contains(
@@ -73,17 +74,48 @@ describe("Project scope reports", () => {
 		cy.screenshot("project-scope-requirements");
 	});
 
-	it("opens the responsibility matrix from the Project Scope Reports menu with its project", () => {
+	it("opens the change impact matrix from the change grid and keeps project menus clear", () => {
 		cy.visit(`/app/project/${fixture.project}`);
-		cy.get('.form-graph [data-pwa-bar="deliverables"] [role="progressbar"]').should(
-			"be.visible"
-		);
-		cy.get('.inner-group-button[data-label="Scope%20Reports"] > button:visible').click({
-			scrollBehavior: "center",
+		cy.get('button[data-fieldname="custom_объем"]').click();
+		cy.get(
+			'.inner-group-button[data-label="Scope%20Reports"], .inner-group-button[data-label="Scope"]'
+		).should("not.exist");
+		cy.get('[data-fieldname="custom_scope_changes_html"] .ag-row').should("be.visible");
+		cy.contains(
+			'[data-fieldname="custom_scope_changes_html"] .dinext-table-toolbar button',
+			impact
+		)
+			.should("be.visible")
+			.find("svg")
+			.should("exist");
+		cy.contains(
+			'[data-fieldname="custom_scope_changes_html"] .dinext-table-toolbar button',
+			impact
+		).click();
+		reportShown(impact, { project: fixture.project });
+		rowLink(`${fixture.title} change`).should("be.visible");
+	});
+
+	it("ships the requested default columns in the native child tables", () => {
+		cy.visit(`/app/project/${fixture.project}`);
+		cy.get('button[data-fieldname="custom_объем"]').click();
+		cy.window().should(({ cur_frm }) => {
+			for (const [field, expected] of [
+				["project_scopes", ["Title", "Type", "Object"]],
+				[
+					"project_constraints",
+					["Subject", "Category", "Record Type", "Status", "Responsible"],
+				],
+			]) {
+				expect(
+					cur_frm.get_field(field).grid.visible_columns.map(([column]) => column.label)
+				).to.deep.eq(expected);
+			}
 		});
-		cy.contains(".dropdown-menu:visible a", exact(responsibility)).click();
-		reportShown(responsibility, { project: fixture.project });
-		rowLink(`${fixture.title} result`).should("be.visible");
+		cy.call("frappe.client.get_count", {
+			doctype: "Report",
+			filters: { name: "Project Scope Overview" },
+		}).should("eq", 0);
 	});
 
 	it("keeps deliverables progress in the Project dashboard after a rebuild and hides it without results", () => {
@@ -566,50 +598,15 @@ describe("Project scope reports", () => {
 		rowLink(`${fixture.title} change`).should("not.exist");
 	});
 
-	it("shows unique overview counts and drills down to overdue results", () => {
-		openReport(overview, { project: fixture.project });
-		for (const [label, count] of [
-			["Requirements", "3"],
-			["Requirements without deliverables", "1"],
-			["Project deliverables", "3"],
-			["Overdue deliverables", "3"],
-			["Constraints and assumptions due for review", "1"],
-			["Change requests", "1"],
-		]) {
-			cy.contains(`${table} button.dinext-scope-link`, exact(label))
-				.closest(".ag-row")
-				.find('[col-id="count"]')
-				.should("have.text", count);
-		}
-		cy.contains(`${table} button.dinext-scope-link`, exact("Overdue deliverables")).click();
-		reportShown(deliverables, { project: fixture.project, overdue: 1 });
+	it("exports the overdue report with the project's server-side filter", () => {
+		openReport(deliverables, { project: fixture.project, overdue: 1 });
 		rowLink(`${fixture.title} result`).should("be.visible");
 		rowLink(`${fixture.title} hidden deliverable`).should("not.exist");
 		downloadExcel("project_deliverable_register", { project: fixture.project, overdue: 1 });
 	});
 
-	it("wraps the overview report shortcuts on a narrow screen and preserves the project on navigation", () => {
-		cy.viewport(480, 850);
-		openReport(overview, { project: fixture.project });
-		const actions = ".dinext-scope-overview-actions:visible";
-		cy.get(actions).should("have.css", "display", "flex").and("have.css", "flex-wrap", "wrap");
-		cy.get(`${actions} button`).should(($buttons) => {
-			expect($buttons).to.have.length(4);
-			expect($buttons[3].getBoundingClientRect().top).to.be.greaterThan(
-				$buttons[0].getBoundingClientRect().top
-			);
-		});
-		cy.contains(`${actions} button`, exact(constraints)).click();
-		reportShown(constraints, { project: fixture.project });
-	});
-
-	it("drills from the overview review metric to the assumption and exports the filtered register", () => {
-		openReport(overview, { project: fixture.project });
-		cy.contains(
-			`${table} button.dinext-scope-link`,
-			exact("Constraints and assumptions due for review")
-		).click();
-		reportShown(constraints, { project: fixture.project, review_due: 1 });
+	it("filters review dates, exports the constraint register and opens the project row", () => {
+		openReport(constraints, { project: fixture.project, review_due: 1 });
 		rowLink(`${fixture.title} assumption`).should("be.visible");
 		downloadExcel("project_constraint_register", { project: fixture.project, review_due: 1 });
 		rowLink(`${fixture.title} assumption`).click();

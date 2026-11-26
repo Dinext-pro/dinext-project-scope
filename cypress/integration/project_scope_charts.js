@@ -11,11 +11,13 @@ import {
 
 const resultHost = '[data-fieldname="custom_scope_results_html"]';
 const chartCard = ".dinext-scope-chart-card";
-const overview = "Project Scope Overview";
 const changes = "Project Change Request Register";
 const traceability = "Requirement Traceability Matrix";
 const responsibility = "Project Responsibility Matrix";
-const progressPicker = '.dinext-scope-progress-picker input[data-fieldname="deliverable"]';
+function openScope(project) {
+	cy.visit(`/app/project/${project}`);
+	cy.get('button[data-fieldname="custom_объем"]').click();
+}
 
 function chart(title) {
 	return cy.contains(chartCard, title).find(".dinext-scope-chart");
@@ -109,16 +111,17 @@ function resultsToolbarInOneRow() {
 			".dinext-table-toolbar-item, .dinext-scope-progress-controls input[data-fieldtype], " +
 				".dinext-scope-progress-date-icon"
 		);
-		expect(panel.querySelectorAll(".dinext-scope-progress-controls .control-label")).to.have
-			.length(0);
+		expect(
+			panel.querySelectorAll(".dinext-scope-progress-controls .control-label")
+		).to.have.length(0);
 		for (const [field, icon] of [
 			["reporting_date", "today"],
 			["baseline_date", "calendar"],
 		]) {
 			const input = panel.querySelector(`input[data-fieldname="${field}"]`);
-			const badge = input.closest(".dinext-scope-progress-date").querySelector(
-				".dinext-scope-progress-date-icon"
-			);
+			const badge = input
+				.closest(".dinext-scope-progress-date")
+				.querySelector(".dinext-scope-progress-date-icon");
 			expect(input.placeholder).not.to.be.empty;
 			expect(input.title).to.eq(input.placeholder);
 			expect(badge.title).to.eq(input.title);
@@ -623,7 +626,9 @@ describe("Project scope charts", () => {
 			"exist"
 		);
 		cy.window().then(({ frappe }) => frappe.after_ajax());
-		cy.get('button[data-fieldname="custom_результаты"]').click().should("have.class", "active");
+		cy.get('button[data-fieldname="custom_результаты"]')
+			.click()
+			.should("have.class", "active");
 		const title = "Deliverables by category";
 		const center = () => cy.contains(chartCard, title).find(".dinext-scope-donut-count");
 		const move = (label) => {
@@ -646,7 +651,9 @@ describe("Project scope charts", () => {
 			.should("be.visible")
 			.should(($tooltip) => {
 				const tooltip = $tooltip[0];
-				const label = tooltip.closest(chartCard).querySelector(".dinext-scope-donut-count");
+				const label = tooltip
+					.closest(chartCard)
+					.querySelector(".dinext-scope-donut-count");
 				expect(tooltip.getBoundingClientRect().bottom).to.be.at.most(
 					label.getBoundingClientRect().top
 				);
@@ -697,9 +704,10 @@ describe("Project scope charts", () => {
 	});
 
 	it("clears the active donut segment without clearing the other result filters", () => {
-		cy.intercept("GET", "**/api/method/dinext_project_scope.analytics.data.project_results?*").as(
-			"donutResults"
-		);
+		cy.intercept(
+			"GET",
+			"**/api/method/dinext_project_scope.analytics.data.project_results?*"
+		).as("donutResults");
 		showResults(fixture.project);
 		cy.wait("@donutResults");
 		const statusChart = "Deliverables by status";
@@ -949,8 +957,8 @@ describe("Project scope charts", () => {
 		).should("be.visible");
 	});
 
-	it("drills from the overview creation-date chart to the same project and inclusive date", () => {
-		openReport(overview, { project: fixture.project });
+	it("drills from the project creation-date chart to the same project and inclusive date", () => {
+		openScope(fixture.project);
 		const dates = "Change requests by date";
 		chartOption(chart(dates), (option) => {
 			expect(option.series[0].type).to.eq("bar");
@@ -973,77 +981,30 @@ describe("Project scope charts", () => {
 		cy.location("pathname").should("eq", `/app/project-change-request/${fixture.change}`);
 	});
 
-	it("shows recorded progress in the overview and lets the user select a different result", () => {
-		openReport(overview, { project: fixture.project });
-		const output = ".dinext-scope-overview-progress .dinext-scope-chart--progress";
-		chartOption(cy.get(output), (option) => {
-			expect(option.series.map((series) => series.name)).to.deep.eq([
-				"Current plan",
-				"Recorded progress",
-			]);
-		});
-		cy.get(progressPicker).clear().type(fixture.result);
-		cy.contains(
-			'.dinext-scope-progress-picker .awesomplete [role="option"]',
-			`${fixture.title} result`
-		).click();
-		chartOption(cy.get(output), (option) => {
-			expect(option.series.find((series) => series.name === "Recorded progress").data).not.to
-				.be.empty;
-		});
-		cy.get(progressPicker).clear().type(fixture.shared);
-		cy.contains(
-			'.dinext-scope-progress-picker .awesomplete [role="option"]',
-			"shared component"
-		).click();
-		chartOption(cy.get(output), (option) => {
-			expect(
-				option.series
-					.find((series) => series.name === "Recorded progress")
-					.data.map(([, value]) => value)
-			).to.deep.eq([60, 20]);
-		});
-	});
-
-	it("drills from a requirement-category legend under the user's project access", () => {
+	it("drills from a project requirement donut and counts each readable requirement once", () => {
 		cy.login(fixture.actor, fixture.password);
-		openReport(overview, { project: fixture.project });
-		cy.contains(chartCard, "Requirements by status")
-			.contains("button", exact("In Progress · 1"))
-			.should("be.visible");
-		cy.contains(chartCard, "Change requests by stage")
-			.contains("button", exact("Draft · 1"))
-			.should("be.visible");
+		openScope(fixture.project);
+		chartOption(chart("Requirements by status"), (option) => {
+			expect(option.series[0].data).to.deep.include({ name: "In Progress", value: 1 });
+		});
+		chartOption(chart("Change requests by stage"), (option) => {
+			expect(option.series[0].data).to.deep.eq([{ name: "Draft", value: 1 }]);
+		});
 		chartOption(chart("Requirements by category"), (option) => {
 			expect(option.series[0].data).to.deep.have.members([
 				{ name: fixture.title, value: 2 },
 				{ name: `${fixture.title} secondary`, value: 1 },
 			]);
 		});
-		cy.contains(chartCard, "Requirements by category")
-			.contains("button", exact(`${fixture.title} · 2`))
-			.click();
+		clickPieSegment("Requirements by category", fixture.title);
 		reportShown(traceability, { project: fixture.project, kind: fixture.title });
 		rowLink(`${fixture.title} unlinked`).should("be.visible");
 		rowLink(`${fixture.title} analyzed child`).should("not.exist");
 	});
 
-	it("denies other-project progress data and leaves it out of the progress picker", () => {
+	it("denies other-project progress and results data", () => {
 		cy.login(fixture.actor, fixture.password);
-		openReport(overview, { project: fixture.project });
-		cy.intercept("POST", "**/api/method/frappe.desk.search.search_link", (request) => {
-			const text =
-				typeof request.body === "string"
-					? new URLSearchParams(request.body).get("txt")
-					: request.body.txt;
-			if (text === fixture.hidden_result) request.alias = "hiddenProgressSearch";
-		});
-		cy.get(progressPicker).clear().type(fixture.hidden_result);
-		cy.wait("@hiddenProgressSearch").its("response.body.message").should("deep.eq", []);
-		cy.contains(
-			'.dinext-scope-progress-picker .awesomplete [role="option"]',
-			"hidden deliverable"
-		).should("not.exist");
+		openScope(fixture.project);
 		cy.request({
 			url: "/api/method/dinext_project_scope.analytics.data.deliverable_progress",
 			qs: { deliverable: fixture.hidden_result },
@@ -1060,26 +1021,17 @@ describe("Project scope charts", () => {
 			.should("eq", 403);
 	});
 
-	it("localizes overview chart titles and the progress legend for a Russian user", () => {
+	it("localizes the four embedded charts for a Russian project reader", () => {
 		cy.login(fixture.russian_actor, fixture.password);
-		cy.visit(`/app/query-report/${encodeURIComponent(overview)}?project=${fixture.project}`);
-		cy.get(".page-title:visible").should("contain.text", "Обзор содержания проекта");
+		openScope(fixture.project);
 		for (const label of [
 			"Требования по статусам",
 			"Требования по категориям",
-			"Результаты по статусам",
 			"Запросы на изменение по стадиям",
 			"Запросы на изменение по датам создания",
 		]) {
 			cy.contains(chartCard, label).should("be.visible");
 		}
-		chartOption(chart("Плановый и фактический прогресс"), (option) => {
-			expect(option.series.map((series) => series.name)).to.deep.eq([
-				"Текущий план",
-				"Фактический прогресс",
-			]);
-		});
-		cy.visit(`/app/project/${fixture.project}`);
 		cy.get('.form-graph [data-pwa-bar="deliverables"] [role="progressbar"]').should(
 			"have.attr",
 			"aria-description",
@@ -1147,8 +1099,8 @@ describe("Project scope charts", () => {
 		);
 	});
 
-	it("repaints overview charts when switching theme in the same report", () => {
-		openReport(overview, { project: fixture.project });
+	it("repaints project scope charts when switching theme", () => {
+		openScope(fixture.project);
 		const labels = "Requirements by category";
 		const center = () => cy.contains(chartCard, labels).find(".dinext-scope-donut-count");
 		let lightColor;
@@ -1165,7 +1117,7 @@ describe("Project scope charts", () => {
 			.should(($center) => {
 				expect($center.css("color")).not.to.eq(lightColor);
 			});
-		reportShown(overview, { project: fixture.project });
+		cy.location("pathname").should("eq", `/app/project/${fixture.project}`);
 	});
 
 	it("moves the plan endpoint without changing recorded progress after a task schedule edit", () => {
@@ -1231,5 +1183,46 @@ describe("Project scope charts", () => {
 		cy.contains(".modal:visible button", "Yes").click();
 		cy.contains(`${resultHost} .dinext-scope-label`, title).should("not.exist");
 		cy.get(deleteButton).should("be.disabled");
+	});
+
+	it("toggles only overdue results from the warning button and updates the donuts", () => {
+		const title = `${fixture.title} work without a plan`;
+		cy.call("frappe.client.insert", {
+			doc: {
+				doctype: "Project Deliverable",
+				title,
+				project: fixture.project,
+				deliverable_type: "Документ",
+				category: "Проектирование",
+			},
+		});
+		cy.visit(`/app/project/${fixture.project}`);
+		cy.get('button[data-fieldname="custom_результаты"]').click();
+		const button = `${resultHost} .dinext-table-toolbar button[title="Overdue deliverables"]`;
+		const result = `${resultHost} .ag-center-cols-container .ag-row`;
+		cy.contains(result, title).should("be.visible");
+		const projectResults = "/api/method/dinext_project_scope.analytics.data.project_results";
+		cy.intercept({ method: "GET", pathname: projectResults }, (request) => {
+			if (JSON.parse(request.query.filters || "{}").overdue)
+				request.alias = "overdueResults";
+		});
+		cy.get(button).click();
+		cy.get(button).should("have.attr", "aria-pressed", "true");
+		cy.wait("@overdueResults").then(({ response }) => {
+			expect(response.statusCode).to.eq(200);
+			const total = response.body.message.counts.status.reduce(
+				(sum, row) => sum + row.count,
+				0
+			);
+			expect(total).to.be.greaterThan(0);
+			cy.contains(chartCard, "Deliverables by status")
+				.find(".dinext-scope-donut-count")
+				.should("have.text", String(total));
+		});
+		cy.contains(result, title).should("not.exist");
+		cy.contains(result, `${fixture.title} result`).should("be.visible");
+		cy.get(button).click();
+		cy.get(button).should("have.attr", "aria-pressed", "false");
+		cy.contains(result, title).should("be.visible");
 	});
 });

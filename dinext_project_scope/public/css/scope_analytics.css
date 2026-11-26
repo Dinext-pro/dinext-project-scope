@@ -155,14 +155,6 @@
 	margin-block: 0;
 }
 
-.dinext-scope-overview-actions {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: end;
-	gap: 0.5rem 0.75rem;
-	margin-block-end: 0.8rem;
-}
-
 .dinext-scope-charts {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
@@ -556,10 +548,6 @@ button.dinext-scope-link:hover {
 		animation: none;
 		transition: none;
 	}
-}
-
-.dinext-scope-progress-picker {
-	max-width: 23rem;
 }
 
 .dinext-scope-context-row .dinext-scope-label,

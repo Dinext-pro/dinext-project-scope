@@ -1,13 +1,11 @@
 (() => {
 	"use strict";
 
-	const overview = "Project Scope Overview";
 	const responsibilityMatrix = "Project Responsibility Matrix";
 	const scopeReports = new Set([
 		"Requirement Traceability Matrix",
 		responsibilityMatrix,
 		"Project Change Impact Matrix",
-		overview,
 		"Project Deliverable Register",
 		"Project Constraint Register",
 		"Project Change Request Register",
@@ -15,7 +13,6 @@
 	const grids = new WeakMap();
 	const controllers = new WeakSet();
 	const linkFilters = new WeakSet();
-	const targetQuery = "dinext_project_scope.access.project_target_query";
 	const downloadMethod = "dinext_project_scope.analytics.export.download";
 
 	function isActive(report) {
@@ -113,81 +110,6 @@
 		return roots;
 	}
 
-	function addOverviewCharts(surface, charts, rows) {
-		const ui = window.DinextScopeAnalytics;
-		const groups = new Map();
-		for (const row of rows) {
-			if (!row.chart) continue;
-			if (!groups.has(row.chart)) groups.set(row.chart, []);
-			groups.get(row.chart).push(row);
-		}
-		const route = (row) => ui.toReport(row.route_report, row.route_filters);
-		for (const [key, heading] of [
-			["requirement_status", __("Requirements by status")],
-			["requirement_category", __("Requirements by category")],
-			["deliverable_status", __("Deliverables by status")],
-			["change_status", __("Change requests by stage")],
-		]) {
-			ui.donut(surface, charts, heading, groups.get(key) || [], route);
-		}
-		ui.timeline(surface, charts, groups.get("change_dates") || [], route);
-	}
-
-	function addProgressPicker(surface, host, project, initial) {
-		const ui = window.DinextScopeAnalytics;
-		const panel = ui.node("section", "dinext-scope-chart-card");
-		panel.append(ui.node("h4", "dinext-scope-heading", __("Planned and recorded progress")));
-		host.append(panel);
-		if (!initial) {
-			panel.append(ui.node("p", "dinext-scope-empty", __("No deliverables")));
-			return;
-		}
-		const field = ui.node("div", "dinext-scope-progress-picker");
-		const output = ui.node("div", "dinext-scope-progress-output");
-		panel.append(field, output);
-		let revision = 0;
-		const picker = frappe.ui.form.make_control({
-			parent: $(field),
-			df: {
-				fieldtype: "Link",
-				fieldname: "deliverable",
-				label: __("Project Deliverable"),
-				options: "Project Deliverable",
-				only_select: true,
-				get_query: () => ({ query: targetQuery, filters: { project } }),
-				onchange: showProgress,
-			},
-			render_input: true,
-		});
-		picker.refresh();
-		picker.set_value(initial);
-
-		async function showProgress() {
-			const deliverable = picker.value;
-			const request = ++revision;
-			const old = output.querySelector(".dinext-scope-chart");
-			if (old) surface.unregisterChart(old);
-			output.replaceChildren();
-			if (!deliverable) return;
-			output.append(ui.node("p", "dinext-scope-empty", __("Loading")));
-			try {
-				const result = await ui.call("deliverable_progress", { deliverable });
-				if (request === revision && surface.active())
-					ui.drawProgress(surface, output, result);
-			} catch {
-				if (request === revision && surface.active()) {
-					output.replaceChildren(
-						ui.node(
-							"p",
-							"dinext-scope-empty",
-							__("Could not load deliverable progress.")
-						)
-					);
-				}
-			}
-		}
-	}
-
 	async function showReport(report, result) {
 		const ui = window.DinextScopeAnalytics;
 		const name = report.report_name;
@@ -207,43 +129,9 @@
 			surface.root.append(surface.reportTable);
 		}
 
-		if (name === overview) {
-			const project = report.get_filter_value("project");
-			const actions = ui.node("div", "dinext-scope-overview-actions");
-			for (const target of [
-				"Requirement Traceability Matrix",
-				responsibilityMatrix,
-				"Project Change Impact Matrix",
-				"Project Constraint Register",
-			]) {
-				actions.append(ui.button(__(target), () => ui.toReport(target, { project })));
-			}
-			surface.root.prepend(actions);
-			const charts = ui.node("div", "dinext-scope-charts");
-			const progress = ui.node("div", "dinext-scope-overview-progress");
-			surface.root.append(charts, progress);
-			window.DinextCharts.load()
-				.then(() => {
-					if (!surface.active()) return;
-					addOverviewCharts(surface, charts, result.result);
-					addProgressPicker(
-						surface,
-						progress,
-						project,
-						result.result[0]?.progress_deliverable
-					);
-				})
-				.catch(() => {
-					if (surface.active())
-						charts.append(
-							ui.node("p", "dinext-scope-empty", __("Could not load charts."))
-						);
-				});
-		}
-		const rows = name === overview ? result.result.filter((row) => !row.chart) : result.result;
 		if (matrix)
 			surface.matrixBaseColumns = result.columns.filter((column) => !column.assignee);
-		await ui.drawGrid(surface, surface.reportTable, result.columns, nestRows(rows), {
+		await ui.drawGrid(surface, surface.reportTable, result.columns, nestRows(result.result), {
 			responsibilityMatrix: matrix,
 			expand: name === "Requirement Traceability Matrix" ? "roots" : matrix ? "all" : null,
 			export: canExport(report) ? () => download(report) : null,

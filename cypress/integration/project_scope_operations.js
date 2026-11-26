@@ -405,11 +405,10 @@ describe("Project scope operations in Desk", () => {
 		actor("author");
 		openForm("project", fixture.project);
 		scopeTab();
-		cy.scrollTo("top", { ensureScrollable: false });
-		cy.get('.inner-group-button[data-label="Scope"] > button:visible').click({
-			scrollBehavior: false,
-		});
-		cy.contains(`${page} .dropdown-menu:visible a`, "Apply Constraints Template").click();
+		cy.contains(
+			'[data-fieldname="project_constraints"] button',
+			"Apply Constraints Template"
+		).click({ scrollBehavior: "center" });
 		chooseLink("item", `${fixture.label} constraints`, modal);
 		cy.get(`${modal} .modal-footer .btn-primary`).click();
 		cy.get(modal).should("contain.text", `${fixture.label} capacity limit`);

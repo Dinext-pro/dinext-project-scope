@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import TypedDict
 
 import frappe
@@ -156,13 +156,22 @@ def validate_project(doc, method=None):
 					)
 
 
+class ProjectChangeRow(TypedDict):
+	name: str
+	title: str
+	status: str
+	initiator: str | None
+	implementation_responsible: str | None
+	creation: datetime
+
+
 @frappe.whitelist()
-def project_change_rows(project):
+def project_change_rows(project: str) -> list[ProjectChangeRow]:
 	check_project(project)
 	return frappe.get_list(
 		"Project Change Request",
 		filters={"project": project},
-		fields=["name", "title", "status", "initiator", "implementation_responsible"],
+		fields=["name", "title", "status", "initiator", "implementation_responsible", "creation"],
 		order_by="creation desc",
 		limit_page_length=0,
 	)

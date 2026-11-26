@@ -534,7 +534,10 @@
 				case "result_delta":
 					return resultDelta(row, column.fieldname, column.label);
 				case "result_type":
-					return resultType(row, catalogLabel(column.fieldname, value, row.document_type));
+					return resultType(
+						row,
+						catalogLabel(column.fieldname, value, row.document_type)
+					);
 				case "result_assignment":
 					return resultAvatars(row, value);
 				case "project":
@@ -576,7 +579,11 @@
 				case "count":
 					return node("span", "", value ?? "");
 				default:
-					return node("span", "", catalogLabel(column.fieldname, value, row.document_type));
+					return node(
+						"span",
+						"",
+						catalogLabel(column.fieldname, value, row.document_type)
+					);
 			}
 		};
 	}
@@ -957,7 +964,9 @@
 				instance.on("mouseout", "series.pie", showTotal);
 				instance.on("globalout", showTotal);
 				if (onSelect) {
-					instance.on("click", "series.pie", ({ dataIndex }) => onSelect(items[dataIndex]));
+					instance.on("click", "series.pie", ({ dataIndex }) =>
+						onSelect(items[dataIndex])
+					);
 				}
 			}
 		);
@@ -972,18 +981,7 @@
 			return;
 		}
 		const chart = node("div", "dinext-scope-chart dinext-scope-chart--timeline");
-		chart.setAttribute("aria-hidden", "true");
-		const dates = node("div", "dinext-scope-chart-legend");
-		for (const item of points) {
-			dates.append(
-				button(
-					`${frappe.datetime.str_to_user(item.chart_name)} · ${item.count}`,
-					() => onSelect(item),
-					"dinext-scope-legend-item"
-				)
-			);
-		}
-		card.append(chart, dates);
+		card.append(chart);
 		surface.registerChart(
 			chart,
 			() => {
@@ -992,11 +990,12 @@
 					backgroundColor: "transparent",
 					color: chartPalette,
 					animation: false,
+					aria: { enabled: true },
 					grid: { left: 34, right: 18, bottom: 31, top: 14 },
 					tooltip: { trigger: "axis", renderMode: "richText" },
 					xAxis: {
 						type: "category",
-						data: points.map((item) => frappe.datetime.str_to_user(item.chart_name)),
+						data: points.map((item) => frappe.datetime.str_to_user(item.name)),
 						axisLabel: { color: colors.muted },
 					},
 					yAxis: {
@@ -1117,7 +1116,9 @@
 					title: __("Download PNG"),
 					name: filename,
 					pixelRatio: 2,
-					backgroundColor: getComputedStyle(element).getPropertyValue("--card-bg").trim(),
+					backgroundColor: getComputedStyle(element)
+						.getPropertyValue("--card-bg")
+						.trim(),
 				},
 			},
 		};
@@ -1128,7 +1129,10 @@
 		const baseline = __("Baseline date");
 		const markers = [
 			{
-				name: data.baseline_date === data.reporting_date ? `${reporting} / ${baseline}` : reporting,
+				name:
+					data.baseline_date === data.reporting_date
+						? `${reporting} / ${baseline}`
+						: reporting,
 				xAxis: wallTime(data.reporting_date),
 			},
 		];
@@ -1145,7 +1149,13 @@
 			silent: true,
 			symbol: "none",
 			lineStyle: { type: "dashed", width: 1, color: colors.muted },
-			label: { position: "insideEndTop", formatter: "{b}", rotate: 0, color: colors.text, fontSize: 11 },
+			label: {
+				position: "insideEndTop",
+				formatter: "{b}",
+				rotate: 0,
+				color: colors.text,
+				fontSize: 11,
+			},
 		};
 	}
 
@@ -1223,7 +1233,16 @@
 			backgroundColor: "transparent",
 			animation: false,
 			aria: { enabled: true },
-			color: ["#255ca8", "#167262", "#794dab", "#9c4a28", "#806212", "#4f7149", "#a24560", "#525f93"],
+			color: [
+				"#255ca8",
+				"#167262",
+				"#794dab",
+				"#9c4a28",
+				"#806212",
+				"#4f7149",
+				"#a24560",
+				"#525f93",
+			],
 			tooltip: { trigger: "item", renderMode: "richText", confine: true },
 			toolbox: resultChartToolbox(chart, filename, colors),
 			series: [
@@ -1360,7 +1379,9 @@
 			}
 			note.textContent = notes.join(" · ");
 			if (group.series.planned.length || hasActual) {
-				surface.registerChart(chart, () => resultDynamicsOption(chart, group, data, filename));
+				surface.registerChart(chart, () =>
+					resultDynamicsOption(chart, group, data, filename)
+				);
 			}
 		}
 	}
@@ -1372,9 +1393,13 @@
 	function catalogLabel(field, value, documentType) {
 		if (!value) return value;
 		if (field === "category")
-			return __(value, null, documentType === "Project Requirement"
-				? "Requirement Kind"
-				: "Project Deliverable Category");
+			return __(
+				value,
+				null,
+				documentType === "Project Requirement"
+					? "Requirement Kind"
+					: "Project Deliverable Category"
+			);
 		if (field === "deliverable_type" && documentType === DELIVERABLE)
 			return __(value, null, "Project Deliverable Type");
 		return value;
@@ -1382,7 +1407,9 @@
 
 	function resultFilterLabel(field, value) {
 		if (!value) return __("Not specified");
-		return field === "status" ? __(value, null, DELIVERABLE) : catalogLabel(field, value, DELIVERABLE);
+		return field === "status"
+			? __(value, null, DELIVERABLE)
+			: catalogLabel(field, value, DELIVERABLE);
 	}
 
 	function resultTypeWidth(container, heading, rows) {
@@ -1415,7 +1442,12 @@
 			["category", __("Category"), null, 150],
 			...(comparison.baseline_date
 				? [
-						["baseline_progress", __("Baseline progress"), "result_progress", progressWidth],
+						[
+							"baseline_progress",
+							__("Baseline progress"),
+							"result_progress",
+							progressWidth,
+						],
 						["baseline_delta", __("Δ from baseline"), "result_delta", deltaWidth],
 				  ]
 				: []),
@@ -1517,7 +1549,7 @@
 	function resultToolbar(
 		frm,
 		surface,
-		{ refresh, clearFilters, dynamics, canDelete, comparison, exportResults }
+		{ refresh, clearFilters, dynamics, canDelete, comparison, exportResults, overdueFilter }
 	) {
 		const project = frm.doc.name;
 		let deleting = false;
@@ -1563,6 +1595,18 @@
 							}
 						}
 					);
+				},
+			},
+			{
+				id: "scope-overdue-results",
+				type: "button",
+				title: __("Overdue deliverables"),
+				iconSvg: frappe.utils.icon("es-line-alert-triangle", "sm"),
+				active: () => overdueFilter.active,
+				onClick({ table }) {
+					const pending = overdueFilter.toggle();
+					table.refreshToolbar();
+					return pending;
 				},
 			},
 			{
@@ -1668,6 +1712,7 @@
 		let revision = 0;
 		let appliedQuery = null;
 		let responsible = "";
+		let overdue = false;
 		const comparison = progressControls(surface, refresh);
 		const dynamics = resultDynamics(surface, project, dynamicsQuery, (value) => {
 			responsible = responsible === value ? "" : value;
@@ -1689,6 +1734,15 @@
 				canDelete,
 				comparison: comparison.element,
 				exportResults: () => downloadResultTree(appliedQuery, surface),
+				overdueFilter: {
+					get active() {
+						return overdue;
+					},
+					toggle() {
+						overdue = !overdue;
+						return refresh();
+					},
+				},
 			}),
 		};
 
@@ -1701,6 +1755,7 @@
 
 		function clearFilters() {
 			responsible = "";
+			overdue = false;
 			for (const { control } of panels) control.set_input("");
 			return refresh();
 		}
@@ -1710,6 +1765,7 @@
 				panels.map(({ key, control }) => [key, control.get_value() || ""])
 			);
 			if (responsible) filters.responsible = responsible;
+			if (overdue) filters.overdue = 1;
 			const { reporting_date, baseline_date } = comparison.controls;
 			return {
 				project,
@@ -1914,7 +1970,7 @@
 		renderResults,
 		renderProjectProgress,
 		renderDeliverableProgress,
-		// Shared by the scope reports adapter.
+		// Shared by the project form and scope reports.
 		node,
 		button,
 		call,
@@ -1922,10 +1978,10 @@
 		routeMatches,
 		toReport,
 		createSurface,
+		expansionIds,
 		drawGrid,
 		setMessage,
 		donut,
 		timeline,
-		drawProgress,
 	};
 })();

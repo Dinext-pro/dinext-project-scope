@@ -22,12 +22,11 @@
  ],
  "fields": [
   {
-   "default": "New",
-   "fieldname": "status",
-   "fieldtype": "Select",
+   "columns": 3,
+   "fieldname": "subject",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Status",
-   "options": "New\nApproved\nCancelled\nTemplate",
+   "label": "Subject",
    "reqd": 1
   },
   {
@@ -36,6 +35,7 @@
    "label": "Description"
   },
   {
+   "columns": 2,
    "fieldname": "category",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -50,19 +50,23 @@
    "label": "Consequences / Impact"
   },
   {
-   "fieldname": "subject",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Subject",
-   "reqd": 1
-  },
-  {
+   "columns": 2,
    "default": "Constraint",
    "fieldname": "record_type",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Record Type",
    "options": "Constraint\nAssumption",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "default": "New",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "New\nApproved\nCancelled\nTemplate",
    "reqd": 1
   },
   {
@@ -73,8 +77,10 @@
    "options": "\nUser\nContact"
   },
   {
+   "columns": 2,
    "fieldname": "responsible",
    "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
    "label": "Responsible",
    "options": "responsible_type"
   },

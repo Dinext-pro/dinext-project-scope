@@ -21,7 +21,6 @@ from dinext_project_scope.deliverable_responsibility import configured_roles, mi
 TRACEABILITY = "Requirement Traceability Matrix"
 RESPONSIBILITY = "Project Responsibility Matrix"
 IMPACT = "Project Change Impact Matrix"
-OVERVIEW = "Project Scope Overview"
 DELIVERABLE_REGISTER = "Project Deliverable Register"
 CONSTRAINT_REGISTER = "Project Constraint Register"
 CHANGE_REGISTER = "Project Change Request Register"
@@ -664,95 +663,10 @@ def constraint_register(filters):
 	return columns, rows
 
 
-def overview(filters):
-	project = data.project_ids(filters.get("project"), required=True)[0]
-	requirements = scope_requirement_rows(project)
-	deliverables = data.get_deliverables([project])
-	constraints = data.get_constraints([project])
-	requests = data.get_requests([project])
-	links = requirement_results(deliverables)
-	assignments = data.load_assignments(deliverables)
-	definitions = data.responsibility_definitions()
-	today = getdate()
-	metrics = []
-
-	def metric(label, count, report, *, chart=None, chart_name=None, **route_filters):
-		metrics.append(
-			{
-				"id": f"metric-{len(metrics) + 1}",
-				"label": label,
-				"count": count,
-				"route_report": report,
-				"route_filters": {"project": project, **route_filters},
-				"chart": chart,
-				"chart_name": chart_name,
-			}
-		)
-
-	metric(_("Requirements"), len(requirements), TRACEABILITY)
-	metric(
-		_("Requirements without deliverables"),
-		len(set(requirements) - set(links)),
-		TRACEABILITY,
-		without_results=1,
-	)
-	metric(_("Project deliverables"), len(deliverables), DELIVERABLE_REGISTER)
-	metric(
-		_("Overdue deliverables"),
-		sum(data.is_late(row, today) for row in deliverables.values()),
-		DELIVERABLE_REGISTER,
-		overdue=1,
-	)
-	allowed = configured_roles(row.get("category") for row in deliverables.values())
-	metric(
-		_("Deliverables missing required responsibility"),
-		sum(
-			bool(missing_required(assignments.get(name, ()), definitions, allowed[row.get("category")]))
-			for name, row in deliverables.items()
-			if row.get("status") != "Cancelled"
-		),
-		DELIVERABLE_REGISTER,
-		missing_responsibility=1,
-	)
-	metric(
-		_("Constraints and assumptions due for review"),
-		sum(review_due(row, today) for row in constraints.values()),
-		CONSTRAINT_REGISTER,
-		review_due=1,
-	)
-	metric(_("Change requests"), len(requests), CHANGE_REGISTER)
-	metrics[0]["progress_deliverable"] = next(iter(deliverables), None)
-	for rows, key, chart, report, context in [
-		(requirements, "status", "requirement_status", TRACEABILITY, data.REQUIREMENT),
-		(requirements, "kind", "requirement_category", TRACEABILITY, "Requirement Kind"),
-		(deliverables, "status", "deliverable_status", DELIVERABLE_REGISTER, data.DELIVERABLE),
-		(requests, "status", "change_status", CHANGE_REGISTER, None),
-	]:
-		for item in data.distribution(rows.values(), key):
-			value = item["name"]
-			metric(
-				_(value, context=context) if value else _("Not specified"),
-				item["count"],
-				report,
-				chart=chart,
-				chart_name=value,
-				**({key: value} if value else {f"{key}_missing": 1}),
-			)
-	by_day = Counter(str(getdate(row["creation"])) for row in requests.values() if row.get("creation"))
-	for day, count in sorted(by_day.items()):
-		metric(day, count, CHANGE_REGISTER, chart="change_dates", chart_name=day, from_date=day, to_date=day)
-
-	return [
-		column("label", _("Indicator"), kind="label", width=355),
-		column("count", _("Count"), kind="count", width=110),
-	], metrics
-
-
 REPORTS = {
 	TRACEABILITY: traceability,
 	RESPONSIBILITY: raci,
 	IMPACT: change_impact,
-	OVERVIEW: overview,
 	DELIVERABLE_REGISTER: deliverable_register,
 	CONSTRAINT_REGISTER: constraint_register,
 	CHANGE_REGISTER: change_register,
