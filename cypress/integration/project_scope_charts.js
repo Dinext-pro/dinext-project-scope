@@ -1185,6 +1185,13 @@ describe("Project scope charts", () => {
 	it("toggles only overdue results from the warning button and updates the donuts", () => {
 		const title = `${fixture.title} work without a plan`;
 		cy.openDesk();
+		// The schedule-edit scenario moves this shared task's planned end into the future.
+		cy.call("frappe.client.set_value", {
+			doctype: "Task",
+			name: fixture.work,
+			fieldname: "custom_planned_end_date",
+			value: fixture.planned_end,
+		});
 		cy.call("frappe.client.insert", {
 			doc: {
 				doctype: "Project Deliverable",
