@@ -39,6 +39,14 @@
 	margin-bottom: var(--margin-xs);
 }
 
+/* The ag-grid body still needs a flexible host when its built-in toolbar is disabled. */
+.dinext-project-scope
+	.scope-embedded-grid:not(.dinext-table--toolbar-enabled)
+	> :is(.ag-root-wrapper, :has(.ag-root-wrapper)) {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
 .dinext-project-scope .scope-toolbar .btn,
 .dinext-project-scope .scope-toolbar summary {
 	white-space: nowrap;

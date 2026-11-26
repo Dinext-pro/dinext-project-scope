@@ -288,6 +288,7 @@ describe("Requirement specification composition", () => {
 		cy.get(`${row} .dinext-table-tree-toggle`).click();
 		cy.get(child).should("be.visible");
 		chooseLink("scope_specification_filter", fixture.nested);
+		cy.get(row).should("be.visible");
 		cy.get(`${row} .scope-requirement-details`).click();
 		cy.contains(".modal:visible .scope-source-path", "Included directly").should("not.exist");
 		cy.get(".modal:visible .scope-source-path").should("have.length", 1);
