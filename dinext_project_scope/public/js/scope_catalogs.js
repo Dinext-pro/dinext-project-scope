@@ -33,22 +33,23 @@
 						field.$input.trigger("focus");
 					});
 				field.$wrapper.find(".control-label").after(edit);
-				field.df.formatter = (value) =>
+				const format = (value) =>
 					frappe.form.formatters.SmallText(frappe.utils.escape_html(translate(value)));
-				descriptions.set(frm, { field, edit, readOnly });
+				descriptions.set(frm, { field, edit, readOnly, format });
 			},
 			refresh(frm) {
 				if (!frm.is_new()) frm.page.set_title(translate(frm.doc[titleField]));
 
 				const description = descriptions.get(frm);
 				if (!description) return;
-				const { field, edit, readOnly } = description;
+				const { field, edit, readOnly, format } = description;
 				const original = frm.doc.description || "";
 				const translated = !frm.is_new() && translate(original) !== original;
 				const writable =
 					frappe.perm.get_field_display_status({ ...field.df, read_only: readOnly }, frm.doc, frm.perm) ===
 					"Write";
 				frm.set_df_property("description", "read_only", translated ? 1 : readOnly);
+				frm.set_df_property("description", "formatter", format);
 				edit.toggle(translated && writable);
 			},
 		});

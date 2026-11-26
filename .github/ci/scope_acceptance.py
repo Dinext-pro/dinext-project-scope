@@ -327,6 +327,8 @@ def run_server_acceptance():
 		}
 		for _ in range(2):
 			run("bench", "--site", SITE, "migrate", "--skip-search-index")
+			# Role Profile fixture imports leave their updates queued until a worker runs.
+			run("bench", "worker", "--queue", "default,short,long", "--burst")
 			migrated = catalog_snapshot_values(execute_catalog_probe("snapshot"))
 			report["migrations"].append(migrated)
 			assert_same_catalog_values(expected, migrated, "Repeated migrate")
