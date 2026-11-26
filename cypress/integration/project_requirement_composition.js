@@ -379,7 +379,14 @@ describe("Requirement specification composition", () => {
 				for (const type of ["keyDown", "keyUp"]) {
 					await Cypress.automation("remote:debugger:protocol", {
 						command: "Input.dispatchKeyEvent",
-						params: { type, key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 },
+						params: {
+							type,
+							key: "Enter",
+							code: "Enter",
+							windowsVirtualKeyCode: 13,
+							nativeVirtualKeyCode: 13,
+							text: type === "keyDown" ? "\r" : "",
+						},
 					});
 				}
 			});

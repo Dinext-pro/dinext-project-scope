@@ -1184,14 +1184,14 @@ describe("Project scope charts", () => {
 
 	it("toggles only overdue results from the warning button and updates the donuts", () => {
 		const title = `${fixture.title} work without a plan`;
-		cy.visit("/app");
+		cy.openDesk();
 		cy.call("frappe.client.insert", {
 			doc: {
 				doctype: "Project Deliverable",
 				title,
 				project: fixture.project,
-				deliverable_type: "Документ",
-				category: "Проектирование",
+				deliverable_type: fixture.title,
+				category: fixture.title,
 			},
 		});
 		cy.visit(`/app/project/${fixture.project}`);

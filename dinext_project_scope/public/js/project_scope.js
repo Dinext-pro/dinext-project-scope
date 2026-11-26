@@ -568,6 +568,11 @@
 			filter: { enabled: false },
 			sort: { enabled: false },
 			edit: false,
+			defaultColDef: {
+				suppressKeyboardEvent: ({ event }) =>
+					(event.key === "Enter" || event.key === " ") &&
+					Boolean(event.target?.closest?.("button")),
+			},
 			layout: { height: "auto", maxHeight: "min(55vh, 560px)" },
 			gridOptions: { rowHeight: 29, headerHeight: 30, suppressNoRowsOverlay: true },
 			toolbar: { enabled: Boolean(toolbar), items: toolbar },
