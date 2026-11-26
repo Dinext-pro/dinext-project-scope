@@ -656,6 +656,31 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual(details["F3"].value, "3\u20135")
 		self.assertEqual(details["K3"].value, "Yes")
 
+	def test_structure_names_are_localized_in_linked_and_unassigned_result_rows(self):
+		slots = [
+			{"element_name": "Разработка", "element_type": "Task", "element": "T"},
+			{"element_name": "Отработка замечаний", "element_type": "Task"},
+		]
+		for language, linked_label, unassigned_label in (
+			("en", "Drafting", "Addressing feedback"),
+			("ru", "Разработка", "Отработка замечаний"),
+		):
+			with self.subTest(language=language), patch.object(frappe.local, "lang", language):
+				tree = data.StructureTree(
+					{"D": {"title": "Rollout"}},
+					{"D": slots},
+					{"T": {"subject": "Prepare the rollout"}},
+					{},
+					date(2026, 11, 27),
+				)
+				children = tree.deliverable("D")["children"]
+				linked = next(row for row in children if row.get("document") == "T")
+				unassigned = next(row for row in children if not row.get("document"))
+				self.assertEqual(linked["label"], "Prepare the rollout")
+				self.assertEqual(linked["slot_label"], linked_label)
+				self.assertEqual(unassigned["label"], unassigned_label)
+		self.assertEqual(slots[0]["element_name"], "Разработка")
+
 	def test_responsibility_abbreviations_follow_locale_in_rows_and_excel(self):
 		definitions = {
 			"О": {"responsibility": "Ответственный", "color": "#C62828"},

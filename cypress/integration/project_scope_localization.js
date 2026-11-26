@@ -38,6 +38,7 @@ function filterValues(value) {
 
 describe("Project scope catalog localization", () => {
 	const fixture = useReportFixture();
+	let localizedResult;
 	const title = () => `${fixture.title} localized result`;
 
 	before(() => {
@@ -49,6 +50,8 @@ describe("Project scope catalog localization", () => {
 				category,
 				deliverable_type: deliverableType,
 			},
+		}).then(({ body }) => {
+			localizedResult = body.message.name;
 		});
 	});
 
@@ -79,6 +82,35 @@ describe("Project scope catalog localization", () => {
 					'[data-fieldname="elements"] input[data-fieldname="element_name"]:visible'
 				).should("have.value", original[0]);
 			}
+		});
+
+		it(`localizes the result card and tree structure in ${language}`, () => {
+			cy.login(fixture[actor], fixture.password);
+			const stored = ["Разработка", "Согласование / Приемка", "Отработка замечаний"];
+			const labels =
+				language === "en"
+					? ["Drafting", "Review / acceptance", "Addressing feedback"]
+					: stored;
+			cy.visit(`/app/project-deliverable/${localizedResult}`);
+			cy.window().its("frappe.boot.lang").should("eq", language);
+			cy.get(
+				'[data-fieldname="table_xuct"] .grid-body [data-fieldname="element_name"] .static-area'
+			).should(($cells) => {
+				expect([...$cells].map((cell) => cell.textContent.trim())).to.deep.eq(labels);
+			});
+			cy.window().should(({ cur_frm }) => {
+				expect(cur_frm.doc.table_xuct.map(({ element_name }) => element_name)).to.deep.eq(
+					stored
+				);
+			});
+			cy.visit(`/app/project/${fixture.project}`);
+			cy.get('button[data-fieldname="custom_результаты"]').click();
+			resultFilter("deliverable_type")
+				.select(typeLabel)
+				.should("have.value", deliverableType);
+			cy.contains(`${host} .dinext-scope-link`, title()).should("be.visible");
+			for (const label of labels.slice(0, 2))
+				cy.contains(`${host} .dinext-scope-label`, label).should("be.visible");
 		});
 
 		it(`shows the localized RACI abbreviation and keeps the original responsibility filter in ${language}`, () => {

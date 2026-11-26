@@ -11,6 +11,8 @@ import {
 
 const resultHost = '[data-fieldname="custom_scope_results_html"]';
 const chartCard = ".dinext-scope-chart-card";
+const requirementsPane = '[data-fieldname="custom_scope_requirements_html"]';
+const changesPane = '[data-fieldname="custom_scope_changes_html"]';
 const changes = "Project Change Request Register";
 const traceability = "Requirement Traceability Matrix";
 const responsibility = "Project Responsibility Matrix";
@@ -954,49 +956,97 @@ describe("Project scope charts", () => {
 		).should("be.visible");
 	});
 
-	it("drills from the project creation-date chart to the same project and inclusive date", () => {
+	it("uses each change chart as a reversible local filter and keeps the inclusive register date", () => {
+		cy.login(fixture.actor, fixture.password);
 		openScope(fixture.project);
 		const dates = "Change requests by date";
+		const stage = "Change requests by stage";
+		const select = (field) => cy.get(`${changesPane} select[data-fieldname="${field}"]`);
+		const clickDate = () =>
+			clickChartPoint(dates, (instance) =>
+				instance.convertToPixel({ seriesIndex: 0 }, [0, 0.5])
+			);
 		chartOption(chart(dates), (option) => {
 			expect(option.series[0].type).to.eq("bar");
 			expect(option.series[0].data).to.deep.eq([1]);
 		});
-		clickChartPoint(dates, (instance) =>
-			instance.convertToPixel({ seriesIndex: 0 }, [0, 0.5])
+		clickPieSegment(stage, "Draft");
+		select("status").should("have.value", "Draft");
+		clickDate();
+		select("creation").should("have.value", fixture.change_date);
+		cy.contains(`${changesPane} .scope-cell-link`, `${fixture.title} change`).should(
+			"be.visible"
 		);
-		reportShown(changes, {
+		clickDate();
+		select("creation").should("have.value", "");
+		select("status").should("have.value", "Draft");
+		clickPieSegment(stage, "Draft");
+		select("status").should("have.value", "");
+		cy.location("pathname").should("eq", `/app/project/${fixture.project}`);
+
+		const filters = {
 			project: fixture.project,
 			from_date: fixture.change_date,
 			to_date: fixture.change_date,
-		});
-		downloadExcel("project_change_request_register", {
-			project: fixture.project,
-			from_date: fixture.change_date,
-			to_date: fixture.change_date,
-		});
+		};
+		openReport(changes, filters);
+		reportShown(changes, filters);
+		downloadExcel("project_change_request_register", filters);
 		rowLink(`${fixture.title} change`).click();
 		cy.location("pathname").should("eq", `/app/project-change-request/${fixture.change}`);
 	});
 
-	it("drills from a project requirement donut and counts each readable requirement once", () => {
+	it("intersects requirement chart filters and keeps unmatched ancestors as context", () => {
 		cy.login(fixture.actor, fixture.password);
 		openScope(fixture.project);
-		chartOption(chart("Requirements by status"), (option) => {
+		const status = "Requirements by status";
+		const category = "Requirements by category";
+		const select = (field) => cy.get(`${requirementsPane} select[data-fieldname="${field}"]`);
+		const row = (title) =>
+			cy.contains(
+				`${requirementsPane} .ag-pinned-left-cols-container .scope-cell-link`,
+				title
+			);
+		const secondary = `${fixture.title} secondary`;
+		chartOption(chart(status), (option) => {
 			expect(option.series[0].data).to.deep.include({ name: "In Progress", value: 1 });
 		});
-		chartOption(chart("Change requests by stage"), (option) => {
-			expect(option.series[0].data).to.deep.eq([{ name: "Draft", value: 1 }]);
-		});
-		chartOption(chart("Requirements by category"), (option) => {
+		chartOption(chart(category), (option) => {
 			expect(option.series[0].data).to.deep.have.members([
 				{ name: fixture.title, value: 2 },
-				{ name: `${fixture.title} secondary`, value: 1 },
+				{ name: secondary, value: 1 },
 			]);
 		});
-		clickPieSegment("Requirements by category", fixture.title);
-		reportShown(traceability, { project: fixture.project, kind: fixture.title });
-		rowLink(`${fixture.title} unlinked`).should("be.visible");
-		rowLink(`${fixture.title} analyzed child`).should("not.exist");
+		clickPieSegment(category, fixture.title);
+		select("kind").should("have.value", fixture.title);
+		row(`${fixture.title} unlinked`).should("be.visible");
+		row(`${fixture.title} analyzed child`).should("not.exist");
+		clickPieSegment(category, fixture.title);
+		select("kind").should("have.value", "");
+
+		clickPieSegment(status, "In Progress");
+		clickPieSegment(category, secondary);
+		select("status").should("have.value", "In Progress");
+		select("kind").should("have.value", secondary);
+		row(`${fixture.title} analyzed child`).should("be.visible");
+		row(`${fixture.title} unlinked`).should("not.exist");
+		cy.get(`${requirementsPane} .ag-pinned-left-cols-container .ag-row`).should(
+			"have.length",
+			2
+		);
+		cy.get(
+			`${requirementsPane} .ag-pinned-left-cols-container .dinext-scope-context-row`
+		).should("have.length", 1);
+		chartOption(chart(category), (option) => {
+			expect(option.series[0].data).to.deep.eq([{ name: secondary, value: 1 }]);
+		});
+		clickPieSegment(status, "In Progress");
+		select("status").should("have.value", "");
+		select("kind").should("have.value", secondary);
+		cy.get(`${requirementsPane} button[title="Clear filters"]`).click();
+		select("kind").should("have.value", "");
+		row(`${fixture.title} unlinked`).should("be.visible");
+		cy.location("pathname").should("eq", `/app/project/${fixture.project}`);
 	});
 
 	it("denies other-project progress and results data", () => {

@@ -3,8 +3,54 @@
 	min-width: 0;
 }
 
-.dinext-project-scope .scope-pane-title {
+.dinext-project-scope .scope-pane-title,
+[data-fieldname="custom_scope_items_section"]
+	[data-fieldname="project_scopes"]
+	.grid-field
+	> label.control-label,
+[data-fieldname="custom_scope_constraints_section"]
+	[data-fieldname="project_constraints"]
+	.grid-field
+	> label.control-label {
+	display: none;
+}
+
+.dinext-project-scope.dinext-scope-analytics:has(.dinext-table--fullscreen) {
+	display: flex;
+	flex-direction: column;
+	block-size: 100dvh;
+	overflow: hidden;
+	margin: 0;
+}
+
+.dinext-project-scope:has(.dinext-table--fullscreen) > .scope-pane-title {
+	display: block;
 	margin: 0 0 var(--margin-xs);
+}
+
+.dinext-project-scope:has(.dinext-table--fullscreen) > :not(.scope-grid-frame) {
+	flex-shrink: 0;
+}
+
+.dinext-project-scope:has(.dinext-table--fullscreen) .scope-grid-frame {
+	flex: 1;
+	min-height: 0;
+}
+
+.dinext-project-scope.dinext-scope-analytics:has(.dinext-table--fullscreen) .scope-embedded-grid {
+	height: 100%;
+}
+
+.dinext-project-scope:has(.dinext-table--fullscreen) .scope-embedded-charts {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dinext-project-scope:has(.dinext-table--fullscreen) .scope-embedded-charts .dinext-scope-chart {
+	height: min(142px, 22dvh);
+}
+
+.dinext-project-scope .dinext-scope-context-row .scope-cell-link {
+	color: var(--text-muted);
 }
 
 .dinext-project-scope .scope-embedded-charts {
@@ -37,14 +83,6 @@
 	position: relative;
 	z-index: 2;
 	margin-bottom: var(--margin-xs);
-}
-
-/* The ag-grid body still needs a flexible host when its built-in toolbar is disabled. */
-.dinext-project-scope
-	.scope-embedded-grid:not(.dinext-table--toolbar-enabled)
-	> :is(.ag-root-wrapper, :has(.ag-root-wrapper)) {
-	flex: 1 1 auto;
-	min-height: 0;
 }
 
 .dinext-project-scope .scope-toolbar .btn,

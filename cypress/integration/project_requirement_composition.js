@@ -6,6 +6,8 @@ const workflowMenu = ".page-container:visible .actions-btn-group";
 const modal = ".modal:visible";
 const approvalBadge = ".requirement-form-status";
 const projectTree = '[data-fieldname="custom_scope_requirements_html"] .dinext-project-scope';
+const projectRows = projectTree + " .ag-center-cols-container .ag-row";
+const projectTitles = projectTree + " .ag-pinned-left-cols-container .ag-row";
 const compositionRows = ".requirement-form-table tbody";
 const templateApply = "/api/method/dinext_project_scope.requirements.apply_specification_template";
 const workflowApply = "/api/method/frappe.model.workflow.apply_workflow";
@@ -46,6 +48,21 @@ function openProjectScope(project) {
 	cy.visit(`/app/project/${project}`);
 	cy.get('button[data-fieldname="custom_объем"]').click();
 	cy.get(projectTree).should("be.visible");
+}
+
+function projectGrid() {
+	return cy
+		.get(projectTree + " .ag-root-wrapper[grid-id]")
+		.should("exist")
+		.then(([grid]) =>
+			grid.ownerDocument.defaultView.agGrid.getGridApi(grid.getAttribute("grid-id"))
+		);
+}
+
+function showProjectSpecifications() {
+	projectGrid().then((api) => {
+		api.ensureColumnVisible("paths", "end");
+	});
 }
 
 function moreScopeAction(label) {
@@ -107,9 +124,9 @@ function applyTemplate(project, template, prefix, excludedReviewer) {
 			expect(Object.keys(created.requirements)).to.have.length(2);
 			expect(Object.keys(created.specifications)).to.have.length(3);
 			cy.get(modal).should("not.exist");
-			cy.get(
-				`${projectTree} .ag-row[row-id$="${Object.values(created.requirements)[0]}"]`
-			).should("be.visible");
+			cy.get(`${projectRows}[row-id$="${Object.values(created.requirements)[0]}"]`).should(
+				"be.visible"
+			);
 			return cy.wrap(created, { log: false });
 		});
 }
@@ -274,21 +291,24 @@ describe("Requirement specification composition", () => {
 
 	it("shows one project requirement for direct and nested sources and filters that tree", () => {
 		openProjectScope(fixture.project);
-		const row = `${projectTree} .ag-row[row-id$="${fixture.working}"]`;
-		const child = `${projectTree} .ag-row[row-id$="${fixture.nested_child}"]`;
+		const row = `${projectRows}[row-id$="${fixture.working}"]`;
+		const child = `${projectRows}[row-id$="${fixture.nested_child}"]`;
 		cy.get(row).should("have.length", 1);
+		const titleRow = `${projectTitles}[row-id$="${fixture.working}"]`;
+		showProjectSpecifications();
 		cy.get(`${row} .scope-source-list button`).should("have.length", 2);
 		cy.get(`${row} .scope-requirement-details`).click();
 		cy.get(".modal:visible .scope-source-path").should("have.length", 3);
 		cy.contains(".modal:visible .scope-source-path", "Included directly").should("be.visible");
 		cy.contains(".modal:visible .scope-row-details", "Must Have").should("be.visible");
 		cy.get(".modal:visible .btn-modal-close").click();
-		cy.get(`${row} .dinext-table-tree-toggle`).click();
+		cy.get(`${titleRow} .dinext-table-tree-toggle`).click();
 		cy.get(child).should("not.exist");
-		cy.get(`${row} .dinext-table-tree-toggle`).click();
+		cy.get(`${titleRow} .dinext-table-tree-toggle`).click();
 		cy.get(child).should("be.visible");
 		chooseLink("scope_specification_filter", fixture.nested);
 		cy.get(row).should("be.visible");
+		showProjectSpecifications();
 		cy.get(`${row} .scope-requirement-details`).click();
 		cy.contains(".modal:visible .scope-source-path", "Included directly").should("not.exist");
 		cy.get(".modal:visible .scope-source-path").should("have.length", 1);
@@ -308,9 +328,9 @@ describe("Requirement specification composition", () => {
 		});
 		cy.get(`${compositionRows} a[href$="/${fixture.replacement}"]`).should("be.visible");
 		openProjectScope(fixture.project);
-		cy.get(`${projectTree} .ag-row[row-id$="${fixture.nested_child}"]`).should("not.exist");
-		cy.get(`${projectTree} .ag-row[row-id$="${fixture.replacement}"]`).should("be.visible");
-		cy.get(`${projectTree} .ag-row[row-id$="${fixture.working}"]`).should("have.length", 1);
+		cy.get(`${projectRows}[row-id$="${fixture.nested_child}"]`).should("not.exist");
+		cy.get(`${projectRows}[row-id$="${fixture.replacement}"]`).should("be.visible");
+		cy.get(`${projectRows}[row-id$="${fixture.working}"]`).should("have.length", 1);
 		cy.visit(requirementForm(fixture.nested_child));
 		cy.contains(".requirement-form", "Outside current project scope").should("be.visible");
 		cy.get('[data-fieldname="project"] a[data-name]').should(
@@ -356,12 +376,31 @@ describe("Requirement specification composition", () => {
 	it("keeps project scope actions and table details accessible at 800 px", () => {
 		cy.viewport(800, 820);
 		openProjectScope(fixture.project);
-		cy.get(`${projectTree} .ag-header-cell-text`).should(($columns) => {
-			expect([...$columns].map((column) => column.textContent.trim())).to.deep.equal([
+		projectGrid().then((api) => {
+			expect(
+				api.getAllGridColumns().map((column) => column.getColDef().headerName)
+			).to.deep.eq([
 				"Requirement",
 				"Status",
+				"Priority",
+				"Kind",
+				"Author",
+				"Importance",
+				"Responsible",
 				"Specifications",
 			]);
+			expect(api.getColumn("title").getPinned()).to.eq("left");
+		});
+		const status = `${projectRows} [col-id="status"]`;
+		cy.get(status).first().should("have.css", "text-align", "center");
+		cy.get(`${status} .indicator-pill`).each(($badge) => {
+			cy.window().then(({ frappe }) => {
+				const state = frappe
+					.get_meta("Project Requirement")
+					.states.find(({ title }) => title === $badge.text().trim());
+				expect(state, "Document States configuration").to.exist;
+				expect($badge).to.have.class(frappe.scrub(state.color, "-"));
+			});
 		});
 		cy.contains(`${projectTree} button`, "Requirement Traceability Matrix").should(
 			"be.visible"
@@ -372,7 +411,12 @@ describe("Requirement specification composition", () => {
 		cy.contains(`${projectTree} summary`, "More Actions").click();
 		cy.contains(`${projectTree} button`, "Apply Specification Template").should("be.visible");
 		cy.contains(`${projectTree} summary`, "More Actions").click();
-		cy.get(`${projectTree} .ag-row[row-id$="${fixture.working}"]`).within(() => {
+		showProjectSpecifications();
+		cy.get(`${projectTree} .ag-body-horizontal-scroll-viewport`).should(([viewport]) => {
+			expect(viewport.scrollLeft).to.be.greaterThan(0);
+		});
+		cy.get(`${projectTitles}[row-id$="${fixture.working}"]`).should("be.visible");
+		cy.get(`${projectRows}[row-id$="${fixture.working}"]`).within(() => {
 			cy.get(".scope-requirement-details").then(([button]) => button.focus());
 			cy.focused().should("have.attr", "title", "Details");
 			cy.then(async () => {
@@ -414,10 +458,15 @@ describe("Requirement specification composition", () => {
 			fixture.project
 		);
 		openProjectScope(fixture.project);
-		cy.contains(`${projectTree} .ag-row`, title).within(() => {
-			cy.get(".scope-source-list").should("not.exist");
-			cy.contains('.ag-cell[col-id="paths"]', "—").should("be.visible");
-		});
+		showProjectSpecifications();
+		cy.contains(projectTitles, title)
+			.invoke("attr", "row-id")
+			.then((id) => {
+				cy.get(`${projectRows}[row-id="${id}"]`).within(() => {
+					cy.get(".scope-source-list").should("not.exist");
+					cy.contains('.ag-cell[col-id="paths"]', "—").should("be.visible");
+				});
+			});
 	});
 
 	it("updates the visible specification state immediately for the author and reviewer", () => {

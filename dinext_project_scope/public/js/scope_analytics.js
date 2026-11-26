@@ -882,11 +882,73 @@
 		};
 	}
 
-	function donut(surface, container, title, items, onSelect = null, options = {}) {
+	function chartFilter(
+		surface,
+		container,
+		{ key, label, title, formatLabel, timeline },
+		onChange
+	) {
 		const card = node("section", "dinext-scope-chart-card");
-		card.append(node("h4", "dinext-scope-heading", title));
+		const chart = node("div");
+		const filter = node("div", "dinext-scope-result-filter");
+		card.append(node("h4", "dinext-scope-heading", title), chart, filter);
 		container.append(card);
-		drawDonut(surface, card, items, onSelect, options);
+		const all = {
+			value: "",
+			label: frappe.utils.escape_html(__("All", null, "Dinext.ProjectScope.Filters")),
+		};
+		const control = frappe.ui.form.make_control({
+			parent: filter,
+			only_input: true,
+			render_input: true,
+			df: { fieldtype: "Select", fieldname: key, label, options: [all], onchange: onChange },
+		});
+		control.$input.attr("aria-label", label);
+		const optionValue = (name) => name || EMPTY;
+		const display = (name) => formatLabel(name) || __("Not specified");
+		const panel = {
+			key,
+			control,
+			clear() {
+				const element = chart.querySelector(".dinext-scope-chart");
+				if (element) surface.unregisterChart(element);
+				chart.replaceChildren();
+			},
+			matches(value) {
+				const selected = control.get_value();
+				return !selected || selected === optionValue(value);
+			},
+			toggle(name) {
+				const option = optionValue(name);
+				control.set_input(control.get_value() === option ? "" : option);
+				return onChange();
+			},
+			draw(options, counts, selected = control.get_value() || "") {
+				control.df.options = [
+					all,
+					...options.map(({ name }) => ({
+						value: optionValue(name),
+						label: frappe.utils.escape_html(display(name)),
+					})),
+				];
+				control.set_input(selected);
+				panel.clear();
+				const onSelect = ({ name }) => panel.toggle(name);
+				if (timeline) {
+					drawTimeline(surface, chart, counts, onSelect);
+				} else {
+					drawDonut(surface, chart, counts, onSelect, {
+						legend: false,
+						formatLabel: display,
+						palette: () =>
+							document.documentElement.dataset.theme === "dark"
+								? chartPalette
+								: resultLightPalette,
+					});
+				}
+			},
+		};
+		return panel;
 	}
 
 	function drawDonut(
@@ -973,16 +1035,13 @@
 		);
 	}
 
-	function timeline(surface, container, points, onSelect) {
-		const card = node("section", "dinext-scope-chart-card");
-		card.append(node("h4", "dinext-scope-heading", __("Change requests by date")));
-		container.append(card);
+	function drawTimeline(surface, container, points, onSelect) {
 		if (!points.length) {
-			card.append(node("div", "dinext-scope-empty", __("No data")));
+			container.append(node("div", "dinext-scope-empty", __("No data")));
 			return;
 		}
 		const chart = node("div", "dinext-scope-chart dinext-scope-chart--timeline");
-		card.append(chart);
+		container.append(chart);
 		surface.registerChart(
 			chart,
 			() => {
@@ -1685,31 +1744,14 @@
 			["deliverable_type", __("Deliverable type"), __("Deliverables by type")],
 			["status", __("Status"), __("Deliverables by status")],
 		];
-		const allOption = {
-			value: "",
-			label: frappe.utils.escape_html(__("All", null, "Dinext.ProjectScope.Filters")),
-		};
-		const panels = profiles.map(([key, label, title]) => {
-			const card = node("section", "dinext-scope-chart-card");
-			const chart = node("div");
-			const filter = node("div", "dinext-scope-result-filter");
-			card.append(node("h4", "dinext-scope-heading", title), chart, filter);
-			charts.append(card);
-			const control = frappe.ui.form.make_control({
-				parent: filter,
-				only_input: true,
-				render_input: true,
-				df: {
-					fieldtype: "Select",
-					fieldname: key,
-					label,
-					options: [allOption],
-					onchange: refresh,
-				},
-			});
-			control.$input.attr("aria-label", label);
-			return { key, chart, control };
-		});
+		const panels = profiles.map(([key, label, title]) =>
+			chartFilter(
+				surface,
+				charts,
+				{ key, label, title, formatLabel: (name) => resultFilterLabel(key, name) },
+				refresh
+			)
+		);
 		let revision = 0;
 		let appliedQuery = null;
 		let responsible = "";
@@ -1748,10 +1790,7 @@
 		};
 
 		function toggleResultFilter(field, value) {
-			const { control } = panels.find(({ key }) => key === field);
-			const next = value || EMPTY;
-			control.set_input(control.get_value() === next ? "" : next);
-			return refresh();
+			return panels.find(({ key }) => key === field).toggle(value);
 		}
 
 		function clearFilters() {
@@ -1777,11 +1816,7 @@
 		}
 
 		function clearDonuts() {
-			for (const { chart } of panels) {
-				const donut = chart.querySelector(".dinext-scope-chart--donut");
-				if (donut) surface.unregisterChart(donut);
-				chart.replaceChildren();
-			}
+			for (const panel of panels) panel.clear();
 		}
 
 		async function refresh() {
@@ -1814,31 +1849,10 @@
 				return;
 			}
 			if (!surface.active() || request !== revision) return;
-			clearDonuts();
 			const filters = JSON.parse(outerQuery.filters);
-			for (const { key, chart, control } of panels) {
-				control.df.options = [
-					allOption,
-					...result.options[key].map(({ name }) => ({
-						value: name || EMPTY,
-						label: frappe.utils.escape_html(resultFilterLabel(key, name)),
-					})),
-				];
-				control.set_input(filters[key]);
-				drawDonut(
-					surface,
-					chart,
-					result.counts[key],
-					(item) => toggleResultFilter(key, item.name),
-					{
-						legend: false,
-						formatLabel: (name) => resultFilterLabel(key, name),
-						palette: () =>
-							document.documentElement.dataset.theme === "dark"
-								? chartPalette
-								: resultLightPalette,
-					}
-				);
+			for (const panel of panels) {
+				const { key } = panel;
+				panel.draw(result.options[key], result.counts[key], filters[key]);
 			}
 			await drawGrid(
 				surface,
@@ -1982,7 +1996,6 @@
 		expansionIds,
 		drawGrid,
 		setMessage,
-		donut,
-		timeline,
+		chartFilter,
 	};
 })();

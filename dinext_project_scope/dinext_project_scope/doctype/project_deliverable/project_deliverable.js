@@ -14,7 +14,13 @@
 		if (frm.doc.name === name) callback();
 	}
 
+	const structureName = (value) =>
+		value ? __(value, null, "Project Deliverable Type Element") : "";
+
 	function setupQueries(frm) {
+		frappe.meta.get_docfield("Project Deliverable Structure", "element_name").formatter = (
+			value
+		) => frappe.utils.escape_html(structureName(value));
 		frm.set_query("category", () => ({ filters: { enabled: 1 } }));
 		frm.set_query("deliverable_type", () => ({ filters: { enabled: 1 } }));
 		frm.set_query("responsibility", "deliverable_responsibles", () => ({
@@ -236,7 +242,7 @@
 				: __(row.element_type);
 		const describe = (row) =>
 			[
-				row.element_name,
+				structureName(row.element_name),
 				workType(row),
 				row.is_optional
 					? __("Optional", null, "Project Deliverable")

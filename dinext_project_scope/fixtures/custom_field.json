@@ -57,6 +57,18 @@
   "width": null
  },
  {
+  "collapsible": 1,
+  "collapsible_depends_on": "eval:true",
+  "doctype": "Custom Field",
+  "dt": "Project",
+  "fieldname": "custom_scope_items_section",
+  "fieldtype": "Section Break",
+  "insert_after": "custom_объем",
+  "label": "Scope Items",
+  "module": "Dinext Project Scope",
+  "name": "Project-custom_scope_items_section"
+ },
+ {
   "allow_in_quick_entry": 0,
   "allow_on_submit": 0,
   "bold": 0,
@@ -83,7 +95,7 @@
   "in_list_view": 0,
   "in_preview": 0,
   "in_standard_filter": 0,
-  "insert_after": "custom_объем",
+  "insert_after": "custom_scope_items_section",
   "is_system_generated": 0,
   "is_virtual": 0,
   "label": "Scope Items",
@@ -114,6 +126,18 @@
   "width": null
  },
  {
+  "collapsible": 1,
+  "collapsible_depends_on": "eval:true",
+  "doctype": "Custom Field",
+  "dt": "Project",
+  "fieldname": "custom_scope_constraints_section",
+  "fieldtype": "Section Break",
+  "insert_after": "custom_scope_requirements_html",
+  "label": "Constraints and Assumptions",
+  "module": "Dinext Project Scope",
+  "name": "Project-custom_scope_constraints_section"
+ },
+ {
   "allow_in_quick_entry": 0,
   "allow_on_submit": 0,
   "bold": 0,
@@ -140,7 +164,7 @@
   "in_list_view": 0,
   "in_preview": 0,
   "in_standard_filter": 0,
-  "insert_after": "custom_scope_requirements_html",
+  "insert_after": "custom_scope_constraints_section",
   "is_system_generated": 0,
   "is_virtual": 0,
   "label": "Constraints and Assumptions",
@@ -254,7 +278,7 @@
   "in_list_view": 0,
   "in_preview": 0,
   "in_standard_filter": 0,
-  "insert_after": "custom_объем",
+  "insert_after": "project_scopes",
   "is_system_generated": 0,
   "is_virtual": 0,
   "label": "Project Scope",
@@ -285,6 +309,18 @@
   "width": null
  },
  {
+  "collapsible": 1,
+  "collapsible_depends_on": "eval:true",
+  "doctype": "Custom Field",
+  "dt": "Project",
+  "fieldname": "custom_scope_requirements_section",
+  "fieldtype": "Section Break",
+  "insert_after": "custom_project_scope",
+  "label": "Requirements",
+  "module": "Dinext Project Scope",
+  "name": "Project-custom_scope_requirements_section"
+ },
+ {
   "allow_in_quick_entry": 0,
   "allow_on_submit": 0,
   "bold": 0,
@@ -311,7 +347,7 @@
   "in_list_view": 0,
   "in_preview": 0,
   "in_standard_filter": 0,
-  "insert_after": "custom_project_scope",
+  "insert_after": "custom_scope_requirements_section",
   "is_system_generated": 0,
   "is_virtual": 0,
   "label": "Project Requirements",
@@ -368,7 +404,7 @@
   "in_list_view": 0,
   "in_preview": 0,
   "in_standard_filter": 0,
-  "insert_after": "custom_project_requirements",
+  "insert_after": "project_constraints",
   "is_system_generated": 0,
   "is_virtual": 0,
   "label": "Constraints and assumptions",
@@ -425,7 +461,7 @@
   "in_list_view": 0,
   "in_preview": 0,
   "in_standard_filter": 0,
-  "insert_after": "custom_project_requirements",
+  "insert_after": "custom_project_requirement_specifications",
   "is_system_generated": 0,
   "is_virtual": 0,
   "label": "Requirements",
@@ -513,6 +549,18 @@
   "width": null
  },
  {
+  "collapsible": 1,
+  "collapsible_depends_on": "eval:true",
+  "doctype": "Custom Field",
+  "dt": "Project",
+  "fieldname": "custom_scope_changes_section",
+  "fieldtype": "Section Break",
+  "insert_after": "custom_constraints_and_assumptions",
+  "label": "Change Requests",
+  "module": "Dinext Project Scope",
+  "name": "Project-custom_scope_changes_section"
+ },
+ {
   "allow_in_quick_entry": 0,
   "allow_on_submit": 0,
   "bold": 0,
@@ -539,7 +587,7 @@
   "in_list_view": 0,
   "in_preview": 0,
   "in_standard_filter": 0,
-  "insert_after": "custom_constraints_and_assumptions",
+  "insert_after": "custom_scope_changes_section",
   "is_system_generated": 0,
   "is_virtual": 0,
   "label": "Project Change Requests",

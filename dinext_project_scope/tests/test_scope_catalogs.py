@@ -105,3 +105,31 @@ class TestScopeCatalogs(TestCase):
 			},
 			abbreviations,
 		)
+
+	def test_scope_fixture_sections_and_field_order_preserve_other_project_fields(self):
+		from dinext_project_scope.install import scope_field_order
+
+		fields = {row["fieldname"]: row for row in fixture_records("Custom Field") if row["dt"] == "Project"}
+		sections = (
+			("custom_scope_items_section", "project_scopes"),
+			("custom_scope_requirements_section", "custom_scope_requirements_html"),
+			("custom_scope_constraints_section", "project_constraints"),
+			("custom_scope_changes_section", "custom_scope_changes_html"),
+		)
+		for section, _field in sections:
+			self.assertEqual(fields[section]["fieldtype"], "Section Break")
+			self.assertEqual(fields[section]["collapsible"], 1)
+			self.assertEqual(fields[section]["collapsible_depends_on"], "eval:true")
+
+		existing = ["project_scopes", "details", "custom_объем", "project_constraints", "finances"]
+		reordered = scope_field_order(existing)
+		self.assertEqual([field for field in reordered if field in {"details", "custom_объем", "finances"}],
+			["details", "custom_объем", "finances"])
+		last = reordered.index("custom_объем")
+		for section, field in sections:
+			section_index = reordered.index(section)
+			self.assertGreater(section_index, last)
+			last = reordered.index(field)
+			self.assertGreater(last, section_index)
+		self.assertLess(last, reordered.index("finances"))
+		self.assertEqual(scope_field_order(reordered), reordered)

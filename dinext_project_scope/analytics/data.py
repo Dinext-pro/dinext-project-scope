@@ -374,6 +374,8 @@ class StructureTree:
 		kind = slot.get("element_type")
 		target = slot.get("element")
 		label = slot.get("element_name")
+		if label:
+			label = _(label, context="Project Deliverable Type Element")
 		if kind == DELIVERABLE and target in self.deliverables and target not in ancestors:
 			row = self.deliverable(target, row_id, ancestors)
 			if label and label != row["label"]:

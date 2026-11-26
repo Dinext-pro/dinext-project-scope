@@ -22,12 +22,20 @@ function assignmentRow(title) {
 		.then((id) => cy.get(`${table} .ag-center-cols-container [row-id="${id}"]`));
 }
 
-function clickFullscreenControl(title) {
-	cy.get(`${table} button[title="${title}"]`)
+function clickFullscreenControl(title, root = table) {
+	cy.get(`${root} button[title="${title}"]`)
+		.scrollIntoView({ offset: { top: -180, left: 0 } })
 		.should("be.visible")
+		.should(([button]) => {
+			const rect = button.getBoundingClientRect();
+			const hit = button.ownerDocument.elementFromPoint(
+				rect.left + rect.width / 2,
+				rect.top + rect.height / 2
+			);
+			expect(button.contains(hit)).to.eq(true);
+		})
 		.then(async ([button]) => {
 			// Chromium requires trusted user input to enter fullscreen.
-			button.scrollIntoView({ block: "nearest" });
 			const rect = button.getBoundingClientRect();
 			let x = rect.left + rect.width / 2;
 			let y = rect.top + rect.height / 2;
@@ -73,6 +81,64 @@ describe("Project scope reports", () => {
 		).should("not.exist");
 		cy.screenshot("project-scope-requirements");
 	});
+
+	it("opens and closes the four native Scope sections independently", () => {
+		cy.visit(`/app/project/${fixture.project}`);
+		cy.get('button[data-fieldname="custom_объем"]').click();
+		const layouts = [
+			["custom_scope_items_section", "project_scopes", 0],
+			["custom_scope_requirements_section", "custom_scope_requirements_html", 2],
+			["custom_scope_constraints_section", "project_constraints", 0],
+			["custom_scope_changes_section", "custom_scope_changes_html", 2],
+		];
+		for (const [section, field, charts] of layouts) {
+			const group = `.form-section[data-fieldname="${section}"]`;
+			const content = `${group} [data-fieldname="${field}"]`;
+			const header = `${group} .section-head.collapsible`;
+			cy.get(content).should("be.visible");
+			cy.get(content).should(($content) => {
+				expect($content.find(".dinext-scope-chart-card")).to.have.length(charts);
+			});
+			cy.get(header).click();
+			cy.get(content).should("not.be.visible");
+			cy.get(header).click();
+			cy.get(content).should("be.visible");
+		}
+	});
+
+	for (const [label, field, filter] of [
+		["Requirements", "custom_scope_requirements_html", "kind"],
+		["Change Requests", "custom_scope_changes_html", "creation"],
+	]) {
+		it(`keeps ${label} charts and filters in fullscreen with internal table scrolling`, () => {
+			cy.login(fixture.actor, fixture.password);
+			cy.visit(`/app/project/${fixture.project}`);
+			cy.get('button[data-fieldname="custom_объем"]').click();
+			const pane = `[data-fieldname="${field}"] .dinext-project-scope`;
+			clickFullscreenControl("Fullscreen", pane);
+			cy.get(pane).should(([root]) => {
+				expect(root.ownerDocument.fullscreenElement).to.eq(root);
+				expect(root.querySelectorAll(".dinext-scope-chart canvas")).to.have.length(2);
+				const table = root.querySelector(".scope-embedded-grid");
+				const viewport = root.querySelector(".ag-body-viewport");
+				expect(viewport.clientHeight, "table body height").to.be.greaterThan(50);
+				expect(table.getBoundingClientRect().bottom).to.be.closeTo(
+					root.getBoundingClientRect().bottom,
+					24
+				);
+				expect(root.scrollHeight).to.be.at.most(root.clientHeight + 1);
+			});
+			const control = `${pane} select[data-fieldname="${filter}"]`;
+			cy.get(control).select(1).should("not.have.value", "");
+			cy.get(`${pane} .dinext-scope-chart canvas`).should("have.length", 2);
+			cy.get(pane).should(([root]) =>
+				expect(root.ownerDocument.fullscreenElement).to.eq(root)
+			);
+			clickFullscreenControl("Exit fullscreen", pane);
+			cy.document().should(({ fullscreenElement }) => expect(fullscreenElement).to.be.null);
+			cy.get(control).should("not.have.value", "");
+		});
+	}
 
 	it("opens the change impact matrix from the change grid and keeps project menus clear", () => {
 		cy.visit(`/app/project/${fixture.project}`);
