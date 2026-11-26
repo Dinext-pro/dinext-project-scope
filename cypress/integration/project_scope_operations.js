@@ -501,8 +501,8 @@ describe("Project scope operations in Desk", () => {
 		chooseLink("deliverable_type", fixture.work_type);
 		cy.get(fields("project")).find("input:visible").should("have.value", "");
 		clickSave();
-		cy.get(\`${modal} .modal-title\`).should("have.text", "Missing Fields");
-		cy.contains(\`${modal} .modal-body li\`, "Project is required.").should("be.visible");
+		cy.get(`${modal} .modal-title`).should("have.text", "Missing Fields");
+		cy.contains(`${modal} .modal-body li`, "Project is required.").should("be.visible");
 		readForm((doc) => expect(Boolean(doc.__islocal)).to.be.true);
 	});
 
