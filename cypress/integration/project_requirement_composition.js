@@ -306,8 +306,15 @@ describe("Requirement specification composition", () => {
 		cy.get(child).should("not.exist");
 		cy.get(`${titleRow} .dinext-table-tree-toggle`).click();
 		cy.get(child).should("be.visible");
+		cy.get(row).invoke("attr", "row-id").as("workingRequirementRow");
 		chooseLink("scope_specification_filter", fixture.nested);
-		cy.get(row).should("be.visible");
+		cy.get("@workingRequirementRow").then((id) => {
+			projectGrid().should((api) => {
+				const paths = api.getRowNode(id)?.data?.paths;
+				expect(paths, "updated paths for the selected specification").to.have.length(1);
+				expect(paths[0]).to.include(fixture.nested);
+			});
+		});
 		showProjectSpecifications();
 		cy.get(`${row} .scope-requirement-details`).click();
 		cy.contains(".modal:visible .scope-source-path", "Included directly").should("not.exist");
