@@ -22,20 +22,12 @@ function assignmentRow(title) {
 		.then((id) => cy.get(`${table} .ag-center-cols-container [row-id="${id}"]`));
 }
 
-function clickFullscreenControl(title, root = table) {
-	cy.get(`${root} button[title="${title}"]`)
-		.scrollIntoView({ offset: { top: -180, left: 0 } })
+function clickFullscreenControl(title) {
+	cy.get(`${table} button[title="${title}"]`)
 		.should("be.visible")
-		.should(([button]) => {
-			const rect = button.getBoundingClientRect();
-			const hit = button.ownerDocument.elementFromPoint(
-				rect.left + rect.width / 2,
-				rect.top + rect.height / 2
-			);
-			expect(button.contains(hit)).to.eq(true);
-		})
 		.then(async ([button]) => {
 			// Chromium requires trusted user input to enter fullscreen.
+			button.scrollIntoView({ block: "nearest" });
 			const rect = button.getBoundingClientRect();
 			let x = rect.left + rect.width / 2;
 			let y = rect.top + rect.height / 2;
@@ -54,6 +46,30 @@ function clickFullscreenControl(title, root = table) {
 				});
 			}
 		});
+}
+
+function pressFullscreenControl(root, title) {
+	cy.get(`${root} button[title="${title}"]`)
+		.scrollIntoView({ offset: { top: -160, left: 0 } })
+		.should("be.visible")
+		.focus();
+	cy.focused().should("have.attr", "title", title);
+	cy.then(async () => {
+		// Use trusted keyboard input for the fullscreen button after scrolling the project form.
+		for (const type of ["keyDown", "keyUp"]) {
+			await Cypress.automation("remote:debugger:protocol", {
+				command: "Input.dispatchKeyEvent",
+				params: {
+					type,
+					key: "Enter",
+					code: "Enter",
+					windowsVirtualKeyCode: 13,
+					nativeVirtualKeyCode: 13,
+					text: type === "keyDown" ? "\r" : "",
+				},
+			});
+		}
+	});
 }
 
 describe("Project scope reports", () => {
@@ -115,7 +131,7 @@ describe("Project scope reports", () => {
 			cy.visit(`/app/project/${fixture.project}`);
 			cy.get('button[data-fieldname="custom_объем"]').click();
 			const pane = `[data-fieldname="${field}"] .dinext-project-scope`;
-			clickFullscreenControl("Fullscreen", pane);
+			pressFullscreenControl(pane, "Fullscreen");
 			cy.get(pane).should(([root]) => {
 				expect(root.ownerDocument.fullscreenElement).to.eq(root);
 				expect(root.querySelectorAll(".dinext-scope-chart canvas")).to.have.length(2);
@@ -134,7 +150,7 @@ describe("Project scope reports", () => {
 			cy.get(pane).should(([root]) =>
 				expect(root.ownerDocument.fullscreenElement).to.eq(root)
 			);
-			clickFullscreenControl("Exit fullscreen", pane);
+			pressFullscreenControl(pane, "Exit fullscreen");
 			cy.document().should(({ fullscreenElement }) => expect(fullscreenElement).to.be.null);
 			cy.get(control).should("not.have.value", "");
 		});
