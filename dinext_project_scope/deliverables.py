@@ -373,17 +373,24 @@ def _recalculate(project, seeds, source, *, saved=None):
 	return updates
 
 
-def validate_deliverable(doc):
+def validate_result_fields(doc):
+	"""Check the project and supplied status before Workflow sets its initial state."""
 	from dinext_project_scope import deliverable_workflow
 
-	before = doc.get_doc_before_save()
-	doc.title = cstr(doc.title).strip()
 	if not doc.project:
 		frappe.throw(_("Project is required for a result."), frappe.MandatoryError)
 	if doc.status in (None, ""):
 		doc.status = "Not Started"
 	if not isinstance(doc.status, str) or doc.status not in deliverable_workflow.WORKING_STATUSES:
 		frappe.throw(_("Choose a valid result status."))
+
+
+def validate_deliverable(doc):
+	from dinext_project_scope import deliverable_workflow
+
+	before = doc.get_doc_before_save()
+	doc.title = cstr(doc.title).strip()
+	validate_result_fields(doc)
 	if before and before.project != doc.project:
 		frappe.throw(_("The project of an existing result cannot be changed."))
 	access.check_project(doc.project)

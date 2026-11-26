@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, NotRequired, TypedDict
+from typing import Any, TypedDict
+
+from typing_extensions import NotRequired
 
 ProgressPoint = list[str | float | None]
 FilterValue = str | int | float | bool | None

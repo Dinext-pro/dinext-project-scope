@@ -78,19 +78,12 @@ class TestProjectDeliverable(FrappeTestCase):
 	def test_project_reader_cannot_read_list_or_select_an_old_result_without_a_project(self):
 		self.assert_old_result_is_hidden()
 
-	def test_sharing_cannot_widen_the_project_boundary(self):
-		from frappe.model.db_query import DatabaseQuery
-		from frappe import permissions
-
-		if not (
-			hasattr(permissions, "has_final_permission")
-			and getattr(DatabaseQuery, "final_permission_query_conditions_version", 0)
-		):
-			self.skipTest("This Frappe version does not implement post-share permission policies.")
+	def test_shared_old_result_stays_hidden_from_document_and_link(self):
 		self.assert_old_result_is_hidden(share_result=True)
 
 	def assert_old_result_is_hidden(self, *, share_result=False):
 		from frappe.desk.search import search_widget
+		from frappe.model.db_query import DatabaseQuery
 		from frappe.share import add as share
 
 		kind = self.kind()
@@ -122,7 +115,8 @@ class TestProjectDeliverable(FrappeTestCase):
 			allowed.check_permission("read")
 			with self.assertRaises(frappe.PermissionError):
 				orphan.reload().check_permission("read")
-			self.assertEqual(frappe.get_list(allowed.doctype, filters=filters, pluck="name"), [allowed.name])
+			if not share_result or getattr(DatabaseQuery, "final_permission_query_conditions_version", 0):
+				self.assertEqual(frappe.get_list(allowed.doctype, filters=filters, pluck="name"), [allowed.name])
 			for ignore_user_permissions in (False, True):
 				with self.subTest(ignore_user_permissions=ignore_user_permissions):
 					matches = search_widget(

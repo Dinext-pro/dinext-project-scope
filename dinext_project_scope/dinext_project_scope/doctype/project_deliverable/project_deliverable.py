@@ -10,6 +10,7 @@ from dinext_project_scope.deliverables import (
 	lock_source_projects,
 	on_deliverable_update,
 	validate_deliverable,
+	validate_result_fields,
 )
 
 
@@ -31,6 +32,9 @@ class ProjectDeliverable(Document):
 		for row in self.table_xuct:
 			row.element_doctype = element_doctype(row)
 		super()._validate_links()
+
+	def before_validate(self):
+		validate_result_fields(self)
 
 	def validate(self):
 		validate_deliverable(self)

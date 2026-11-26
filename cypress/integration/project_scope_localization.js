@@ -142,3 +142,16 @@ describe("Project scope catalog localization", () => {
 		});
 	}
 });
+
+describe("Project scope catalog descriptions", () => {
+	it("shows the English description and opens the stored text for editing", () => {
+		cy.login();
+		cy.visit(`/app/project-deliverable-type/${encodeURIComponent("Миграция данных")}`);
+		cy.get('.frappe-control[data-fieldname="description"] .control-value:visible')
+			.should("contain.text", "Preparation and execution of data loading")
+			.and("not.contain.text", "ExampleCustomer08");
+		cy.get('button[title="Edit description"]:visible').click();
+		cy.get('.frappe-control[data-fieldname="description"] textarea:visible')
+			.should("have.value", "ExampleCustomer08 загрузки и миграции данных в тест и продуктив.");
+	});
+});

@@ -896,7 +896,6 @@
 		const describeChart = !onSelect || !legend;
 		chart.setAttribute("aria-hidden", String(!describeChart));
 		const data = items.map((item) => ({
-			id: item.name || EMPTY,
 			name: item.label || formatLabel(item.name) || __("Not specified"),
 			value: item.count,
 		}));
