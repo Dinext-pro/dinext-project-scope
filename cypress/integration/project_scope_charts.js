@@ -1194,11 +1194,9 @@ describe("Project scope charts", () => {
 				category: fixture.title,
 			},
 		});
-		cy.visit(`/app/project/${fixture.project}`);
-		cy.get('button[data-fieldname="custom_результаты"]').click();
+		showResults(fixture.project);
 		const button = `${resultHost} .dinext-table-toolbar button[title="Overdue deliverables"]`;
-		const result = `${resultHost} .ag-center-cols-container .ag-row`;
-		cy.contains(result, title).should("be.visible");
+		rowLink(title).should("be.visible");
 		const projectResults = "/api/method/dinext_project_scope.analytics.data.project_results";
 		cy.intercept({ method: "GET", pathname: projectResults }, (request) => {
 			if (JSON.parse(request.query.filters || "{}").overdue)
@@ -1217,10 +1215,10 @@ describe("Project scope charts", () => {
 				.find(".dinext-scope-donut-count")
 				.should("have.text", String(total));
 		});
-		cy.contains(result, title).should("not.exist");
-		cy.contains(result, `${fixture.title} result`).should("be.visible");
+		rowLink(title).should("not.exist");
+		rowLink(`${fixture.title} result`).should("be.visible");
 		cy.get(button).click();
 		cy.get(button).should("have.attr", "aria-pressed", "false");
-		cy.contains(result, title).should("be.visible");
+		rowLink(title).should("be.visible");
 	});
 });
