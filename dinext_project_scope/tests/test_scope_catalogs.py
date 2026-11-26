@@ -84,3 +84,24 @@ class TestScopeCatalogs(TestCase):
 						self.assertNotIn("ExampleCustomer", translation)
 						total_descriptions += 1
 		self.assertEqual((total_labels, total_descriptions), (39, 29))
+
+	def test_shipped_structure_names_and_responsibility_abbreviations_have_english_text(self):
+		messages = get_translations_from_csv("en", "dinext_project_scope")
+		names = {
+			element["element_name"]
+			for row in fixture_records("Project Deliverable Type")
+			for element in row["elements"]
+		}
+		for name in sorted(names):
+			with self.subTest(element=name):
+				translation = messages.get(f"{name}:Project Deliverable Type Element")
+				self.assertTrue(translation)
+				self.assertNotEqual(translation, name)
+		abbreviations = {"И": "R", "О": "A", "К": "C", "Д": "I", "С": "V", "У": "S"}
+		self.assertEqual(
+			{
+				row["name"]: messages.get(f"{row['name']}:Project Deliverable Responsibility Abbreviation")
+				for row in fixture_records("Project Deliverable Responsibility")
+			},
+			abbreviations,
+		)

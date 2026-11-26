@@ -3,6 +3,13 @@
 
 frappe.ui.form.on("Project Deliverable Type", {
 	setup(frm) {
+		frappe.meta.get_docfield("Project Deliverable Type Element", "element_name").formatter = (
+			value
+		) =>
+			frappe.utils.escape_html(
+				value ? __(value, null, "Project Deliverable Type Element") : ""
+			);
+
 		frm.set_query("filter_type", "elements", (_doc, cdt, cdn) =>
 			locals[cdt][cdn].element_type === "Other"
 				? { filters: { istable: 0, issingle: 0, is_virtual: 0 } }

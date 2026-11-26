@@ -385,9 +385,9 @@ describe("Project scope reports", () => {
 			.find(".dinext-scope-badge")
 			.should(($badges) => {
 				expect([...$badges].map((badge) => badge.textContent)).to.have.members([
-					"Д",
-					"О",
-					"С",
+					"I",
+					"A",
+					"V",
 				]);
 				const boxes = [...$badges].map((badge) => badge.getBoundingClientRect());
 				expect(new Set(boxes.map((box) => box.top)).size).to.eq(1);

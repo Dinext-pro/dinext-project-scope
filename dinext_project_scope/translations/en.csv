@@ -132,3 +132,21 @@ ExampleCustomer08 загрузки и миграции данных в тест 
 Функциональный,Functional,Project Scope Type
 "Эксперты или заинтересованные стороны, чьё мнение и информация важны перед принятием решения.",Experts or stakeholders whose input is needed before a decision is made.,
 "Эксперты или заинтересованные стороны, чьё мнение и информация важны перед принятием решения.",Experts or stakeholders whose input is needed before a decision is made.,Project Deliverable Responsibility
+Выполнение,Execution,Project Deliverable Type Element
+Отработка замечаний,Addressing feedback,Project Deliverable Type Element
+Отработка замечаний (опционально),Addressing feedback (optional),Project Deliverable Type Element
+Проведение,Test execution,Project Deliverable Type Element
+Продуктивная миграция,Production migration,Project Deliverable Type Element
+Разработка,Drafting,Project Deliverable Type Element
+Реализация,Implementation,Project Deliverable Type Element
+Согласование / Приемка,Review / acceptance,Project Deliverable Type Element
+Спецификация,Specification,Project Deliverable Type Element
+Сценарий / программа,Test script / plan,Project Deliverable Type Element
+Тестовый прогон,Trial run,Project Deliverable Type Element
+Шаблон загрузки,Data import template,Project Deliverable Type Element
+Д,I,Project Deliverable Responsibility Abbreviation
+И,R,Project Deliverable Responsibility Abbreviation
+К,C,Project Deliverable Responsibility Abbreviation
+О,A,Project Deliverable Responsibility Abbreviation
+С,V,Project Deliverable Responsibility Abbreviation
+У,S,Project Deliverable Responsibility Abbreviation

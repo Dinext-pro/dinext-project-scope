@@ -6,6 +6,9 @@ const reportEndpoint = "/api/method/frappe.desk.query_report.run";
 const reportName = "Project Responsibility Matrix";
 const category = "Проектирование";
 const deliverableType = "Документ";
+const migrationType = `/app/project-deliverable-type/${encodeURIComponent("Миграция данных")}`;
+const elementFields =
+	'[data-fieldname="elements"] .grid-body .grid-static-col[data-fieldname="element_name"] .static-area';
 
 const locales = [
 	{ language: "en", actor: "actor", categoryLabel: "Solution Design", typeLabel: "Document" },
@@ -50,6 +53,72 @@ describe("Project scope catalog localization", () => {
 	});
 
 	for (const { language, actor, categoryLabel, typeLabel } of locales) {
+		it(`shows shipped type element names in ${language} and preserves the stored text`, () => {
+			cy.login(fixture[actor], fixture.password);
+			cy.visit(migrationType);
+			cy.window().its("frappe.boot.lang").should("eq", language);
+			const original = ["Шаблон загрузки", "Тестовый прогон", "Продуктивная миграция"];
+			const labels =
+				language === "en"
+					? ["Data import template", "Trial run", "Production migration"]
+					: original;
+			cy.get(elementFields).should(($cells) => {
+				expect([...$cells].map((cell) => cell.textContent.trim())).to.deep.eq(labels);
+			});
+			cy.window().should(({ cur_frm: form }) => {
+				expect(form.doc.elements.map(({ element_name }) => element_name)).to.deep.eq(
+					original
+				);
+			});
+
+			if (language === "en") {
+				cy.login();
+				cy.visit(migrationType);
+				cy.get('[data-fieldname="elements"] .grid-body .btn-open-row').first().click();
+				cy.get(
+					'[data-fieldname="elements"] input[data-fieldname="element_name"]:visible'
+				).should("have.value", original[0]);
+			}
+		});
+
+		it(`shows the localized RACI abbreviation and keeps the original responsibility filter in ${language}`, () => {
+			cy.login(fixture[actor], fixture.password);
+			const responsibility = ["О"];
+			cy.intercept({ pathname: reportEndpoint }, (request) => {
+				const { report_name, filters } = requestParameters(request);
+				const selected = filterValues(filters);
+				if (
+					report_name === reportName &&
+					selected.project === fixture.project &&
+					selected.responsibility?.length
+				)
+					request.alias = "localizedResponsibility";
+			});
+			const query = new URLSearchParams({ project: fixture.project });
+			cy.visit(`/app/query-report/${encodeURIComponent(reportName)}?${query}`);
+			rowLink(`${fixture.title} shared component`).should("be.visible");
+			cy.window().then(({ frappe }) => {
+				return frappe.query_report.set_filter_value("responsibility", responsibility);
+			});
+			cy.wait("@localizedResponsibility").then(({ request, response }) => {
+				expect(response?.statusCode).to.eq(200);
+				expect(filterValues(requestParameters(request).filters).responsibility).to.deep.eq(
+					responsibility
+				);
+			});
+			rowLink(`${fixture.title} shared component`)
+				.closest(".ag-row")
+				.invoke("attr", "row-id")
+				.then((id) => {
+					const abbreviation = language === "en" ? "A" : "О";
+					const label = language === "en" ? "Accountable" : "Ответственный";
+					cy.get(`${table} .ag-row[row-id="${id}"] .dinext-scope-badge`)
+						.should("have.length", 1)
+						.and("have.text", abbreviation)
+						.and("have.attr", "aria-label", `${abbreviation} · ${label}`);
+				});
+		});
+
 		it(`shows localized Results filters and sends the reference IDs in ${language}`, () => {
 			cy.login(fixture[actor], fixture.password);
 			cy.visit(`/app/project/${fixture.project}`);
@@ -151,7 +220,9 @@ describe("Project scope catalog descriptions", () => {
 			.should("contain.text", "Preparation and execution of data loading")
 			.and("not.contain.text", "ExampleCustomer08");
 		cy.get('button[title="Edit description"]:visible').click();
-		cy.get('.frappe-control[data-fieldname="description"] textarea:visible')
-			.should("have.value", "ExampleCustomer08 загрузки и миграции данных в тест и продуктив.");
+		cy.get('.frappe-control[data-fieldname="description"] textarea:visible').should(
+			"have.value",
+			"ExampleCustomer08 загрузки и миграции данных в тест и продуктив."
+		);
 	});
 });

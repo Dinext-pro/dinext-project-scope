@@ -14,8 +14,10 @@ from dinext_project_scope.analytics.contracts import (
 	ReportFiltersFormInput,
 	ReportFilterValue,
 	ReportResponse,
+	ResponsibilityBadge,
 	ScriptReportResponse,
 )
+from dinext_project_scope.catalogs import SHIPPED_CATALOG_NAMES
 from dinext_project_scope.deliverable_responsibility import configured_roles, missing_responsibilities
 
 TRACEABILITY = "Requirement Traceability Matrix"
@@ -221,6 +223,18 @@ def traceability(filters):
 	], list(flatten_rows(top))
 
 
+def responsibility_badge(code: str, definition: dict) -> ResponsibilityBadge:
+	abbreviation = code
+	if code in SHIPPED_CATALOG_NAMES[data.RESPONSIBILITY]:
+		abbreviation = _(code, context="Project Deliverable Responsibility Abbreviation")
+	return {
+		"code": code,
+		"abbreviation": abbreviation,
+		"label": _(definition.get("responsibility") or code, context=data.RESPONSIBILITY),
+		"color": definition.get("color"),
+	}
+
+
 def responsibility_matrix(deliverables, assignments, definitions, participant_profiles, role_names, filters):
 	selected = filters.get("responsibility")
 	selected_codes = set(selected) if isinstance(selected, list) else {selected} if selected else set()
@@ -291,17 +305,10 @@ def responsibility_matrix(deliverables, assignments, definitions, participant_pr
 			"cells": {},
 		}
 		for key, codes in slots.items():
-			entries = [
-				{
-					"code": code,
-					"label": _(definitions.get(code, {}).get("responsibility") or code, context="Project Deliverable Responsibility"),
-					"color": definitions.get(code, {}).get("color"),
-				}
-				for code in sorted(codes)
-			]
+			entries = [responsibility_badge(code, definitions.get(code, {})) for code in sorted(codes)]
 			field = fields[key]
 			row["cells"][field] = entries
-			row[field] = " / ".join(entry["code"] for entry in entries)
+			row[field] = " / ".join(entry["abbreviation"] for entry in entries)
 		groups[category].append(row)
 
 	tree = [
@@ -537,11 +544,7 @@ def change_register(filters):
 
 def missing_required(assignments, definitions, allowed):
 	return [
-		{
-			"code": code,
-			"label": _(definitions[code].get("responsibility") or code, context="Project Deliverable Responsibility"),
-			"color": definitions[code].get("color"),
-		}
+		responsibility_badge(code, definitions[code])
 		for code in missing_responsibilities(assignments, allowed, definitions)
 	]
 

@@ -160,6 +160,13 @@ class ProjectResultDynamicsResponse(TypedDict):
 	responsible: ResponsibleDynamics
 
 
+class ResponsibilityBadge(TypedDict):
+	code: str
+	abbreviation: str
+	label: str
+	color: str | None
+
+
 class ReportColumn(TypedDict):
 	fieldname: str
 	label: str

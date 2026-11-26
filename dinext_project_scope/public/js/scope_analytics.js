@@ -227,9 +227,10 @@
 	function roleBadges(entries) {
 		const holder = node("span", "dinext-scope-badges");
 		for (const entry of entries || []) {
-			const item = badge(entry.code);
+			const abbreviation = entry.abbreviation ?? entry.code;
+			const item = badge(abbreviation);
 			item.title = entry.label;
-			item.setAttribute("aria-label", `${entry.code} · ${entry.label}`);
+			item.setAttribute("aria-label", `${abbreviation} · ${entry.label}`);
 			if (/^#[0-9a-f]{6}$/i.test(entry.color || "")) {
 				const components = [1, 3, 5].map(
 					(index) => parseInt(entry.color.slice(index, index + 2), 16) / 255

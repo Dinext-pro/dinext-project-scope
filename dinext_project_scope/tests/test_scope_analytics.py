@@ -656,6 +656,49 @@ class TestScopeAnalytics(TestCase):
 		self.assertEqual(details["F3"].value, "3\u20135")
 		self.assertEqual(details["K3"].value, "Yes")
 
+	def test_responsibility_abbreviations_follow_locale_in_rows_and_excel(self):
+		definitions = {
+			"О": {"responsibility": "Ответственный", "color": "#C62828"},
+			"И": {"responsibility": "Исполнитель"},
+			"Keep": {"responsibility": "Custom responsibility"},
+		}
+		assignments = {
+			"r1": [
+				{
+					"project_role": "Lead",
+					"responsible_type": "User",
+					"responsible": "manager@example.test",
+					"responsibility": code,
+				}
+				for code in definitions
+			]
+		}
+		for language, abbreviation, label in (
+			("en", "A", "Accountable"),
+			("ru", "О", "Ответственный"),
+		):
+			with self.subTest(language=language), patch.object(frappe.local, "lang", language):
+				columns, rows = reports.responsibility_matrix(
+					{"r1": {"name": "r1", "title": "Rollout"}},
+					assignments,
+					definitions,
+					{},
+					{},
+					{"responsibility": ["О", "Keep"]},
+				)
+				field = columns[-1]["fieldname"]
+				entries = rows[-1]["cells"][field]
+				self.assertEqual([entry["code"] for entry in entries], ["Keep", "О"])
+				self.assertEqual([entry["abbreviation"] for entry in entries], ["Keep", abbreviation])
+				self.assertEqual(entries[-1]["label"], label)
+				expected = f"Keep / {abbreviation}"
+				self.assertEqual(rows[-1][field], expected)
+				book = load_workbook(BytesIO(export.make_workbook(reports.RESPONSIBILITY, columns, rows)))
+				self.assertEqual(book.worksheets[0]["C4"].value, expected)
+				self.assertEqual(book.worksheets[1]["A3"].value, abbreviation)
+				self.assertEqual(book.worksheets[1]["B3"].value, label)
+				self.assertEqual(book.worksheets[1]["A3"].font.color.rgb, "FFC62828")
+
 	@patch.object(export, "_", lambda string, **_: string)
 	@patch.object(reports, "_", lambda string, **_: string)
 	def test_workbook_keeps_role_groups_typed_values_and_all_codes(self):

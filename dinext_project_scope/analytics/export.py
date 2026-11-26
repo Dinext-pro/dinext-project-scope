@@ -64,9 +64,8 @@ def rich_codes(entries):
 		if index:
 			segments.append(" / ")
 		color = rgb(entry.get("color"))
-		segments.append(
-			TextBlock(InlineFont(color=color, b=True), str(entry["code"])) if color else str(entry["code"])
-		)
+		abbreviation = str(entry.get("abbreviation", entry["code"]))
+		segments.append(TextBlock(InlineFont(color=color, b=True), abbreviation) if color else abbreviation)
 	return CellRichText(segments)
 
 
@@ -226,9 +225,10 @@ def make_workbook(report_name, columns, rows):
 		legend_sheet.column_dimensions["B"].width = 42
 		write_header(legend_sheet["A1"], _("Code"))
 		write_header(legend_sheet["B1"], _("Responsibility"))
-		for index, (code, entry) in enumerate(sorted(legend.items()), start=2):
+		entries = sorted(legend.values(), key=lambda entry: entry["code"])
+		for index, entry in enumerate(entries, start=2):
 			cell = legend_sheet.cell(index, 1)
-			write_cell(cell, code)
+			write_cell(cell, entry.get("abbreviation", entry["code"]))
 			cell.font = Font(color=rgb(entry.get("color")), bold=True)
 			cell.alignment = BODY_ALIGNMENT
 			label = legend_sheet.cell(index, 2)
