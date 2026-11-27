@@ -27,14 +27,10 @@ class TestScopeAnalytics(TestCase):
 		}
 		other = {"document_type": "Note", "document": "other", "is_other": True}
 		result = dict(task, document_type=data.DELIVERABLE, document="result", children=[task, other])
-		with patch.object(
-			data,
-			"result_progress_history",
-			return_value={
-				(data.DELIVERABLE, "result"): [(baseline, 25), (reporting, 48), (reporting, 52.5)],
-				("Task", "task"): [(reporting, 46)],
-			},
-		) as history:
+		with patch.object(data, "result_progress_history", return_value={
+			(data.DELIVERABLE, "result"): [(baseline, 25), (reporting, 48), (reporting, 52.5)],
+			("Task", "task"): [(reporting, 46)],
+		}) as history:
 			data.add_result_progress([result], reporting, baseline, True, today)
 		history.assert_called_once_with({data.DELIVERABLE: {"result"}, "Task": {"task"}}, reporting)
 		self.assertEqual(result["progress"], 52.5)
@@ -87,26 +83,13 @@ class TestScopeAnalytics(TestCase):
 	def test_results_workbook_exports_visible_progress_columns_and_hierarchy(self):
 		with (
 			patch.object(export.frappe, "has_permission") as permission,
-			patch.object(
-				data,
-				"project_results",
-				return_value={
-					"comparison": {"show_plan": True, "baseline_date": "2026-11-12"},
-					"rows": [
-						{
-							"label": "Parent",
-							"progress": 54,
-							"baseline_progress": 25,
-							"baseline_delta": 29,
-							"baseline_delta_direction": "up",
-							"planned_progress": 50,
-							"plan_delta": 4,
-							"plan_delta_direction": "up",
-							"children": [{"label": "=Child", "progress": 20}],
-						}
-					],
-				},
-			) as payload,
+			patch.object(data, "project_results", return_value={
+				"comparison": {"show_plan": True, "baseline_date": "2026-11-12"},
+				"rows": [{"label": "Parent", "progress": 54, "baseline_progress": 25,
+					"baseline_delta": 29, "baseline_delta_direction": "up", "planned_progress": 50,
+					"plan_delta": 4, "plan_delta_direction": "up",
+					"children": [{"label": "=Child", "progress": 20}]}],
+			}) as payload,
 			patch.object(export, "provide_binary_file") as delivery,
 		):
 			filters = '{"responsible":"User:member"}'
@@ -800,13 +783,9 @@ class TestScopeAnalytics(TestCase):
 			{"r1": {"name": "r1"}},
 			assignments,
 			definitions,
-			{
-				("Contact", "x"): {"full_name": "Same"},
-				("User", "x"): {
-					"full_name": "Same",
-					"user_image": "/files/member.png",
-				},
-			},
+			{("Contact", "x"): {"full_name": "Same"}, ("User", "x"): {
+				"full_name": "Same", "user_image": "/files/member.png",
+			}},
 			{},
 			{"responsibility": ["Own", "Do"], "responsible_type": "User"},
 		)
