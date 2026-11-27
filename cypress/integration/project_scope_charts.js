@@ -34,30 +34,51 @@ function chartOption(subject, assertion) {
 	});
 }
 
-function withChartPoint(title, locate, interact) {
+function withChartPoint(title, locate, events) {
+	let point;
 	chart(title)
 		.find("canvas")
 		.first()
-		.then(($canvas) => {
-			const canvas = $canvas[0];
+		.should(([canvas]) => {
 			canvas.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+			const page = canvas.ownerDocument;
+			const view = page.defaultView;
 			const target = canvas.closest(".dinext-scope-chart");
-			const instance = target.ownerDocument.defaultView.echarts.getInstanceByDom(target);
-			const [x, y] = locate(instance).map(Math.round);
-			const subject = cy.wrap($canvas).should(() => {
-				const rect = canvas.getBoundingClientRect();
-				expect(canvas.ownerDocument.elementFromPoint(rect.left + x, rect.top + y)).to.eq(
-					canvas
-				);
-			});
-			interact(subject, x, y);
+			const instance = view.echarts?.getInstanceByDom(target);
+			expect(instance, "current chart instance").to.exist;
+			const [chartX, chartY] = locate(instance);
+			const rect = canvas.getBoundingClientRect();
+			const x = rect.left + chartX;
+			const y = rect.top + chartY;
+			expect(page.elementFromPoint(x, y), "chart at the pointer").to.eq(canvas);
+			const frame =
+				view.frameElement || view.parent.document.querySelector("iframe.aut-iframe");
+			const bounds = frame?.getBoundingClientRect();
+			point = bounds
+				? {
+						x: bounds.left + (x * bounds.width) / frame.offsetWidth,
+						y: bounds.top + (y * bounds.height) / frame.offsetHeight,
+				  }
+				: { x, y };
+		})
+		.then(async () => {
+			for (const type of events) {
+				const moving = type === "mouseMoved";
+				await Cypress.automation("remote:debugger:protocol", {
+					command: "Input.dispatchMouseEvent",
+					params: {
+						...point,
+						type,
+						button: moving ? "none" : "left",
+						clickCount: moving ? 0 : 1,
+					},
+				});
+			}
 		});
 }
 
 function clickChartPoint(title, locate) {
-	withChartPoint(title, locate, (canvas, x, y) => {
-		canvas.click(x, y, { scrollBehavior: "center" });
-	});
+	withChartPoint(title, locate, ["mouseMoved", "mousePressed", "mouseReleased"]);
 }
 
 function pieSegmentPoint(instance, label) {
@@ -641,12 +662,7 @@ describe("Project scope charts", () => {
 			withChartPoint(
 				title,
 				(instance) => (label ? pieSegmentPoint(instance, label) : [1, 1]),
-				(canvas, x, y) => {
-					canvas.trigger("mousemove", x, y, {
-						eventConstructor: "MouseEvent",
-						scrollBehavior: false,
-					});
-				}
+				["mouseMoved"]
 			);
 		};
 		chartOption(chart(title), (option) => expect(option.series[0].data).to.have.length(2));
@@ -727,6 +743,11 @@ describe("Project scope charts", () => {
 				.should((counts) => {
 					expect(counts.reduce((sum, { count }) => sum + count, 0)).to.eq(total);
 				});
+			cy.window().then(({ frappe }) => frappe.after_ajax());
+			chartOption(chart(categoryChart), (option) => {
+				const values = option.series[0].data;
+				expect(values.reduce((sum, { value }) => sum + value, 0)).to.eq(total);
+			});
 		};
 
 		statusFilter().select("Not Started");

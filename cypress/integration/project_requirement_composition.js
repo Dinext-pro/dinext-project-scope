@@ -602,6 +602,9 @@ describe("Requirement specification composition", () => {
 				cy.get(
 					'.page-container:visible [data-fieldname="template_source"] a[data-name]'
 				).should("have.attr", "data-name", fixture.child);
+				cy.window()
+					.its("cur_frm.doc.responsible")
+					.should("eq", fixture.actors.reviewer.email);
 				const markDone = 'button[data-label="Mark%20Done"]:visible';
 				cy.get(markDone).should("not.exist");
 				signIn("reviewer");
@@ -612,6 +615,9 @@ describe("Requirement specification composition", () => {
 				signIn("author");
 				cy.visit(requirementForm(secondChild));
 				cy.get('[data-fieldname="status"] select').should("have.value", "New");
+				cy.window()
+					.its("cur_frm.doc.responsible")
+					.should("eq", fixture.actors.author.email);
 				approvalStatus("Draft");
 			});
 		});

@@ -80,14 +80,14 @@ def _plan(
 		frappe.throw(_("An assignment refers to a document outside this template."))
 	actor = frappe.session.user if frappe.session.user in assignees else None
 	contacts = {row["name"] for row in access.project_participants(project.name, "Contact")}
-	visible_users = {user for user in assignees if frappe.has_permission("User", "select", doc=user)}
+	eligible_users = set(assignees)
 	selected = {}
 	blueprint = []
 	for name, source in nodes.items():
 		if source.doctype == req.REQUIREMENT:
 			author_type, author = req.participant_link(source, "author")
 			req.check_requirement_participant("author", author_type, author)
-			chosen = _requirement_assignee(source, visible_users, contacts, actor, assignments)
+			chosen = _requirement_assignee(source, eligible_users, contacts, actor, assignments)
 			content = req.requirement_content(source)
 			for goal in content["goals"]:
 				access.check_document("Goal", goal)
@@ -121,16 +121,18 @@ def _plan(
 def _requirement_assignee(source, users, contacts, actor, overrides) -> req.ParticipantLink:
 	if source.name in overrides:
 		user = overrides[source.name]
-		if user and user not in users:
+		if user and (user not in users or not frappe.has_permission("User", "select", doc=user)):
 			frappe.throw(_("Choose an active user from the target project for this assignment."))
 		return "User", user
 
+	# The graph already checked read access to this source. Preserve its saved
+	# assignment only when that active user is eligible in the target project.
 	doctype, name = req.participant_link(source, "responsible")
 	if doctype == "Contact" and name in contacts and req.can_read(doctype, name):
 		return doctype, name
 	if doctype == "User" and name in users:
 		return doctype, name
-	return "User", actor if actor in users else None
+	return "User", actor if actor and frappe.has_permission("User", "select", doc=actor) else None
 
 
 def preview(project: str, template: str, assignments) -> req.SpecificationTemplatePreviewResponse:

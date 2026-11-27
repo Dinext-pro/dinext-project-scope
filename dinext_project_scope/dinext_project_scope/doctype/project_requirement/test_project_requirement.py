@@ -1,6 +1,8 @@
 # Copyright (c) 2026, Dinext and Contributors
 # See license.txt
 
+from unittest.mock import patch
+
 import frappe
 from dinext_common.workflow_approval.api import apply_workflow
 from dinext_common.workflow_approval.engine import WorkflowDomainRollbackError
@@ -365,6 +367,30 @@ class TestProjectRequirement(FrappeTestCase):
 				copy = frappe.get_doc(source.doctype, result["requirements"][source.name])
 				self.assertEqual((copy.author_type, copy.author), ("User", "Administrator"))
 				self.assertEqual((copy.responsible_type, copy.responsible), expected)
+
+	def test_template_preserves_a_readable_saved_assignment_without_user_select(self):
+		source = self.make_requirement(project=None, status="Template")
+		template = self.make_specification([(source.doctype, source.name)], template=True)
+		has_permission = frappe.has_permission
+
+		def without_user_select(doctype, ptype="read", *args, **kwargs):
+			return (doctype, ptype) != ("User", "select") and has_permission(
+				doctype, ptype, *args, **kwargs
+			)
+
+		with patch.object(frappe, "has_permission", side_effect=without_user_select):
+			preview = requirements.preview_specification_template(self.project.name, template.name)
+			[prepared] = preview["requirements"]
+			self.assertEqual((prepared["responsible_type"], prepared["responsible"]), ("User", "Administrator"))
+			with self.assertRaisesRegex(frappe.ValidationError, "active user from the target project"):
+				requirements.preview_specification_template(
+					self.project.name, template.name, {source.name: "Administrator"}
+				)
+			result = requirements.apply_specification_template(
+				self.project.name, template.name, frappe.generate_hash(length=32), preview["digest"]
+			)
+		copy = frappe.get_doc(source.doctype, result["requirements"][source.name])
+		self.assertEqual((copy.responsible_type, copy.responsible), ("User", "Administrator"))
 
 	def test_template_is_copied_once_per_request_and_once_per_distinct_project(self):
 		root_req = self.make_requirement(status="Template", project=None, is_group=1)
