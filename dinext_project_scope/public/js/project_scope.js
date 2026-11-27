@@ -6,6 +6,7 @@
 	const PATH = "dinext_project_scope.";
 	const CHANGE_REQUEST = "Project Change Request";
 	const baseAPI = "dinext_project_scope.requirements.";
+	const nativeGrids = new WeakMap();
 	const FIELD = {
 		requirements: "custom_scope_requirements_html",
 		specs: "custom_project_requirement_specifications",
@@ -78,8 +79,8 @@
 			[__("Category"), row.kind, "Requirement Kind"],
 			[__("Priority"), row.priority],
 			[__("Importance"), row.requirement_importance],
-			[__("Author"), row.author],
-			[__("Responsible"), row.responsible],
+			[__("Author"), row.author_profile?.label || row.author],
+			[__("Responsible"), row.responsible_profile?.label || row.responsible],
 		]) {
 			if (!value) continue;
 			const field = node("div");
@@ -175,6 +176,73 @@
 			.map(([name, count]) => ({ name, count }));
 	}
 
+	function iconAction(id, title, icon, onClick) {
+		return { id, type: "button", title, iconSvg: frappe.utils.icon(icon, "sm"), onClick };
+	}
+
+	function chartProfile(key, label, title, context) {
+		return { key, label, title, formatLabel: (name) => __(name, null, context) };
+	}
+
+	function createScopeCharts(ui, surface, container, profiles, onChange) {
+		const panels = profiles.map((profile) => ({
+			panel: ui.chartFilter(surface, container, profile, onChange),
+			value: profile.value || ((row) => row[profile.key]),
+		}));
+		return {
+			matches: (row) => panels.every(({ panel, value }) => panel.matches(value(row))),
+			selection() {
+				return Object.fromEntries(
+					panels
+						.map(({ panel }) => [panel.key, panel.control.get_value()])
+						.filter(([, value]) => value)
+				);
+			},
+			clear(rows) {
+				for (const { panel, value } of panels) {
+					if (!rows?.some((row) => panel.matches(value(row))))
+						panel.control.set_input("");
+				}
+			},
+			draw(available, matched) {
+				for (const { panel, value } of panels) {
+					panel.draw(groups(available, value), groups(matched, value));
+				}
+			},
+		};
+	}
+
+	function personKey(doctype, name) {
+		return name ? `${doctype}:${name}` : "";
+	}
+
+	function participantChart(key, label, title, value, profile) {
+		return {
+			key,
+			label,
+			title,
+			value,
+			formatLabel: (id) => profile(id)?.label || id.slice(id.indexOf(":") + 1),
+		};
+	}
+
+	function personCell(profile, doctype, name) {
+		if (!name) return node("span", "—", "text-muted");
+		return window.DinextScopeAnalytics.participantAvatar(
+			profile || { doctype, name, label: name }
+		);
+	}
+
+	function downloadScopeTable(surface, project, table, charts, extra = {}) {
+		return window.DinextScopeAnalytics.downloadWorkbook(
+			"dinext_project_scope.analytics.export.download_project_scope_table",
+			{ project, table, filters: JSON.stringify(charts.selection()), ...extra },
+			`project-${table.replaceAll("_", "-")}.xlsx`,
+			surface,
+			true
+		);
+	}
+
 	function choose(label, doctype, query, perform) {
 		const dialog = new frappe.ui.Dialog({
 			title: label,
@@ -258,6 +326,10 @@
 
 	function createRequirement(frm) {
 		ensureSaved(frm);
+		const participantTypes = [
+			{ value: "User", label: __("User") },
+			{ value: "Contact", label: __("Contact") },
+		];
 		const dialog = new frappe.ui.Dialog({
 			title: __("New Requirement"),
 			fields: [
@@ -270,16 +342,30 @@
 					reqd: 1,
 				},
 				{
+					fieldname: "author_type",
+					fieldtype: "Select",
+					label: __("Author Type"),
+					options: participantTypes,
+					default: "Contact",
+				},
+				{
 					fieldname: "author",
-					fieldtype: "Link",
-					options: "Contact",
+					fieldtype: "Dynamic Link",
+					options: "author_type",
 					label: __("Author"),
 					reqd: 1,
 				},
 				{
+					fieldname: "responsible_type",
+					fieldtype: "Select",
+					label: __("Responsible Type"),
+					options: participantTypes,
+					default: "User",
+				},
+				{
 					fieldname: "responsible",
-					fieldtype: "Link",
-					options: "User",
+					fieldtype: "Dynamic Link",
+					options: "responsible_type",
 					label: __("Responsible"),
 				},
 			],
@@ -294,6 +380,12 @@
 				frappe.set_route("Form", REQ, name);
 			},
 		});
+		for (const field of ["author", "responsible"]) {
+			const type = dialog.fields_dict[`${field}_type`];
+			type.df.onchange = () => dialog.set_value(field, "");
+			dialog.fields_dict[field].get_query = () =>
+				type.get_value() === "User" ? { filters: { enabled: 1 } } : {};
+		}
 		dialog.show();
 	}
 
@@ -438,11 +530,14 @@
 		dialog.show();
 	}
 
-	function filterAndActions(frm, selected, refresh) {
-		const toolbar = node("div", null, "scope-toolbar");
-		const actions = node("div", null, "scope-toolbar");
+	function requirementToolbar(frm, selected, refresh) {
+		const items = [];
 		if (writable(frm)) {
-			actions.append(button(__("Add Requirement"), () => includeRequirement(frm)));
+			items.push(
+				iconAction("scope-add-requirement", __("Add Requirement"), "add", () =>
+					includeRequirement(frm)
+				)
+			);
 			const secondary = node("div", null, "scope-actions-menu");
 			secondary.append(
 				button(__("New Requirement"), () => createRequirement(frm)),
@@ -477,18 +572,30 @@
 				),
 				button(__("Manage Requirement Connections"), () => specificationConnections(frm))
 			);
-			actions.append(disclosure(__("More Actions"), secondary));
+			const actions = disclosure("", secondary);
+			actions.className = "scope-more-actions";
+			const summary = actions.querySelector("summary");
+			const label = __("More Actions");
+			summary.title = label;
+			summary.innerHTML = frappe.utils.icon("dot-horizontal", "sm");
+			summary.append(node("span", label, "sr-only"));
+			secondary.addEventListener("click", (event) => {
+				if (event.target.closest("button")) actions.open = false;
+			});
+			items.push({ id: "scope-more-requirement-actions", type: "custom", element: actions });
 		}
-		actions.append(
-			button(__("Requirement Traceability Matrix"), () =>
-				report(frm, "Requirement Traceability Matrix", {
-					specification: selected() || undefined,
-				})
+		items.push(
+			iconAction(
+				"scope-traceability",
+				__("Requirement Traceability Matrix"),
+				"dashboard-list",
+				() =>
+					report(frm, "Requirement Traceability Matrix", {
+						specification: selected() || undefined,
+					})
 			)
 		);
-		toolbar.append(actions);
 		const filterHost = node("div", null, "scope-compact-filter");
-		toolbar.append(filterHost);
 		const field = frappe.ui.form.make_control({
 			parent: filterHost,
 			only_input: true,
@@ -505,7 +612,8 @@
 			},
 		});
 		field.$input.attr({ placeholder: __("Specification"), "aria-label": __("Specification") });
-		return toolbar;
+		items.push({ id: "scope-specification-filter", type: "custom", element: filterHost });
+		return items;
 	}
 
 	async function showScopePane(frm, field, fetchRows, render) {
@@ -541,14 +649,11 @@
 		let available = options.rows;
 		let tableRows = [];
 		let chartsReady = false;
-		const panels = options.charts.map((profile) => ({
-			panel: ui.chartFilter(surface, charts, profile, refresh),
-			value: profile.value || ((row) => row[profile.key]),
-		}));
+		const filters = createScopeCharts(ui, surface, charts, options.charts, refresh);
+		const controlItems = controls?.(replaceRows) || [];
 
-		surface.root.append(node("h5", heading, "scope-pane-title"), charts);
-		if (controls) surface.root.append(controls(replaceRows));
-		surface.root.append(frame);
+		if (tree) surface.root.classList.add("dinext-scope-requirements-pane");
+		surface.root.append(node("h5", heading, "scope-pane-title"), charts, frame);
 
 		function refreshTable() {
 			const table = surface.table;
@@ -561,31 +666,23 @@
 
 		function refresh() {
 			if (!surface.active()) return;
-			const matched = available.filter((row) =>
-				panels.every(({ panel, value }) => panel.matches(value(row)))
-			);
+			const matched = available.filter(filters.matches);
 			tableRows = tree
 				? requirementTree(available, new Set(matched.map(({ name }) => name)))
 				: matched.map((row) => ({ ...row, id: row.name }));
 			refreshTable();
 			ui.setMessage(surface, matched.length ? null : emptyMessage);
-			if (chartsReady) {
-				for (const { panel, value } of panels) {
-					panel.draw(groups(available, value), groups(matched, value));
-				}
-			}
+			if (chartsReady) filters.draw(available, matched);
 		}
 
 		function replaceRows(rows) {
 			available = rows;
-			for (const { panel, value } of panels) {
-				if (!rows.some((row) => panel.matches(value(row)))) panel.control.set_input("");
-			}
+			filters.clear(rows);
 			refresh();
 		}
 
 		function clearFilters() {
-			for (const { panel } of panels) panel.control.set_input("");
+			filters.clear();
 			refresh();
 		}
 
@@ -631,13 +728,26 @@
 				presets: tree ? ["tree", "fullscreen"] : ["fullscreen"],
 				items: [
 					...toolbar,
-					{
-						id: "scope-clear-filters",
-						type: "button",
-						title: __("Clear filters"),
-						iconSvg: frappe.utils.icon("filter-x", "sm"),
-						onClick: clearFilters,
-					},
+					...controlItems,
+					iconAction(
+						"scope-clear-filters",
+						__("Clear filters"),
+						"filter-x",
+						clearFilters
+					),
+					...(frappe.model.can_export(options.doctype)
+						? [
+								iconAction("scope-export", __("Excel"), "download", () =>
+									downloadScopeTable(
+										surface,
+										options.project,
+										options.tableName,
+										filters,
+										options.exportParams?.()
+									)
+								),
+						  ]
+						: []),
 				],
 			},
 		});
@@ -653,9 +763,9 @@
 		const attributes = [
 			["priority", __("Priority"), 95, REQ],
 			["kind", __("Kind"), 150, "Requirement Kind"],
-			["author", __("Author"), 160],
+			["author", __("Author"), 95],
 			["requirement_importance", __("Importance"), 120, REQ],
-			["responsible", __("Responsible"), 168],
+			["responsible", __("Responsible"), 112],
 		];
 		return [
 			{
@@ -673,13 +783,19 @@
 				cellStyle: { textAlign: "center" },
 				cellRenderer: ({ data }) => statusCell(data, REQ),
 			},
-			...attributes.map(([field, headerName, width, context]) => ({
-				field,
-				headerName,
-				width,
-				tooltipField: field,
-				valueFormatter: ({ value }) => (value ? __(value, null, context) : "—"),
-			})),
+			...attributes.map(([field, headerName, width, context]) => {
+				const column = { field, headerName, width };
+				if (field === "author" || field === "responsible") {
+					column.cellRenderer = ({ data }) =>
+						personCell(data[`${field}_profile`], data[`${field}_type`], data[field]);
+					column.cellClass = "scope-person-cell";
+				} else {
+					column.tooltipField = field;
+					column.valueFormatter = ({ value }) =>
+						value ? __(value, null, context) : "—";
+				}
+				return column;
+			}),
 			{
 				field: "paths",
 				headerName: __("Specifications"),
@@ -706,26 +822,37 @@
 				let revision = 0;
 				return scopeGrid(ui, surface, {
 					heading: __("Requirements"),
+					project,
+					doctype: REQ,
+					tableName: "requirements",
+					exportParams: () => ({ specification }),
 					rows,
 					tree: true,
 					emptyMessage: __("No requirements in the selected scope."),
 					columns: requirementColumns(),
 					charts: [
-						{
-							key: "status",
-							label: __("Status"),
-							title: __("Requirements by status"),
-							formatLabel: (name) => __(name, null, REQ),
-						},
-						{
-							key: "kind",
-							label: __("Kind"),
-							title: __("Requirements by category"),
-							formatLabel: (name) => __(name, null, "Requirement Kind"),
-						},
+						chartProfile("status", __("Status"), __("Requirements by status"), REQ),
+						chartProfile(
+							"kind",
+							__("Kind"),
+							__("Requirements by kind"),
+							"Requirement Kind"
+						),
+						chartProfile(
+							"priority",
+							__("Priority"),
+							__("Requirements by Priority"),
+							REQ
+						),
+						chartProfile(
+							"requirement_importance",
+							__("Importance"),
+							__("Requirements by Importance"),
+							REQ
+						),
 					],
 					controls: (replaceRows) =>
-						filterAndActions(
+						requirementToolbar(
 							frm,
 							() => specification,
 							async (value, control) => {
@@ -780,8 +907,20 @@
 						});
 					}
 				}
+				const people = new Map();
+				for (const row of rows) {
+					for (const profile of [
+						row.initiator_profile,
+						row.implementation_responsible_profile,
+					]) {
+						if (profile) people.set(personKey(profile.doctype, profile.name), profile);
+					}
+				}
 				return scopeGrid(ui, surface, {
 					heading: __("Change Requests"),
+					project,
+					doctype: CHANGE_REQUEST,
+					tableName: "change_requests",
 					rows,
 					emptyMessage: __("No change requests."),
 					columns: [
@@ -803,8 +942,13 @@
 							headerName: __("Responsible"),
 							flex: 1,
 							minWidth: 130,
-							tooltipField: "implementation_responsible",
-							valueFormatter: ({ value }) => value || "—",
+							cellClass: "scope-person-cell",
+							cellRenderer: ({ data }) =>
+								personCell(
+									data.implementation_responsible_profile,
+									"User",
+									data.implementation_responsible
+								),
 						},
 					],
 					toolbar,
@@ -823,9 +967,194 @@
 							formatLabel: (name) => (name ? frappe.datetime.str_to_user(name) : ""),
 							timeline: true,
 						},
+						participantChart(
+							"initiator",
+							__("Initiator"),
+							__("Change requests by initiator"),
+							(row) => personKey("Contact", row.initiator),
+							(id) => people.get(id)
+						),
+						participantChart(
+							"implementation_responsible",
+							__("Responsible"),
+							__("Change requests by responsible"),
+							(row) => personKey("User", row.implementation_responsible),
+							(id) => people.get(id)
+						),
 					],
 				});
 			}
+		);
+	}
+
+	function nativeGridState(grid) {
+		let state = nativeGrids.get(grid);
+		if (state) return state;
+		state = {};
+		const getData = grid.get_data;
+		grid.get_data = function (...args) {
+			const rows = getData.apply(this, args);
+			// Grid.refresh passes an explicit search flag. Row editing uses the full document.
+			return args.length && state.matches ? (rows || []).filter(state.matches) : rows;
+		};
+		nativeGrids.set(grid, state);
+		return state;
+	}
+
+	function showNativeScope(frm, field, tableName, getProfiles, responsibilities) {
+		const control = frm.get_field(field);
+		const grid = control?.grid;
+		if (!grid?.wrapper) return;
+		const ui = window.DinextScopeAnalytics;
+		const project = frm.doc.name;
+		const state = nativeGridState(grid);
+		const host =
+			control.wrapper.querySelector(".scope-native-charts-host") ||
+			node("div", null, "scope-native-charts-host");
+		control.wrapper.prepend(host);
+		const surface = ui.createSurface(host, () => ui.routeMatches("Form", "Project", project));
+		surface.root.classList.add("dinext-project-scope", "dinext-scope-native");
+		const charts = node("div", null, "dinext-scope-charts scope-embedded-charts");
+		if (tableName === "scope_items") charts.classList.add("scope-single-chart");
+		surface.root.append(charts);
+		let people = {};
+		let ready = false;
+		let animationFrame;
+		const lookup = (key) => people[key];
+		const filters = createScopeCharts(ui, surface, charts, getProfiles(lookup), applyFilters);
+		state.matches = (row) => !surface.active() || filters.matches(row);
+		state.download = () => {
+			if (frm.is_dirty()) {
+				frappe.msgprint(__("Save the project before exporting its tables."));
+				return;
+			}
+			return downloadScopeTable(
+				surface,
+				project,
+				tableName,
+				filters,
+				Object.keys(grid.filter).length
+					? { row_names: JSON.stringify(grid.data.map(({ name }) => name)) }
+					: {}
+			);
+		};
+		state.clear = () => {
+			filters.clear();
+			applyFilters();
+		};
+
+		function applyFilters() {
+			grid.grid_pagination.page_index = 1;
+			grid.refresh();
+		}
+
+		function paintAvatar(row) {
+			if (!responsibilities || row.grid !== grid) return;
+			const cell = row.columns?.responsible?.static_area?.get(0);
+			const name = row.doc?.responsible;
+			if (!cell || !name) return;
+			const kind = row.doc.responsible_type || "User";
+			const key = personKey(kind, name);
+			const avatar = personCell(lookup(key), kind, name);
+			const target = cell.querySelector("a") || cell;
+			cell.classList.add("scope-native-person-cell");
+			target.replaceChildren(avatar);
+		}
+
+		function renderCharts() {
+			if (!surface.active()) return;
+			const available = frm.doc[field] || [];
+			if (ready) filters.draw(available, grid.data);
+			const filtered =
+				Object.keys(filters.selection()).length || Object.keys(grid.filter).length;
+			grid.grid_sortable?.option("disabled", Boolean(filtered));
+			for (const row of Object.values(grid.grid_rows_by_docname || {})) paintAvatar(row);
+		}
+
+		grid.wrapper.off("change.dinextScopeCharts").on("change.dinextScopeCharts", () => {
+			cancelAnimationFrame(animationFrame);
+			animationFrame = requestAnimationFrame(renderCharts);
+		});
+		if (responsibilities) {
+			$(frm.wrapper)
+				.off("grid-row-render.dinextScopeConstraints")
+				.on("grid-row-render.dinextScopeConstraints", (_event, row) => paintAvatar(row));
+			rpc("dinext_project_scope.analytics.scope_tables.project_constraint_profiles", {
+				project,
+			})
+				.then((profiles) => {
+					people = profiles;
+					renderCharts();
+				})
+				.catch(() => {});
+		}
+		const buttons = [
+			[__("Clear filters"), "filter-x", () => state.clear()],
+			...(frappe.model.can_export("Project", frm)
+				? [[__("Excel"), "download", () => state.download()]]
+				: []),
+		];
+		for (const [label, icon, action] of buttons) {
+			grid.add_custom_button(label, action)
+				.attr({ title: label, "aria-label": label })
+				.html(frappe.utils.icon(icon, "sm"));
+		}
+		applyFilters();
+		window.DinextCharts.load()
+			.then(() => {
+				ready = true;
+				renderCharts();
+			})
+			.catch(() => {
+				if (surface.active())
+					charts.append(node("div", __("Could not load charts."), "text-muted"));
+			});
+	}
+
+	function showScopeItems(frm) {
+		showNativeScope(frm, "project_scopes", "scope_items", () => [
+			chartProfile(
+				"scope_type",
+				__("Type"),
+				__("Scope Items by Type"),
+				"Project Scope Type"
+			),
+		]);
+	}
+
+	function showConstraints(frm) {
+		showNativeScope(
+			frm,
+			"project_constraints",
+			"constraints",
+			(lookup) => [
+				chartProfile(
+					"category",
+					__("Category"),
+					__("Constraints by category"),
+					"Project Deliverable Category"
+				),
+				chartProfile(
+					"record_type",
+					__("Record Type"),
+					__("Constraints by record type"),
+					"Project Constraint"
+				),
+				chartProfile(
+					"status",
+					__("Status"),
+					__("Constraints by status"),
+					"Project Constraint"
+				),
+				participantChart(
+					"responsible",
+					__("Responsible"),
+					__("Constraints by responsible"),
+					(row) => personKey(row.responsible_type || "User", row.responsible),
+					lookup
+				),
+			],
+			true
 		);
 	}
 
@@ -873,6 +1202,9 @@
 			} else {
 				grid?.custom_buttons?.[apply]?.addClass("hidden");
 			}
+			await window.DinextScopeAnalytics.libraries();
+			showScopeItems(frm);
+			showConstraints(frm);
 			await Promise.all([showRequirements(frm), showChanges(frm)]);
 			gridRowRoute(frm);
 			if (writable(frm) && frappe.route_options?.scope_constraint_template) {

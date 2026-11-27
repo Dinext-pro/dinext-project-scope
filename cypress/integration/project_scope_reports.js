@@ -102,10 +102,10 @@ describe("Project scope reports", () => {
 		cy.visit(`/app/project/${fixture.project}`);
 		cy.get('button[data-fieldname="custom_объем"]').click();
 		const layouts = [
-			["custom_scope_items_section", "project_scopes", 0],
-			["custom_scope_requirements_section", "custom_scope_requirements_html", 2],
-			["custom_scope_constraints_section", "project_constraints", 0],
-			["custom_scope_changes_section", "custom_scope_changes_html", 2],
+			["custom_scope_items_section", "project_scopes", 1],
+			["custom_scope_requirements_section", "custom_scope_requirements_html", 4],
+			["custom_scope_constraints_section", "project_constraints", 4],
+			["custom_scope_changes_section", "custom_scope_changes_html", 4],
 		];
 		for (const [section, field, charts] of layouts) {
 			const group = `.form-section[data-fieldname="${section}"]`;
@@ -134,7 +134,7 @@ describe("Project scope reports", () => {
 			pressFullscreenControl(pane, "Fullscreen");
 			cy.get(pane).should(([root]) => {
 				expect(root.ownerDocument.fullscreenElement).to.eq(root);
-				expect(root.querySelectorAll(".dinext-scope-chart canvas")).to.have.length(2);
+				expect(root.querySelectorAll(".dinext-scope-chart canvas")).to.have.length(4);
 				const table = root.querySelector(".scope-embedded-grid");
 				const viewport = root.querySelector(".ag-body-viewport");
 				expect(viewport.clientHeight, "table body height").to.be.greaterThan(50);
@@ -146,7 +146,7 @@ describe("Project scope reports", () => {
 			});
 			const control = `${pane} select[data-fieldname="${filter}"]`;
 			cy.get(control).select(1).should("not.have.value", "");
-			cy.get(`${pane} .dinext-scope-chart canvas`).should("have.length", 2);
+			cy.get(`${pane} .dinext-scope-chart canvas`).should("have.length", 4);
 			cy.get(pane).should(([root]) =>
 				expect(root.ownerDocument.fullscreenElement).to.eq(root)
 			);
@@ -155,6 +155,52 @@ describe("Project scope reports", () => {
 			cy.get(control).should("not.have.value", "");
 		});
 	}
+
+	it("downloads each Scope table with the active filter as an Excel workbook", () => {
+		cy.visit(`/app/project/${fixture.project}`);
+		cy.get('button[data-fieldname="custom_объем"]').click();
+		for (const [field, tableName, filter, pick, stem] of [
+			["project_scopes", "scope_items", "scope_type", fixture.title, "project-scope-items"],
+			[
+				"custom_scope_requirements_html",
+				"requirements",
+				"priority",
+				"High",
+				"project-requirements",
+			],
+			[
+				"project_constraints",
+				"constraints",
+				"responsible",
+				"User:" + fixture.actor,
+				"project-constraints",
+			],
+			[
+				"custom_scope_changes_html",
+				"change_requests",
+				"status",
+				"Draft",
+				"project-change-requests",
+			],
+		]) {
+			const pane = `[data-fieldname="${field}"]`;
+			const url =
+				"**/api/method/dinext_project_scope.analytics.export.download_project_scope_table";
+			cy.intercept("POST", url).as(tableName);
+			cy.get(pane + ` select[data-fieldname="${filter}"]`).select(pick);
+			cy.get(pane + ' button[title="Excel"]:visible').click();
+			cy.wait("@" + tableName).then(({ response, request }) => {
+				expect(response.statusCode).to.eq(200);
+				expect(response.headers["content-disposition"]).to.contain(stem + ".xlsx");
+				const params = new URLSearchParams(request.body);
+				expect(params.get("table")).to.eq(tableName);
+				expect(JSON.parse(params.get("filters"))).to.deep.eq({ [filter]: pick });
+			});
+			cy.readFile(`${Cypress.config("downloadsFolder")}/${stem}.xlsx`, null, {
+				timeout: 30000,
+			}).should((bytes) => expect(bytes.slice(0, 2).toString()).to.eq("PK"));
+		}
+	});
 
 	it("opens the change impact matrix from the change grid and keeps project menus clear", () => {
 		cy.visit(`/app/project/${fixture.project}`);

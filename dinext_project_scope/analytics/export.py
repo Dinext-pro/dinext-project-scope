@@ -15,7 +15,7 @@ from openpyxl.cell.rich_text import CellRichText, TextBlock
 from openpyxl.cell.text import InlineFont
 from openpyxl.styles import Alignment, Font, PatternFill
 
-from dinext_project_scope.analytics import data
+from dinext_project_scope.analytics import data, scope_tables
 from dinext_project_scope.analytics.contracts import FilterValue, ReportFilterValue
 from dinext_project_scope.analytics.reports import REPORTS, column, dataset, flatten_rows
 
@@ -78,13 +78,13 @@ def write_table_header(sheet, columns):
 			if first != last:
 				sheet.merge_cells(start_row=1, end_row=1, start_column=first, end_column=last)
 			write_header(sheet.cell(1, first), items[0][1]["group"])
-		for index, column in items:
+		for index, definition in items:
 			header_row = 2 if grouped and group_id else 1
 			if grouped and not group_id:
 				sheet.merge_cells(start_row=1, end_row=2, start_column=index, end_column=index)
-			write_header(sheet.cell(header_row, index), column["label"])
+			write_header(sheet.cell(header_row, index), definition["label"])
 			sheet.column_dimensions[sheet.cell(header_row, index).column_letter].width = min(
-				58, column["width"] / 7
+				58, definition["width"] / 7
 			)
 	for number in range(1, 3 if grouped else 2):
 		sheet.row_dimensions[number].height = 28
@@ -174,14 +174,14 @@ def add_impact_details(workbook, columns, rows):
 	sheet.freeze_panes = "A2"
 	next_row = 2
 	for request in rows:
-		for column in columns:
-			field = column["fieldname"]
+		for definition in columns:
+			field = definition["fieldname"]
 			for entry in request.get("cells", {}).get(field, {}).get("details", ()):
 				record = {
 					**entry,
 					"document": request["document"],
 					"label": request["label"],
-					"impact_label": column["label"],
+					"impact_label": definition["label"],
 					"level": _(entry["level"]) if entry.get("level") else _("Level not specified"),
 					"direction": _(entry["direction"]) if entry.get("direction") else None,
 					"link": _("Related object unavailable")
@@ -208,9 +208,9 @@ def make_workbook(report_name, columns, rows):
 		depth = min(row.get("depth", 0), 7)
 		if depth:
 			sheet.row_dimensions[index].outlineLevel = depth
-		for column_index, column in enumerate(columns, start=1):
+		for column_index, definition in enumerate(columns, start=1):
 			cell = sheet.cell(index, column_index)
-			write_report_value(cell, row, column, legend)
+			write_report_value(cell, row, definition, legend)
 			if row.get("is_group"):
 				cell.fill = GROUP_FILL
 				cell.font = Font(bold=True)
@@ -250,6 +250,7 @@ def download(report_name: str, filters: dict[str, ReportFilterValue] | str | Non
 	frappe.has_permission(report.ref_doctype, "export", throw=True)
 	columns, rows = dataset(report_name, filters)
 	provide_binary_file(frappe.scrub(report_name), "xlsx", make_workbook(report_name, columns, rows))
+
 
 @frappe.whitelist(methods=["GET"])
 def download_project_results(
@@ -291,10 +292,26 @@ def download_project_results(
 	columns.extend(
 		[
 			column("assignment", _("Assignment"), kind="assignment", width=170),
-			column("planned_end_date", _("Planned end", context="Dinext.ProjectScope.Dates"), kind="plan_date"),
+			column(
+				"planned_end_date", _("Planned end", context="Dinext.ProjectScope.Dates"), kind="plan_date"
+			),
 			column("expected_end_date", _("Expected end", context="Dinext.ProjectScope.Dates"), kind="date"),
 			column("actual_end_date", _("Actual end", context="Dinext.ProjectScope.Dates"), kind="date"),
 		]
 	)
 	rows = list(flatten_rows(view["rows"]))
 	provide_binary_file("project-results", "xlsx", make_workbook("Project Results", columns, rows))
+
+
+@frappe.whitelist(methods=["GET", "POST"])
+def download_project_scope_table(
+	project: str,
+	table: str,
+	filters: dict[str, str | None] | str | None = None,
+	specification: str | None = None,
+	row_names: list[str] | str | None = None,
+) -> None:
+	"""Send the filtered saved rows from one Project scope table as an XLSX."""
+	columns, rows = scope_tables.scope_table_dataset(project, table, filters, specification, row_names)
+	filename = f"project-{table.replace('_', '-')}"
+	provide_binary_file(filename, "xlsx", make_workbook(filename, columns, rows))

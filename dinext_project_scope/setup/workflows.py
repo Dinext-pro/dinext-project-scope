@@ -4,6 +4,8 @@ from uuid import uuid4
 
 import frappe
 
+from dinext_project_scope.requirement_graph import REQUIREMENT
+
 EDIT_ROLE = "Projects User"
 ACTORS = {
 	"manager": "doc.approval_approver == frappe.session.user",
@@ -12,6 +14,14 @@ ACTORS = {
 	"author": "doc.owner == frappe.session.user",
 	"responsible": "doc.responsible == frappe.session.user",
 }
+
+REQUIREMENT_APPROVER = (
+	"doc.responsible and ("
+	'(doc.get("responsible_type") in (None, "", "User") and doc.responsible == frappe.session.user) or '
+	'(doc.get("responsible_type") == "Contact" and '
+	'frappe.db.get_value("Contact", doc.responsible, "user") == frappe.session.user)'
+	') and frappe.db.get_value("User", frappe.session.user, "enabled")'
+)
 
 
 def transition(state, action, target, *, condition="", comment=False, reset=False):
@@ -40,13 +50,14 @@ def state(name, docstatus=0, update_status=False):
 
 
 def approval_route(doctype):
+	approver = REQUIREMENT_APPROVER if doctype == REQUIREMENT else ACTORS["responsible"]
 	return (
 		doctype,
 		[state(name) for name in ("Draft", "In Review", "Approved", "Rejected")],
 		[
 			transition("Draft", "Submit for Review", "In Review", condition=ACTORS["author"]),
-			transition("In Review", "Approve", "Approved", condition=ACTORS["responsible"]),
-			transition("In Review", "Reject", "Rejected", condition=ACTORS["responsible"], comment=True),
+			transition("In Review", "Approve", "Approved", condition=approver),
+			transition("In Review", "Reject", "Rejected", condition=approver, comment=True),
 			transition("In Review", "Withdraw Review", "Draft", condition=ACTORS["author"], comment=True),
 			transition("Approved", "Submit for Review", "In Review", condition=ACTORS["author"]),
 			transition("Rejected", "Return to Draft", "Draft", condition=ACTORS["author"]),
@@ -56,7 +67,7 @@ def approval_route(doctype):
 
 def default_routes():
 	for doctype in (
-		"Project Requirement",
+		REQUIREMENT,
 		"Project Requirement Specification",
 		"Project Requirement Specification Template",
 	):
@@ -137,13 +148,34 @@ def default_routes():
 	)
 
 
+def _upgrade_requirement_workflow(transitions):
+	name = f"Dinext {REQUIREMENT}"
+	if not frappe.db.exists("Workflow", {"name": name, "document_type": REQUIREMENT}):
+		return
+	legacy = [
+		{**row, "condition": ACTORS["responsible"]}
+		for row in transitions
+		if row["condition"] == REQUIREMENT_APPROVER
+	]
+	updated = False
+	for row in frappe.get_doc("Workflow", name, for_update=True).transitions:
+		if any(all(row.get(field) == value for field, value in candidate.items()) for candidate in legacy):
+			# Saving the whole Workflow could reset state defaults or activate a route.
+			frappe.db.set_value(row.doctype, row.name, "condition", REQUIREMENT_APPROVER)
+			updated = True
+	if updated:
+		frappe.clear_document_cache("Workflow", name)
+
+
 def ensure_default_workflows():
 	if not frappe.db.exists("DocType", "Workflow Process"):
 		return
 	for doctype, states, transitions in default_routes():
-		if not frappe.db.exists("DocType", doctype) or frappe.db.exists(
-			"Workflow", {"document_type": doctype}
-		):
+		if not frappe.db.exists("DocType", doctype):
+			continue
+		if frappe.db.exists("Workflow", {"document_type": doctype}):
+			if doctype == REQUIREMENT:
+				_upgrade_requirement_workflow(transitions)
 			continue
 		for row in states:
 			if not frappe.db.exists("Workflow State", row["state"]):

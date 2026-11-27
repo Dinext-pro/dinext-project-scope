@@ -1000,7 +1000,7 @@ describe("Project scope charts", () => {
 		cy.login(fixture.actor, fixture.password);
 		openScope(fixture.project);
 		const status = "Requirements by status";
-		const category = "Requirements by category";
+		const category = "Requirements by kind";
 		const select = (field) => cy.get(`${requirementsPane} select[data-fieldname="${field}"]`);
 		const row = (title) =>
 			cy.contains(
@@ -1047,6 +1047,63 @@ describe("Project scope charts", () => {
 		select("kind").should("have.value", "");
 		row(`${fixture.title} unlinked`).should("be.visible");
 		cy.location("pathname").should("eq", `/app/project/${fixture.project}`);
+	});
+
+	it("filters the native scope items and constraints without changing their saved rows", () => {
+		openScope(fixture.project);
+		const items = '[data-fieldname="project_scopes"]';
+		const constraints = '[data-fieldname="project_constraints"]';
+		const type = "Scope Items by Type";
+		const responsible = "Constraints by responsible";
+		clickPieSegment(type, fixture.title);
+		cy.get(items + ' select[data-fieldname="scope_type"]').should("have.value", fixture.title);
+		cy.get(items + " .grid-body .grid-row").should("have.length", 1);
+		cy.contains(items + " .grid-body", "warehouse operations").should("be.visible");
+		clickPieSegment(type, fixture.title);
+		cy.get(items + " .grid-body .grid-row").should("have.length", 2);
+		clickPieSegment(responsible, "User:" + fixture.actor);
+		cy.get(constraints + " .grid-body .grid-row").should("have.length", 1);
+		cy.get(constraints + ' .grid-body [data-fieldname="responsible"] .avatar img').should(
+			"have.attr",
+			"src",
+			fixture.avatar_image
+		);
+		clickPieSegment(responsible, "User:" + fixture.actor);
+		cy.get(constraints + " .grid-body .grid-row").should("have.length", 2);
+		cy.window().should(({ cur_frm }) => {
+			expect(cur_frm.doc.project_scopes).to.have.length(2);
+			expect(cur_frm.doc.project_constraints).to.have.length(2);
+			expect(Boolean(cur_frm.is_dirty())).to.eq(false);
+		});
+	});
+
+	it("intersects the additional requirement and change charts and renders participant photos", () => {
+		openScope(fixture.project);
+		const priority = "Requirements by Priority";
+		const importance = "Requirements by Importance";
+		clickPieSegment(priority, "High");
+		clickPieSegment(importance, "Must Have");
+		cy.contains(requirementsPane + " .scope-cell-link", "analyzed child").should("be.visible");
+		cy.contains(requirementsPane + " .scope-cell-link", "unlinked").should("not.exist");
+		clickPieSegment(priority, "High");
+		cy.get(requirementsPane + ' select[data-fieldname="priority"]').should("have.value", "");
+		cy.get(requirementsPane + " .ag-root-wrapper[grid-id]").then(([grid]) => {
+			const api = grid.ownerDocument.defaultView.agGrid.getGridApi(
+				grid.getAttribute("grid-id")
+			);
+			api.ensureColumnVisible("author");
+		});
+		cy.get(requirementsPane + ' [col-id="author"] .avatar img')
+			.first()
+			.should("have.attr", "src", fixture.avatar_image);
+		clickPieSegment("Change requests by initiator", "Contact:" + fixture.contact);
+		clickPieSegment("Change requests by responsible", "User:" + fixture.actor);
+		cy.get(changesPane + ' [col-id="implementation_responsible"] .avatar img')
+			.first()
+			.should("have.attr", "src", fixture.avatar_image);
+		cy.contains(changesPane + " .scope-cell-link", fixture.title + " change").should(
+			"be.visible"
+		);
 	});
 
 	it("denies other-project progress and results data", () => {
@@ -1148,7 +1205,7 @@ describe("Project scope charts", () => {
 
 	it("repaints project scope charts when switching theme", () => {
 		openScope(fixture.project);
-		const labels = "Requirements by category";
+		const labels = "Requirements by kind";
 		const center = () => cy.contains(chartCard, labels).find(".dinext-scope-donut-count");
 		let lightColor;
 		cy.window().then((window) => window.frappe.ui.set_theme("light"));

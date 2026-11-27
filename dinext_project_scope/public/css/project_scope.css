@@ -45,12 +45,8 @@
 	height: 100%;
 }
 
-.dinext-project-scope:has(.dinext-table--fullscreen) .scope-embedded-charts {
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .dinext-project-scope:has(.dinext-table--fullscreen) .scope-embedded-charts .dinext-scope-chart {
-	height: min(142px, 22dvh);
+	height: min(126px, 15dvh);
 }
 
 .dinext-project-scope .dinext-scope-context-row .scope-cell-link {
@@ -58,9 +54,17 @@
 }
 
 .dinext-project-scope .scope-embedded-charts {
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 176px), 1fr));
 	gap: var(--margin-sm);
 	margin: 0 0 var(--margin-xs);
+}
+
+.dinext-project-scope .scope-single-chart {
+	grid-template-columns: minmax(0, min(100%, 272px));
+}
+
+.dinext-project-scope.dinext-scope-native {
+	margin: 0;
 }
 
 .dinext-project-scope .scope-embedded-charts .dinext-scope-chart-card {
@@ -68,30 +72,34 @@
 }
 
 .dinext-project-scope .scope-embedded-charts .dinext-scope-chart {
-	height: 142px;
+	height: 126px;
 }
 
 .dinext-project-scope .scope-embedded-charts .dinext-scope-heading {
 	margin-bottom: 0;
 }
 
-.dinext-project-scope .scope-toolbar {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--margin-xs);
-	min-width: 0;
+.dinext-scope-requirements-pane
+	:is(.dinext-table--toolbar-pinned, .dinext-table--toolbar-open)
+	.dinext-table-toolbar-panel,
+.dinext-scope-requirements-pane .dinext-table-toolbar-group--custom {
+	overflow: visible;
 }
 
-.dinext-project-scope > .scope-toolbar {
+.dinext-scope-requirements-pane .dinext-table-toolbar {
 	position: relative;
-	z-index: 2;
-	margin-bottom: var(--margin-xs);
+	z-index: 4;
 }
 
-.dinext-project-scope .scope-toolbar .btn,
-.dinext-project-scope .scope-toolbar summary {
-	white-space: nowrap;
+.dinext-scope-requirements-pane .dinext-table-toolbar-group--custom {
+	flex-wrap: wrap;
+}
+
+.dinext-project-scope .scope-person-cell,
+.scope-native-person-cell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .dinext-project-scope .scope-link,
@@ -136,8 +144,26 @@
 	line-height: 1;
 }
 
-.dinext-project-scope summary {
+.dinext-project-scope .scope-more-actions {
+	position: relative;
+}
+
+.dinext-project-scope .scope-more-actions > summary {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 30px;
+	list-style: none;
+	border-radius: var(--border-radius);
 	cursor: pointer;
+}
+
+.dinext-project-scope .scope-more-actions > summary::-webkit-details-marker {
+	display: none;
+}
+
+.dinext-project-scope .scope-more-actions > summary:hover {
+	background: var(--control-bg);
 }
 
 .dinext-project-scope .scope-compact-filter {
@@ -165,16 +191,22 @@
 }
 
 .dinext-project-scope .scope-actions-menu {
-	display: flex;
-	flex-wrap: wrap;
+	position: absolute;
+	inset-block-start: 100%;
+	inset-inline-start: 0;
+	z-index: 6;
+	display: grid;
+	min-width: max-content;
 	gap: var(--margin-xs);
-	margin: var(--margin-xs) 0;
+	padding: var(--padding-xs);
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	box-shadow: var(--shadow-md);
 }
 
-@media (max-width: 600px) {
-	.dinext-project-scope .scope-embedded-charts {
-		grid-template-columns: minmax(0, 1fr);
-	}
+.dinext-project-scope .scope-actions-menu .btn {
+	text-align: start;
 }
 
 .scope-connection-list .scope-connection-row {

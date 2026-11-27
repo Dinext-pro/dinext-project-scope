@@ -33,3 +33,36 @@ class TestScopeWorkflowSetup(FrappeTestCase):
 		self.assertEqual(len(set(identities)), len(identities))
 		ensure_default_workflows()
 		self.assertEqual(transitions(), original)
+
+	def test_only_stock_legacy_requirement_approver_conditions_are_upgraded(self):
+		from frappe.model.workflow import is_transition_condition_satisfied
+
+		name = "Dinext Project Requirement"
+		workflow = frappe.get_doc("Workflow", name)
+		rows = {row.action: row for row in workflow.transitions if row.state == "In Review"}
+		approve, reject = rows["Approve"], rows["Reject"]
+		legacy_condition = "doc.responsible == frappe.session.user"
+		savepoint = "test_legacy_requirement_workflow"
+		frappe.db.savepoint(savepoint)
+		try:
+			frappe.db.set_value(approve.doctype, approve.name, "condition", legacy_condition)
+			frappe.db.set_value(reject.doctype, reject.name, "allowed", "Projects Manager")
+			frappe.db.set_value(reject.doctype, reject.name, "condition", legacy_condition)
+			frappe.clear_document_cache("Workflow", name)
+			contact = frappe.get_doc(
+				doctype="Contact",
+				first_name=f"Workflow migration {frappe.generate_hash(length=8)}",
+				user=frappe.session.user,
+			).insert()
+			requirement = frappe.get_doc(
+				doctype="Project Requirement", responsible_type="Contact", responsible=contact.name
+			)
+			ensure_default_workflows()
+
+			updated = frappe.get_doc(approve.doctype, approve.name)
+			self.assertTrue(is_transition_condition_satisfied(updated, requirement))
+			self.assertEqual(updated.custom_transition_uuid, approve.custom_transition_uuid)
+			self.assertEqual(frappe.db.get_value(reject.doctype, reject.name, "condition"), legacy_condition)
+		finally:
+			frappe.db.rollback(save_point=savepoint)
+			frappe.clear_document_cache("Workflow", name)

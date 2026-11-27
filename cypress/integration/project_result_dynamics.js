@@ -90,6 +90,10 @@ describe("Project result dynamics", () => {
 		cy.wait("@dynamics").its("response.body.message.category.count").should("eq", 2);
 		cy.get(host + " " + toggle).should("have.attr", "aria-pressed", "true");
 		cy.get(widget).find("select").should("not.exist");
+		cy.get(widget + ' [data-dynamics-group="category"] .dinext-scope-heading').should(
+			"have.text",
+			"Result dynamics"
+		);
 		const member = "Contact:" + fixture.contact;
 		withChart("responsible", (_instance, option) => {
 			const series = option.series[0];

@@ -75,6 +75,7 @@ def create_report_fixture(run_id):
 	type_icon = "/assets/frappe/images/frappe-favicon.svg"
 	type_color = "#2668bf"
 	avatar_image = "/assets/frappe/images/frappe-framework-logo.svg"
+	frappe.db.set_value("Contact", person, "image", avatar_image)
 	password = f"Qa9!{token_urlsafe(18)}"
 	actors = {language: _fixture_user(run_id, language) for language in ("en", "ru")}
 	for language, email in actors.items():
@@ -116,7 +117,7 @@ def create_report_fixture(run_id):
 		project=project.name,
 		requirement_title=f"{prefix} working",
 		author=person,
-		responsible="Administrator",
+		responsible=actor,
 		kind=prefix,
 		requirement_importance="Must Have",
 		status="New",
@@ -189,7 +190,7 @@ def create_report_fixture(run_id):
 		author=person,
 		responsible="Administrator",
 		kind=prefix,
-		requirement_importance="Must Have",
+		requirement_importance="Should Have",
 		status="New",
 	).insert()
 	for requirement in (unlinked.name, child.name, parent.name):
@@ -251,11 +252,20 @@ def create_report_fixture(run_id):
 			"scope_type": _named("Project Scope Type", prefix).name,
 		},
 	)
+	project.append(
+		"project_scopes",
+		{
+			"scope_title": f"{prefix} rollout locations",
+			"scope_type": _named("Project Scope Type", other_category).name,
+		},
+	)
 	assumption = project.append(
 		"project_constraints",
 		{
 			"subject": f"{prefix} assumption",
 			"category": category,
+			"responsible_type": "User",
+			"responsible": actor,
 			"record_type": "Assumption",
 			"status": "New",
 			"review_date": getdate(),
@@ -389,6 +399,7 @@ def create_report_fixture(run_id):
 		project=project.name,
 		title=f"{prefix} change",
 		initiator=person,
+		implementation_responsible=actor,
 		status="Draft",
 		description="Update the scope of the result",
 		change_relations=[

@@ -48,7 +48,16 @@ MATCH_IMPACT = {
 	"link_doctype": "link_doctype",
 	"link": "link",
 }
-REQUIREMENT_FILTERS = ("kind", "author", "responsible", "priority", "requirement_importance", "status")
+REQUIREMENT_FILTERS = (
+	"kind",
+	"author_type",
+	"author",
+	"responsible_type",
+	"responsible",
+	"priority",
+	"requirement_importance",
+	"status",
+)
 CONSTRAINT_FILTERS = (
 	"record_type",
 	"category",
@@ -132,8 +141,19 @@ def scope_requirement_rows(project):
 
 
 def traceability(filters):
-	from dinext_project_scope.requirements import visible_specification_members
+	from dinext_project_scope.requirements import (
+		PARTICIPANT_DEFAULTS,
+		PARTICIPANT_TYPES,
+		visible_specification_members,
+	)
 
+	filters = filters.copy()
+	for field, default_type in PARTICIPANT_DEFAULTS.items():
+		type_field = f"{field}_type"
+		if filters.get(type_field) and filters[type_field] not in PARTICIPANT_TYPES:
+			frappe.throw(_("Invalid report filters."))
+		if filters.get(field) and not filters.get(type_field):
+			filters[type_field] = default_type
 	project = data.project_ids(filters.get("project"), required=True)[0]
 	full = scope_requirement_rows(project)
 	candidates = full
@@ -718,8 +738,12 @@ def reference_query(doctype, txt, searchfield, start, page_len, filters):
 					values[row["link"]] = row["link"]
 	elif doctype in {"User", "Contact"}:
 		if context == "requirement":
-			rows = scope_requirement_rows(project).values()
-			field = "author" if doctype == "Contact" else "responsible"
+			field = filters.get("participant_field") or ("author" if doctype == "Contact" else "responsible")
+			if field not in ("author", "responsible"):
+				return []
+			rows = [
+				row for row in scope_requirement_rows(project).values() if row[f"{field}_type"] == doctype
+			]
 		elif context == "change":
 			rows = data.get_requests(projects).values()
 			field = "initiator" if doctype == "Contact" else "implementation_responsible"

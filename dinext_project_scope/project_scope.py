@@ -16,6 +16,7 @@ from dinext_project_scope.access import (
 	project_participants,
 	validate_project_target,
 )
+from dinext_project_scope.analytics.contracts import Participant
 from dinext_project_scope.requirements import validate_child_rows
 from dinext_project_scope.template_application import apply_once, digest
 
@@ -157,6 +158,8 @@ def validate_project(doc, method=None):
 
 
 class ProjectChangeRow(TypedDict):
+	initiator_profile: Participant | None
+	implementation_responsible_profile: Participant | None
 	name: str
 	title: str
 	status: str
@@ -167,14 +170,23 @@ class ProjectChangeRow(TypedDict):
 
 @frappe.whitelist()
 def project_change_rows(project: str) -> list[ProjectChangeRow]:
+	from dinext_project_scope.analytics.data import member_profiles, participant_avatar
+
 	check_project(project)
-	return frappe.get_list(
+	rows = frappe.get_list(
 		"Project Change Request",
 		filters={"project": project},
 		fields=["name", "title", "status", "initiator", "implementation_responsible", "creation"],
 		order_by="creation desc",
 		limit_page_length=0,
 	)
+	participants = (("initiator", "Contact"), ("implementation_responsible", "User"))
+	profiles = member_profiles((doctype, row.get(field)) for field, doctype in participants for row in rows)
+	for row in rows:
+		for field, doctype in participants:
+			name = row.get(field)
+			row[f"{field}_profile"] = participant_avatar(doctype, name, profiles) if name else None
+	return rows
 
 
 def _constraint_preview(project: str, template: str, assignments: ConstraintAssignments = None) -> ConstraintsTemplatePreviewResponse:
@@ -253,14 +265,18 @@ def apply_constraints_template(
 
 
 @frappe.whitelist(methods=["POST"])
-def create_project_requirement(project, title, category, author, responsible=None):
+def create_project_requirement(
+	project, title, category, author, responsible=None, author_type=None, responsible_type=None
+):
 	check_project(project, "write")
 	requirement = frappe.get_doc(
 		doctype="Project Requirement",
 		project=project,
 		requirement_title=title,
 		kind=category,
+		author_type=author_type,
 		author=author,
+		responsible_type=responsible_type,
 		responsible=responsible,
 		priority="Medium",
 		requirement_importance="Must Have",

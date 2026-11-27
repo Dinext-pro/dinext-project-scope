@@ -588,3 +588,21 @@ Could not load project scope.,Не удалось загрузить объём 
 О,О,Project Deliverable Responsibility Abbreviation
 С,С,Project Deliverable Responsibility Abbreviation
 У,У,Project Deliverable Responsibility Abbreviation
+Author Type,Тип автора,
+Requirements by kind,Требования по видам,
+Requirements by Priority,Требования по приоритетам,
+Requirements by Importance,Требования по важности,
+Scope Items by Type,Элементы объёма по типам,
+Constraints by category,Ограничения и допущения по категориям,
+Constraints by record type,Ограничения и допущения по видам,
+Constraints by status,Ограничения и допущения по статусам,
+Constraints by responsible,Ограничения и допущения по ответственным,
+Change requests by initiator,Запросы на изменение по инициаторам,
+Change requests by responsible,Запросы на изменение по ответственным,
+Inclusion paths,Пути включения,
+This table is unavailable.,Таблица недоступна.,
+Choose User or Contact for the author and responsible.,Выберите «Пользователь» или «Контакт» для автора и ответственного.,
+The author user must be active.,Автор должен быть действующим пользователем.,
+Assign a responsible participant with an active user account before marking this requirement Done.,Перед переводом требования в статус «Реализовано» назначьте ответственного с действующей учётной записью.,
+Only the assigned responsible participant {0} can mark this requirement Done.,Перевести требование в статус «Реализовано» может только назначенный ответственный {0}.,
+Save the project before exporting its tables.,Сохраните проект перед выгрузкой его таблиц.,

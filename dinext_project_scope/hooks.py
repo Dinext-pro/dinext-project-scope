@@ -355,7 +355,7 @@ workflow_approval_domain_handlers.update(
 )
 workflow_approval_fingerprint_excluded_fields = [
 	{
-		"Project Requirement": ["status", "responsible", "lft", "rgt", "old_parent"],
+		"Project Requirement": ["status", "responsible", "responsible_type", "lft", "rgt", "old_parent"],
 		"Project Requirement Specification": ["responsible"],
 		"Project Requirement Specification Template": ["responsible"],
 		"Project Deliverable": ["last_acceptance_log", "progress", "plan_incomplete", "forecast_incomplete"],

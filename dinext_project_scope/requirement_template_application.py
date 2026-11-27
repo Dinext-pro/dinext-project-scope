@@ -19,7 +19,7 @@ APPLICATION = "Project Scope Template Application"
 class TemplatePlan:
 	graph: req.Composition
 	root: str
-	assignees: dict[str, str | None]
+	assignees: dict[str, req.ParticipantLink]
 	requirement_order: list[tuple[str, str | None]]
 	digest: str
 
@@ -79,22 +79,29 @@ def _plan(
 	if assignments.keys() - nodes.keys():
 		frappe.throw(_("An assignment refers to a document outside this template."))
 	actor = frappe.session.user if frappe.session.user in assignees else None
+	contacts = {row["name"] for row in access.project_participants(project.name, "Contact")}
+	visible_users = {user for user in assignees if frappe.has_permission("User", "select", doc=user)}
 	selected = {}
 	blueprint = []
 	for name, source in nodes.items():
-		responsible = source.responsible if source.responsible in assignees else actor
-		chosen = assignments.get(name, responsible)
-		if (chosen and chosen not in assignees) or (not chosen and source.doctype == req.SPEC_TEMPLATE):
-			frappe.throw(_("Choose an active user from the target project for this assignment."))
-		selected[name] = chosen
-		access.check_document("Contact", source.author)
 		if source.doctype == req.REQUIREMENT:
+			author_type, author = req.participant_link(source, "author")
+			req.check_requirement_participant("author", author_type, author)
+			chosen = _requirement_assignee(source, visible_users, contacts, actor, assignments)
 			content = req.requirement_content(source)
 			for goal in content["goals"]:
 				access.check_document("Goal", goal)
 			content.update(parent=source.get(req.PARENT), is_group=source.is_group)
 		else:
+			author_type, author = "Contact", source.author
+			access.check_document(author_type, author)
+			responsible = source.responsible if source.responsible in assignees else actor
+			user = assignments.get(name, responsible)
+			if user not in assignees:
+				frappe.throw(_("Choose an active user from the target project for this assignment."))
+			chosen = ("User", user)
 			content = req.specification_content(source)
+		selected[name] = chosen
 		blueprint.append(
 			{
 				"doctype": source.doctype,
@@ -102,13 +109,28 @@ def _plan(
 				"revision": source.content_revision,
 				"creation": str(source.creation),
 				"content": content,
-				"author": source.author,
+				"author": (author_type, author),
 				"responsible": chosen,
 			}
 		)
 	order = display_order({name: source.get(req.PARENT) for name, source in graph.requirements.items()})
 	digest = content_digest({"project": project.name, "template": template, "nodes": blueprint})
 	return TemplatePlan(graph, template, selected, order, digest)
+
+
+def _requirement_assignee(source, users, contacts, actor, overrides) -> req.ParticipantLink:
+	if source.name in overrides:
+		user = overrides[source.name]
+		if user and user not in users:
+			frappe.throw(_("Choose an active user from the target project for this assignment."))
+		return "User", user
+
+	doctype, name = req.participant_link(source, "responsible")
+	if doctype == "Contact" and name in contacts and req.can_read(doctype, name):
+		return doctype, name
+	if doctype == "User" and name in users:
+		return doctype, name
+	return "User", actor if actor in users else None
 
 
 def preview(project: str, template: str, assignments) -> req.SpecificationTemplatePreviewResponse:
@@ -120,14 +142,15 @@ def preview(project: str, template: str, assignments) -> req.SpecificationTempla
 		"digest": plan.digest,
 		"assignees": assignees,
 		"specifications": [
-			{"name": name, "title": source.title, "responsible": plan.assignees[name]}
+			{"name": name, "title": source.title, "responsible": plan.assignees[name][1]}
 			for name, source in plan.graph.specifications.items()
 		],
 		"requirements": [
 			{
 				"name": name,
 				"parent": parent,
-				"responsible": plan.assignees[name],
+				"responsible_type": plan.assignees[name][0],
+				"responsible": plan.assignees[name][1],
 				"title": plan.graph.requirements[name].requirement_title,
 			}
 			for name, parent in plan.requirement_order
@@ -139,6 +162,8 @@ def _copy_requirements(plan: TemplatePlan, project: str) -> dict[str, str]:
 	created = {}
 	for name, parent in plan.requirement_order:
 		source = plan.graph.requirements[name]
+		author_type, author = req.participant_link(source, "author")
+		responsible_type, responsible = plan.assignees[name]
 		data = {key: source.get(key) for key in req.REQUIREMENT_CONTENT_FIELDS}
 		doc = frappe.get_doc(
 			{
@@ -147,8 +172,10 @@ def _copy_requirements(plan: TemplatePlan, project: str) -> dict[str, str]:
 				"project": project,
 				"status": "New",
 				"template_source": name,
-				"author": source.author,
-				"responsible": plan.assignees[name],
+				"author_type": author_type,
+				"author": author,
+				"responsible_type": responsible_type,
+				"responsible": responsible,
 				"is_group": source.is_group,
 				req.PARENT: created.get(parent),
 				"goals": [{"goal": row.goal} for row in source.goals],
@@ -195,7 +222,7 @@ def _copy_specifications(
 				"title": source.title,
 				"description": source.description,
 				"author": source.author,
-				"responsible": plan.assignees[name],
+				"responsible": plan.assignees[name][1],
 				"items": items,
 			}
 		)

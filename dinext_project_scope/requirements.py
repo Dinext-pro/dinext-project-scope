@@ -10,6 +10,7 @@ from frappe import _
 from frappe.model.document import Document
 
 from dinext_project_scope import access
+from dinext_project_scope.analytics.contracts import Participant
 from dinext_project_scope.requirement_graph import (
 	REQUIREMENT,
 	CompositionError,
@@ -25,6 +26,9 @@ PROJECT_REQUIREMENTS = "custom_project_requirements"
 PROJECT_SPECIFICATIONS = "custom_project_requirement_specifications"
 PARENT = "parent_project_requirement"
 GRAPH_LOCK = ("DocType", "Project Scope Settings")
+PARTICIPANT_DEFAULTS = {"author": "Contact", "responsible": "User"}
+PARTICIPANT_TYPES = ("User", "Contact")
+ParticipantLink = tuple[str, str | None]
 
 REQUIREMENT_CONTENT_FIELDS = (
 	"requirement_title",
@@ -83,6 +87,7 @@ class TemplateSource(TypedDict):
 
 class RequirementTemplateSource(TemplateSource):
 	parent: str | None
+	responsible_type: str
 
 
 class SpecificationTemplatePreviewResponse(TypedDict):
@@ -105,7 +110,11 @@ class RequirementRow(TypedDict):
 	status: str
 	kind: str | None
 	author: str | None
+	author_type: str
+	author_profile: Participant | None
 	responsible: str | None
+	responsible_type: str
+	responsible_profile: Participant | None
 	priority: str | None
 	requirement_importance: str | None
 	paths: list[list[str]]
@@ -317,7 +326,44 @@ def specification_content(doc: Document) -> dict:
 	return {"title": doc.title or "", "description": doc.description or "", "items": item_edges(doc)}
 
 
-def _validate_people(doc: Document, before: Document | None) -> None:
+def participant_link(doc: Document, field: str) -> ParticipantLink:
+	doctype = doc.get(f"{field}_type")
+	if doctype in (None, ""):
+		doctype = PARTICIPANT_DEFAULTS[field]
+	return doctype, doc.get(field) or None
+
+
+def set_requirement_participant_types(doc: Document) -> None:
+	for fieldname in PARTICIPANT_DEFAULTS:
+		doctype, name = participant_link(doc, fieldname)
+		if doctype not in PARTICIPANT_TYPES:
+			frappe.throw(_("Choose User or Contact for the author and responsible."))
+		if name and (not isinstance(name, str) or not name.strip()):
+			frappe.throw(_("A document identifier is required."))
+		doc.set(f"{fieldname}_type", doctype)
+
+
+def check_requirement_participant(field: str, doctype: str, name: str) -> None:
+	if doctype not in PARTICIPANT_TYPES:
+		frappe.throw(_("Choose User or Contact for the author and responsible."))
+	person = access.check_document(doctype, name, "select" if doctype == "User" else "read")
+	if doctype == "User" and not person.enabled:
+		frappe.throw(
+			_("The author user must be active.")
+			if field == "author"
+			else _("The responsible user must be active.")
+		)
+
+
+def _validate_requirement_people(doc: Document, before: Document | None) -> None:
+	set_requirement_participant_types(doc)
+	for fieldname in PARTICIPANT_DEFAULTS:
+		doctype, name = participant_link(doc, fieldname)
+		if name and (not before or (doctype, name) != participant_link(before, fieldname)):
+			check_requirement_participant(fieldname, doctype, name)
+
+
+def _validate_specification_people(doc: Document, before: Document | None) -> None:
 	if doc.author and (not before or before.author != doc.author):
 		access.check_document("Contact", doc.author)
 	if doc.responsible and (not before or before.responsible != doc.responsible):
@@ -377,21 +423,46 @@ def _validate_status(doc: Document, before: Document | None) -> None:
 	if doc.status == "Approved" and _approving_requirement.get() != doc.name:
 		frappe.throw(_("Approve the requirement through its workflow or a specification."))
 	if doc.status == "Done":
-		assigned = before.responsible if before else None
-		if not assigned:
-			frappe.throw(
-				_("Assign a responsible user before marking this requirement Done."), frappe.PermissionError
-			)
-		if (
-			assigned != frappe.session.user
-			or assigned != doc.responsible
-			or not frappe.db.get_value("User", assigned, "enabled")
-			or not doc.has_permission("write")
-		):
-			frappe.throw(
-				_("Only the assigned responsible user {0} can mark this requirement Done.").format(assigned),
-				frappe.PermissionError,
-			)
+		_validate_completion(doc, before)
+
+
+def _responsible_account(assignment: ParticipantLink) -> str | None:
+	doctype, name = assignment
+	if not name or doctype not in PARTICIPANT_TYPES:
+		return None
+	user = frappe.db.get_value("Contact", name, "user") if doctype == "Contact" else name
+	return user if user and frappe.db.get_value("User", user, "enabled") else None
+
+
+def _current_user_can_complete(doc: Document, account: str | None) -> bool:
+	return account == frappe.session.user and frappe.has_permission(REQUIREMENT, "write", doc=doc)
+
+
+def _validate_completion(doc: Document, before: Document | None) -> None:
+	assignment = participant_link(before, "responsible") if before else ("User", None)
+	account = _responsible_account(assignment)
+	if not account:
+		frappe.throw(
+			_(
+				"Assign a responsible participant with an active user account before marking this requirement Done."
+			),
+			frappe.PermissionError,
+		)
+	if assignment != participant_link(doc, "responsible") or not _current_user_can_complete(doc, account):
+		frappe.throw(
+			_("Only the assigned responsible participant {0} can mark this requirement Done.").format(
+				assignment[1]
+			),
+			frappe.PermissionError,
+		)
+
+
+@frappe.whitelist(methods=["GET", "POST"])
+def can_mark_done(name: str) -> bool:
+	doc = access.check_document(REQUIREMENT, name)
+	return doc.status not in ("Done", "Template", "Cancelled") and _current_user_can_complete(
+		doc, _responsible_account(participant_link(doc, "responsible"))
+	)
 
 
 def validate_requirement(doc: Document) -> None:
@@ -407,7 +478,7 @@ def validate_requirement(doc: Document) -> None:
 		access.check_project(project)
 	_validate_status(doc, before)
 	_validate_origin(doc, before)
-	_validate_people(doc, before)
+	_validate_requirement_people(doc, before)
 	_validate_parent(doc, before)
 	_validate_goals(doc, before)
 	for key in ("lft", "rgt", "old_parent"):
@@ -430,7 +501,7 @@ def validate_specification(doc: Document) -> None:
 		_validate_origin(doc, before)
 	elif doc.get("project"):
 		frappe.throw(_("A template specification cannot have a project."))
-	_validate_people(doc, before)
+	_validate_specification_people(doc, before)
 	validate_child_rows(doc, "items", before)
 	if before:
 		visible_items = [row for row in before.items if doc.can_view_link(row)]
@@ -481,14 +552,25 @@ def project_membership(project: str, *, check_permission=True) -> dict[str, list
 
 
 def _rows(graph: Composition) -> list[RequirementRow]:
+	from dinext_project_scope.analytics.data import member_profiles, participant_avatar
 	from dinext_project_scope.requirement_approval import requirement_states
 
 	states = requirement_states(graph.requirements)
 	parents = {name: doc.get(PARENT) for name, doc in graph.requirements.items()}
+	participants = {
+		name: (participant_link(doc, "author"), participant_link(doc, "responsible"))
+		for name, doc in graph.requirements.items()
+	}
+	profiles = member_profiles(link for links in participants.values() for link in links)
+
+	def profile(doctype, target):
+		return participant_avatar(doctype, target, profiles) if (doctype, target) in profiles else None
+
 	rows = []
 	for name, parent in display_order(parents):
 		doc = graph.requirements[name]
 		state = states[name]
+		(author_type, author), (responsible_type, responsible) = participants[name]
 		rows.append(
 			{
 				"name": name,
@@ -496,8 +578,12 @@ def _rows(graph: Composition) -> list[RequirementRow]:
 				"parent": parent,
 				"status": doc.status,
 				"kind": doc.kind,
-				"author": doc.author,
-				"responsible": doc.responsible,
+				"author": author,
+				"author_type": author_type,
+				"author_profile": profile(author_type, author),
+				"responsible": responsible,
+				"responsible_type": responsible_type,
+				"responsible_profile": profile(responsible_type, responsible),
 				"priority": doc.priority,
 				"requirement_importance": doc.requirement_importance,
 				"paths": graph.paths[name],

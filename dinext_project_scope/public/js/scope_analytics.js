@@ -1346,7 +1346,7 @@
 		element.setAttribute("aria-label", __("Result dynamics"));
 
 		const panels = [
-			["category", __("By category")],
+			["category", __("Result dynamics")],
 			["responsible", __("By responsible person")],
 		].map(([key, title]) => {
 			const card = node("section", "dinext-scope-dynamics-card");
@@ -1584,21 +1584,34 @@
 		return { element, controls };
 	}
 
-	async function downloadResultTree(query, surface) {
+	function downloadResultTree(query, surface) {
+		return downloadWorkbook(
+			"dinext_project_scope.analytics.export.download_project_results",
+			query,
+			"project-results.xlsx",
+			surface
+		);
+	}
+
+	async function downloadWorkbook(method, query, filename, surface, post = false) {
 		if (!query || !surface.active()) return;
 		try {
-			const method = "dinext_project_scope.analytics.export.download_project_results";
-			const response = await fetch(`/api/method/${method}?${new URLSearchParams(query)}`, {
-				credentials: "same-origin",
-				cache: "no-store",
-			});
+			const data = new URLSearchParams(query);
+			const endpoint = `/api/method/${method}`;
+			const options = { credentials: "same-origin", cache: "no-store" };
+			if (post) {
+				options.method = "POST";
+				options.headers = { "X-Frappe-CSRF-Token": frappe.csrf_token };
+				options.body = data;
+			}
+			const response = await fetch(post ? endpoint : `${endpoint}?${data}`, options);
 			if (!response.ok) throw new Error("Export failed");
 			const workbook = await response.blob();
 			if (!surface.active()) return;
 			const url = URL.createObjectURL(workbook);
 			const link = node("a");
 			link.href = url;
-			link.download = "project-results.xlsx";
+			link.download = filename;
 			link.click();
 			setTimeout(() => URL.revokeObjectURL(url), 2000);
 		} catch {
@@ -1997,5 +2010,7 @@
 		drawGrid,
 		setMessage,
 		chartFilter,
+		participantAvatar,
+		downloadWorkbook,
 	};
 })();

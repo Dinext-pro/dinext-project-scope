@@ -9,6 +9,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from dinext_project_scope import requirement_approval, requirements
 from dinext_project_scope.analytics import reports
+from dinext_project_scope.project_scope import create_project_requirement
 from dinext_project_scope.tests.project_fixture import make_goal, make_project
 
 
@@ -220,6 +221,150 @@ class TestProjectRequirement(FrappeTestCase):
 		with self.assertRaises(frappe.PermissionError):
 			requirement.save()
 		self.assertEqual(requirement.reload().status, "New")
+
+	def test_project_rows_return_typed_profiles_for_legacy_links(self):
+		image = "/files/test-requirement-author.png"
+		frappe.db.set_value("Contact", self.contact, "image", image)
+		name = create_project_requirement(
+			self.project.name, "Legacy participants", self.kind, self.contact, "Administrator"
+		)
+		frappe.db.set_value("Project Requirement", name, {"author_type": None, "responsible_type": None})
+		[row] = requirements.project_rows(self.project.name)
+		self.assertEqual(
+			(row["name"], row["author"], row["responsible"]), (name, self.contact, "Administrator")
+		)
+		self.assertEqual((row["author_type"], row["responsible_type"]), ("Contact", "User"))
+		self.assertEqual(row["author_profile"]["doctype"], "Contact")
+		self.assertEqual(row["author_profile"]["name"], self.contact)
+		self.assertEqual(row["author_profile"]["image"], image)
+		self.assertEqual(row["responsible_profile"]["doctype"], "User")
+		doc = frappe.get_doc("Project Requirement", name)
+		doc.requirement_title = "Existing requirement edited through Desk"
+		self.assertEqual((doc.save().author_type, doc.responsible_type), ("Contact", "User"))
+
+	def test_create_requirement_with_user_author_and_contact_responsible(self):
+		name = create_project_requirement(
+			self.project.name,
+			"Typed participants",
+			self.kind,
+			"Administrator",
+			self.contact,
+			author_type="User",
+			responsible_type="Contact",
+		)
+		[entry] = requirements.project_rows(self.project.name)
+		self.assertEqual(entry["name"], name)
+		self.assertEqual((entry["author_type"], entry["author"]), ("User", "Administrator"))
+		self.assertEqual((entry["responsible_type"], entry["responsible"]), ("Contact", self.contact))
+
+	def test_traceability_filters_distinguish_user_and_contact_with_same_identifier(self):
+		identity = f"scope-participant-{frappe.generate_hash(length=8)}@example.test"
+		frappe.get_doc(
+			doctype="User", first_name="Traceability user", email=identity, send_welcome_email=0
+		).insert()
+		frappe.get_doc(doctype="Contact", first_name="Traceability contact").insert(set_name=identity)
+		contact_requirement = create_project_requirement(
+			self.project.name, "Contact author", self.kind, identity
+		)
+		user_requirement = create_project_requirement(
+			self.project.name, "User author", self.kind, identity, author_type="User"
+		)
+		filters = {"project": self.project.name, "author": identity}
+		_, legacy_rows = reports.dataset(reports.TRACEABILITY, filters)
+		_, typed_rows = reports.dataset(reports.TRACEABILITY, {**filters, "author_type": "User"})
+		self.assertEqual([row["document"] for row in legacy_rows], [contact_requirement])
+		self.assertEqual([row["document"] for row in typed_rows], [user_requirement])
+		self.assertEqual(
+			reports.reference_query(
+				"User",
+				identity,
+				"name",
+				0,
+				20,
+				{"project": self.project.name, "context": "requirement", "participant_field": "author"},
+			),
+			[(identity, "Traceability user")],
+		)
+
+	def test_requirement_rejects_an_unrelated_participant_type(self):
+		with self.assertRaises(frappe.ValidationError):
+			self.make_requirement(author_type="Project", author=self.contact, responsible=None)
+
+	def test_inactive_user_cannot_be_selected_as_author_or_responsible(self):
+		user = frappe.get_doc(
+			doctype="User",
+			first_name="Inactive requirement participant",
+			email=f"scope-inactive-{frappe.generate_hash(length=8)}@example.test",
+			enabled=0,
+			send_welcome_email=0,
+		).insert()
+		for field in ("author", "responsible"):
+			with self.subTest(field=field), self.assertRaises(frappe.ValidationError):
+				self.make_requirement(**{f"{field}_type": "User", field: user.name})
+
+	def test_done_uses_the_linked_account_and_keeps_the_saved_contact_assignment(self):
+		doc = self.make_requirement(responsible_type="Contact", responsible=self.contact)
+		self.assertFalse(requirements.can_mark_done(doc.name))
+		doc.status = "Done"
+		with self.assertRaises(frappe.PermissionError):
+			doc.save()
+
+		frappe.db.set_value("Contact", self.contact, "user", "Administrator")
+		self.assertTrue(requirements.can_mark_done(doc.name))
+		replacement = frappe.get_doc(
+			doctype="Contact",
+			first_name=f"Replacement requirement participant {frappe.generate_hash(length=8)}",
+			user="Administrator",
+		).insert()
+		doc.reload()
+		doc.update({"responsible": replacement.name, "status": "Done"})
+		with self.assertRaises(frappe.PermissionError):
+			doc.save()
+
+		doc.reload()
+		doc.status = "Done"
+		self.assertEqual(doc.save().status, "Done")
+		self.assertEqual(doc.reload().responsible, self.contact)
+
+	def test_stock_requirement_workflow_uses_the_linked_responsible_account(self):
+		frappe.db.set_value("Contact", self.contact, "user", "Administrator")
+		doc = self.make_requirement(responsible_type="Contact", responsible=self.contact)
+
+		self.vote(doc, "Submit for Review")
+		self.vote(doc, "Approve")
+		self.assertEqual(doc.status, "Approved")
+
+	def test_template_copies_typed_participants_eligible_in_the_target_project(self):
+		role = frappe.get_doc(
+			doctype="Project Role",
+			role_name=f"Requirement participant {frappe.generate_hash(length=8)}",
+			enabled=1,
+		).insert()
+		self.project.append("custom_contact_list", {"contact": self.contact, "project_role": role.name})
+		self.project.save()
+		source = self.make_requirement(
+			project=None,
+			status="Template",
+			author_type="User",
+			author="Administrator",
+			responsible_type="Contact",
+			responsible=self.contact,
+		)
+		template = self.make_specification([(source.doctype, source.name)], template=True)
+		for project, expected in (
+			(self.project, ("Contact", self.contact)),
+			(self.make_project(), ("User", "Administrator")),
+		):
+			with self.subTest(project=project.name):
+				preview = requirements.preview_specification_template(project.name, template.name)
+				[prepared] = preview["requirements"]
+				self.assertEqual((prepared["responsible_type"], prepared["responsible"]), expected)
+				result = requirements.apply_specification_template(
+					project.name, template.name, frappe.generate_hash(length=32), preview["digest"]
+				)
+				copy = frappe.get_doc(source.doctype, result["requirements"][source.name])
+				self.assertEqual((copy.author_type, copy.author), ("User", "Administrator"))
+				self.assertEqual((copy.responsible_type, copy.responsible), expected)
 
 	def test_template_is_copied_once_per_request_and_once_per_distinct_project(self):
 		root_req = self.make_requirement(status="Template", project=None, is_group=1)

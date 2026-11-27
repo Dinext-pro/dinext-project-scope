@@ -17,7 +17,9 @@
   "priority",
   "requirement_importance",
   "column_break_frmh",
+  "author_type",
   "author",
+  "responsible_type",
   "responsible",
   "parent_project_requirement",
   "section_break_sart",
@@ -59,18 +61,33 @@
    "options": "Project Requirement"
   },
   {
+   "default": "Contact",
+   "fieldname": "author_type",
+   "fieldtype": "Select",
+   "label": "Author Type",
+   "options": "Contact\nUser",
+   "reqd": 1
+  },
+  {
    "fieldname": "author",
-   "fieldtype": "Link",
+   "fieldtype": "Dynamic Link",
    "label": "Author",
-   "options": "Contact",
+   "options": "author_type",
+   "reqd": 1
+  },
+  {
+   "default": "User",
+   "fieldname": "responsible_type",
+   "fieldtype": "Select",
+   "label": "Responsible Type",
+   "options": "User\nContact",
    "reqd": 1
   },
   {
    "fieldname": "responsible",
-   "fieldtype": "Link",
+   "fieldtype": "Dynamic Link",
    "label": "Responsible",
-   "link_filters": "[[\"User\",\"enabled\",\"=\",1]]",
-   "options": "User"
+   "options": "responsible_type"
   },
   {
    "default": "Medium",

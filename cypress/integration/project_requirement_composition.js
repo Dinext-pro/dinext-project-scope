@@ -449,13 +449,16 @@ describe("Requirement specification composition", () => {
 				expect($badge).to.have.class(frappe.scrub(state.color, "-"));
 			});
 		});
-		cy.contains(`${projectTree} button`, "Requirement Traceability Matrix").should(
-			"be.visible"
-		);
-		cy.get(`${projectTree} [data-fieldname="scope_specification_filter"] input`).should(
-			"be.visible"
-		);
-		cy.contains(`${projectTree} summary`, "More Actions").click();
+		cy.get(
+			`${projectTree} .dinext-table-toolbar button[title="Requirement Traceability Matrix"]`
+		)
+			.should("be.visible")
+			.find("svg")
+			.should("exist");
+		cy.get(
+			`${projectTree} .dinext-table-toolbar [data-fieldname="scope_specification_filter"] input`
+		).should("be.visible");
+		cy.contains(`${projectTree} .dinext-table-toolbar summary`, "More Actions").click();
 		cy.contains(`${projectTree} button`, "Apply Specification Template").should("be.visible");
 		cy.contains(`${projectTree} summary`, "More Actions").click();
 		showProjectSpecifications();
@@ -495,7 +498,10 @@ describe("Requirement specification composition", () => {
 		cy.get(modal).within(() => {
 			cy.get('[data-fieldname="title"] input').type(title);
 			chooseLink("category", fixture.kind);
-			chooseLink("author", fixture.contact);
+			cy.get('[data-fieldname="author_type"] select').select("User");
+			chooseLink("author", fixture.actors.author.email);
+			cy.get('[data-fieldname="responsible_type"] select').select("Contact");
+			chooseLink("responsible", fixture.contact);
 			cy.contains("button", /^Create$/).click();
 		});
 		cy.location("pathname").should("match", /^\/app\/project-requirement\/.+$/);
@@ -504,6 +510,14 @@ describe("Requirement specification composition", () => {
 			"data-name",
 			fixture.project
 		);
+		cy.window().should(({ cur_frm }) => {
+			expect(cur_frm.doc).to.include({
+				author_type: "User",
+				author: fixture.actors.author.email,
+				responsible_type: "Contact",
+				responsible: fixture.contact,
+			});
+		});
 		openProjectScope(fixture.project);
 		showProjectSpecifications();
 		cy.contains(projectTitles, title)

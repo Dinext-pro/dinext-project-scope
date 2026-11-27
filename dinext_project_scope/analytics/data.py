@@ -196,13 +196,11 @@ def responsibility_definitions():
 	}
 
 
-def _participant_rows(assignments, *, include_images=False):
+def _participant_rows(members, *, include_images=False):
 	values = defaultdict(set)
-	for rows in assignments.values():
-		for row in rows:
-			doctype, name = participant(row)
-			if doctype in PARTICIPANT_IMAGE_FIELDS and name:
-				values[doctype].add(name)
+	for doctype, name in members:
+		if doctype in PARTICIPANT_IMAGE_FIELDS and name:
+			values[doctype].add(name)
 	participants = {}
 	for doctype, names in values.items():
 		fields = ["name", "full_name"]
@@ -217,12 +215,21 @@ def _participant_names(participants):
 	return {key: row.get("full_name") or key[1] for key, row in participants.items()}
 
 
+def _assigned_members(assignments):
+	return (participant(row) for rows in assignments.values() for row in rows)
+
+
+def member_profiles(members):
+	"""Load readable names and images for a collection of (DocType, name) links."""
+	return _participant_rows(members, include_images=True)
+
+
 def participant_profiles(assignments):
-	return _participant_rows(assignments, include_images=True)
+	return member_profiles(_assigned_members(assignments))
 
 
 def participant_names(assignments):
-	return _participant_names(_participant_rows(assignments))
+	return _participant_names(_participant_rows(_assigned_members(assignments)))
 
 
 def participant(row):
