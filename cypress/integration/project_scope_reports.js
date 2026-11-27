@@ -193,9 +193,14 @@ describe("Project scope reports", () => {
 				});
 		}
 		cy.get(`${native} .btn-open-row`).first().click({ scrollBehavior: "center" });
-		cy.get('.grid-row-open .form-in-grid input[data-fieldname="subject"]').should(
-			"be.visible"
-		);
+		const subject = `${native} .grid-row-open .form-in-grid .frappe-control[data-fieldname="subject"]`;
+		cy.get(subject).should(($subject) => {
+			expect($subject).to.be.visible;
+			const value =
+				$subject.find("input:visible").val() ??
+				$subject.find(".control-value:visible").text();
+			expect(value).to.eq(`${fixture.title} assumption`);
+		});
 	});
 
 	for (const [label, field, filter] of [
