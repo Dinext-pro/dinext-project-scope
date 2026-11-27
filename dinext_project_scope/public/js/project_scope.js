@@ -737,15 +737,20 @@
 					),
 					...(frappe.model.can_export(options.doctype)
 						? [
-								iconAction("scope-export", __("Excel"), "download", () =>
-									downloadScopeTable(
-										surface,
-										options.project,
-										options.tableName,
-										filters,
-										options.exportParams?.()
-									)
-								),
+								{
+									id: "scope-export",
+									type: "button",
+									title: __("Excel"),
+									iconSvg: ui.xlsxIcon,
+									onClick: () =>
+										downloadScopeTable(
+											surface,
+											options.project,
+											options.tableName,
+											filters,
+											options.exportParams?.()
+										),
+								},
 						  ]
 						: []),
 				],
@@ -1089,15 +1094,15 @@
 				.catch(() => {});
 		}
 		const buttons = [
-			[__("Clear filters"), "filter-x", () => state.clear()],
+			[__("Clear filters"), frappe.utils.icon("filter-x", "sm"), () => state.clear()],
 			...(frappe.model.can_export("Project", frm)
-				? [[__("Excel"), "download", () => state.download()]]
+				? [[__("Excel"), ui.xlsxIcon, () => state.download()]]
 				: []),
 		];
 		for (const [label, icon, action] of buttons) {
 			grid.add_custom_button(label, action)
 				.attr({ title: label, "aria-label": label })
-				.html(frappe.utils.icon(icon, "sm"));
+				.html(icon);
 		}
 		applyFilters();
 		window.DinextCharts.load()

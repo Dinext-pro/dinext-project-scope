@@ -4,6 +4,8 @@
 	const ASSET_ROOT = "/assets/dinext_project_scope";
 	const API = "dinext_project_scope.analytics.data";
 	const EMPTY = "__dinext_scope_no_value__";
+	const xlsxIcon =
+		'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M8 2v8m-3-3 3 3 3-3M3 11v3h10v-3"/></svg>';
 	const DELIVERABLE = "Project Deliverable";
 	const RESULT_FILTER_FIELDS = new Set(["status", "deliverable_type", "category"]);
 	const tones = ["red", "yellow", "green", "light-green", "cyan", "blue", "gray"];
@@ -1714,8 +1716,7 @@
 				type: "button",
 				align: "end",
 				title: __("Export XLSX"),
-				iconSvg:
-					'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M8 2v8m-3-3 3 3 3-3M3 11v3h10v-3"/></svg>',
+				iconSvg: xlsxIcon,
 				hidden: !frappe.model.can_export(DELIVERABLE),
 				onClick: exportResults,
 			},
@@ -2012,5 +2013,6 @@
 		chartFilter,
 		participantAvatar,
 		downloadWorkbook,
+		xlsxIcon,
 	};
 })();

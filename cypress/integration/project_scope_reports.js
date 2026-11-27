@@ -188,7 +188,9 @@ describe("Project scope reports", () => {
 				"**/api/method/dinext_project_scope.analytics.export.download_project_scope_table";
 			cy.intercept("POST", url).as(tableName);
 			cy.get(pane + ` select[data-fieldname="${filter}"]`).select(pick);
-			cy.get(pane + ' button[title="Excel"]:visible').click();
+			const exportButton = pane + ' button[title="Excel"]:visible';
+			cy.get(exportButton).find('svg path[stroke="currentColor"]').should("exist");
+			cy.get(exportButton).click();
 			cy.wait("@" + tableName).then(({ response, request }) => {
 				expect(response.statusCode).to.eq(200);
 				expect(response.headers["content-disposition"]).to.contain(stem + ".xlsx");
