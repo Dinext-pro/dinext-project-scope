@@ -307,7 +307,21 @@ describe("Requirement specification composition", () => {
 		cy.get(`${titleRow} .dinext-table-tree-toggle`).click();
 		cy.get(child).should("be.visible");
 		cy.get(row).invoke("attr", "row-id").as("workingRequirementRow");
+		cy.intercept("POST", "**/api/method/dinext_project_scope.requirements.project_rows").as(
+			"filteredRequirements"
+		);
 		chooseLink("scope_specification_filter", fixture.nested);
+		cy.wait("@filteredRequirements").then(({ request, response }) => {
+			const params =
+				typeof request.body === "string"
+					? Object.fromEntries(new URLSearchParams(request.body))
+					: request.body;
+			expect(params.specification).to.eq(fixture.nested);
+			expect(response.statusCode).to.eq(200);
+			const filtered = response.body.message.find(({ name }) => name === fixture.working);
+			expect(filtered?.paths).to.have.length(1);
+			expect(filtered.paths[0]).to.include(fixture.nested);
+		});
 		cy.get("@workingRequirementRow").then((id) => {
 			projectGrid().should((api) => {
 				const paths = api.getRowNode(id)?.data?.paths;

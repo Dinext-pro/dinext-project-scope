@@ -500,7 +500,7 @@
 				options: SPEC,
 				get_query: () => ({ filters: { project: frm.doc.name } }),
 				change() {
-					return refresh(this.get_value() || "", this);
+					return refresh(this.get_model_value() || "", this);
 				},
 			},
 		});
