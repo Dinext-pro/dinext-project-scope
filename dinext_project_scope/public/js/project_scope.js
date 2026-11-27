@@ -2,11 +2,13 @@
 	const REQ = "Project Requirement";
 	const SPEC = "Project Requirement Specification";
 	const TEMPLATE = "Project Requirement Specification Template";
+	const CONSTRAINT = "Project Constraint";
 	const CONSTRAINT_TEMPLATE = "Project Constraints Template";
 	const PATH = "dinext_project_scope.";
 	const CHANGE_REQUEST = "Project Change Request";
 	const baseAPI = "dinext_project_scope.requirements.";
 	const nativeGrids = new WeakMap();
+	const priorityColors = { Low: "Gray", Medium: "Blue", High: "Orange", Critical: "Red" };
 	const FIELD = {
 		requirements: "custom_scope_requirements_html",
 		specs: "custom_project_requirement_specifications",
@@ -153,12 +155,18 @@
 		return content;
 	}
 
+	function indicatorPill(label, color) {
+		const pill = node("span", null, "indicator-pill");
+		pill.append(node("span", label, "ellipsis"));
+		if (label) pill.title = label;
+		if (color) pill.classList.add(frappe.scrub(color, "-"));
+		return pill;
+	}
+
 	function statusCell(row, doctype) {
 		const label = __(row.status, null, doctype);
-		const status = node("span", label, "indicator-pill");
-		const state =
-			doctype && frappe.get_meta(doctype)?.states?.find(({ title }) => title === row.status);
-		if (state?.color) status.classList.add(frappe.scrub(state.color, "-"));
+		const state = frappe.get_meta(doctype)?.states?.find(({ title }) => title === row.status);
+		const status = indicatorPill(label, state?.color);
 		if (row.approval_stale) {
 			status.title = `${label} · ${__("Reapproval Required")}`;
 		}
@@ -740,6 +748,7 @@
 								{
 									id: "scope-export",
 									type: "button",
+									align: "end",
 									title: __("Excel"),
 									iconSvg: ui.xlsxIcon,
 									onClick: () =>
@@ -766,7 +775,7 @@
 
 	function requirementColumns() {
 		const attributes = [
-			["priority", __("Priority"), 95, REQ],
+			["priority", __("Priority"), 126, REQ],
 			["kind", __("Kind"), 150, "Requirement Kind"],
 			["author", __("Author"), 95],
 			["requirement_importance", __("Importance"), 120, REQ],
@@ -795,9 +804,16 @@
 						personCell(data[`${field}_profile`], data[`${field}_type`], data[field]);
 					column.cellClass = "scope-person-cell";
 				} else {
+					column.cellStyle = { textAlign: "center" };
 					column.tooltipField = field;
 					column.valueFormatter = ({ value }) =>
 						value ? __(value, null, context) : "—";
+					if (field === "priority") {
+						column.cellRenderer = ({ value, valueFormatted }) =>
+							value
+								? indicatorPill(valueFormatted, priorityColors[value])
+								: node("span", valueFormatted);
+					}
 				}
 				return column;
 			}),
@@ -885,8 +901,12 @@
 		return showScopePane(
 			frm,
 			FIELD.changes,
-			(project) =>
-				canRead ? rpc(`${PATH}project_scope.project_change_rows`, { project }) : [],
+			async (project) => {
+				if (!canRead) return [];
+				const rows = await rpc(`${PATH}project_scope.project_change_rows`, { project });
+				if (rows.length) await frappe.model.with_doctype(CHANGE_REQUEST);
+				return rows;
+			},
 			(ui, surface, rows, project) => {
 				const toolbar = [];
 				if (writable(frm) && frappe.model.can_create(CHANGE_REQUEST)) {
@@ -939,8 +959,9 @@
 						{
 							field: "status",
 							headerName: __("Status"),
-							width: 145,
-							cellRenderer: ({ data }) => statusCell(data),
+							width: 152,
+							cellStyle: { textAlign: "center" },
+							cellRenderer: ({ data }) => statusCell(data, CHANGE_REQUEST),
 						},
 						{
 							field: "implementation_responsible",
@@ -1006,10 +1027,12 @@
 		return state;
 	}
 
-	function showNativeScope(frm, field, tableName, getProfiles, responsibilities) {
+	function showNativeScope(frm, field, tableName, getProfiles) {
 		const control = frm.get_field(field);
 		const grid = control?.grid;
 		if (!grid?.wrapper) return;
+		const isConstraints = tableName === "constraints";
+		grid.wrapper.addClass("scope-native-grid").attr("data-scope-table", tableName);
 		const ui = window.DinextScopeAnalytics;
 		const project = frm.doc.name;
 		const state = nativeGridState(grid);
@@ -1053,8 +1076,10 @@
 			grid.refresh();
 		}
 
-		function paintAvatar(row) {
-			if (!responsibilities || row.grid !== grid) return;
+		function paintConstraintRow(row) {
+			if (row.grid !== grid) return;
+			const status = row.columns?.status?.static_area?.get(0);
+			if (status && row.doc?.status) status.replaceChildren(statusCell(row.doc, CONSTRAINT));
 			const cell = row.columns?.responsible?.static_area?.get(0);
 			const name = row.doc?.responsible;
 			if (!cell || !name) return;
@@ -1073,17 +1098,20 @@
 			const filtered =
 				Object.keys(filters.selection()).length || Object.keys(grid.filter).length;
 			grid.grid_sortable?.option("disabled", Boolean(filtered));
-			for (const row of Object.values(grid.grid_rows_by_docname || {})) paintAvatar(row);
+			if (isConstraints)
+				Object.values(grid.grid_rows_by_docname || {}).forEach(paintConstraintRow);
 		}
 
 		grid.wrapper.off("change.dinextScopeCharts").on("change.dinextScopeCharts", () => {
 			cancelAnimationFrame(animationFrame);
 			animationFrame = requestAnimationFrame(renderCharts);
 		});
-		if (responsibilities) {
+		if (isConstraints) {
 			$(frm.wrapper)
 				.off("grid-row-render.dinextScopeConstraints")
-				.on("grid-row-render.dinextScopeConstraints", (_event, row) => paintAvatar(row));
+				.on("grid-row-render.dinextScopeConstraints", (_event, row) =>
+					paintConstraintRow(row)
+				);
 			rpc("dinext_project_scope.analytics.scope_tables.project_constraint_profiles", {
 				project,
 			})
@@ -1128,39 +1156,28 @@
 	}
 
 	function showConstraints(frm) {
-		showNativeScope(
-			frm,
-			"project_constraints",
-			"constraints",
-			(lookup) => [
-				chartProfile(
-					"category",
-					__("Category"),
-					__("Constraints by category"),
-					"Project Deliverable Category"
-				),
-				chartProfile(
-					"record_type",
-					__("Record Type"),
-					__("Constraints by record type"),
-					"Project Constraint"
-				),
-				chartProfile(
-					"status",
-					__("Status"),
-					__("Constraints by status"),
-					"Project Constraint"
-				),
-				participantChart(
-					"responsible",
-					__("Responsible"),
-					__("Constraints by responsible"),
-					(row) => personKey(row.responsible_type || "User", row.responsible),
-					lookup
-				),
-			],
-			true
-		);
+		showNativeScope(frm, "project_constraints", "constraints", (lookup) => [
+			chartProfile(
+				"category",
+				__("Category"),
+				__("Constraints by category"),
+				"Project Deliverable Category"
+			),
+			chartProfile(
+				"record_type",
+				__("Record Type"),
+				__("Constraints by record type"),
+				CONSTRAINT
+			),
+			chartProfile("status", __("Status"), __("Constraints by status"), CONSTRAINT),
+			participantChart(
+				"responsible",
+				__("Responsible"),
+				__("Constraints by responsible"),
+				(row) => personKey(row.responsible_type || "User", row.responsible),
+				lookup
+			),
+		]);
 	}
 
 	function gridRowRoute(frm) {

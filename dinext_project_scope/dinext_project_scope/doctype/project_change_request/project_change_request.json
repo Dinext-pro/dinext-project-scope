@@ -290,7 +290,32 @@
  "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
+ "states": [
+  {
+   "color": "Gray",
+   "title": "Draft"
+  },
+  {
+   "color": "Yellow",
+   "title": "In Review"
+  },
+  {
+   "color": "Cyan",
+   "title": "Approved"
+  },
+  {
+   "color": "Red",
+   "title": "Rejected"
+  },
+  {
+   "color": "Green",
+   "title": "Implemented"
+  },
+  {
+   "color": "Gray",
+   "title": "Cancelled"
+  }
+ ],
  "title_field": "title",
  "track_changes": 1
 }

@@ -72,6 +72,21 @@ function pressFullscreenControl(root, title) {
 	});
 }
 
+function expectCentered(selector, property = "text-align") {
+	cy.get(selector).should((elements) => {
+		for (const element of elements) {
+			const style = element.ownerDocument.defaultView.getComputedStyle(element);
+			expect(style.getPropertyValue(property)).to.eq("center");
+		}
+	});
+}
+
+function scopeToolbarEnd(pane, fullscreenTitle) {
+	cy.get(`${pane} .dinext-table-toolbar-group--end button`).should((buttons) => {
+		expect([...buttons].map(({ title }) => title)).to.deep.eq(["Excel", fullscreenTitle]);
+	});
+}
+
 describe("Project scope reports", () => {
 	const fixture = useReportFixture();
 
@@ -122,6 +137,67 @@ describe("Project scope reports", () => {
 		}
 	});
 
+	it("centers Scope headers and requirement values and displays priority badges", () => {
+		cy.login(fixture.actor, fixture.password);
+		cy.visit(`/app/project/${fixture.project}`);
+		cy.get('button[data-fieldname="custom_объем"]').click();
+		for (const field of ["project_scopes", "project_constraints"]) {
+			const header = `[data-fieldname="${field}"] .grid-heading-row`;
+			expectCentered(`${header} .grid-static-col .static-area`);
+		}
+		const requirements = '[data-fieldname="custom_scope_requirements_html"]';
+		const changes = '[data-fieldname="custom_scope_changes_html"]';
+		for (const pane of [requirements, changes]) {
+			expectCentered(`${pane} .ag-header-cell-label`, "justify-content");
+		}
+		for (const field of ["priority", "kind", "requirement_importance"]) {
+			expectCentered(`${requirements} .ag-center-cols-container [col-id="${field}"]`);
+		}
+		cy.get(`${requirements} [col-id="priority"] .indicator-pill.orange`)
+			.should("be.visible")
+			.and("have.text", "High");
+	});
+
+	it("renders centered constraint and change statuses from Document States", () => {
+		cy.login(fixture.actor, fixture.password);
+		cy.visit(`/app/project/${fixture.project}`);
+		cy.get('button[data-fieldname="custom_объем"]').click();
+		const native = '[data-fieldname="project_constraints"] .grid-body';
+		for (const field of ["category", "record_type", "status"]) {
+			expectCentered(`${native} [data-fieldname="${field}"] .static-area`);
+		}
+		for (const [selector, doctype] of [
+			[`${native} [data-fieldname="status"] .static-area`, "Project Constraint"],
+			[
+				'[data-fieldname="custom_scope_changes_html"] .ag-body [col-id="status"]',
+				"Project Change Request",
+			],
+		]) {
+			cy.get(selector)
+				.first()
+				.should(([cell]) => {
+					const view = cell.ownerDocument.defaultView;
+					const pill = cell.querySelector(".indicator-pill");
+					expect(pill, doctype).to.exist;
+					expect(pill.title).to.eq(pill.textContent);
+					const state = view.frappe
+						.get_meta(doctype)
+						.states.find(
+							(row) => view.__(row.title, null, doctype) === pill.textContent
+						);
+					expect(state?.color, `${doctype} color in Document States`).to.be.a("string");
+					expect(pill.classList.contains(view.frappe.scrub(state.color, "-"))).to.eq(
+						true
+					);
+					expect(view.getComputedStyle(cell).textAlign).to.eq("center");
+				});
+		}
+		cy.get(`${native} .btn-open-row`).first().click({ scrollBehavior: "center" });
+		cy.get('.grid-row-open .form-in-grid input[data-fieldname="subject"]').should(
+			"be.visible"
+		);
+	});
+
 	for (const [label, field, filter] of [
 		["Requirements", "custom_scope_requirements_html", "kind"],
 		["Change Requests", "custom_scope_changes_html", "creation"],
@@ -131,7 +207,9 @@ describe("Project scope reports", () => {
 			cy.visit(`/app/project/${fixture.project}`);
 			cy.get('button[data-fieldname="custom_объем"]').click();
 			const pane = `[data-fieldname="${field}"] .dinext-project-scope`;
+			scopeToolbarEnd(pane, "Fullscreen");
 			pressFullscreenControl(pane, "Fullscreen");
+			scopeToolbarEnd(pane, "Exit fullscreen");
 			cy.get(pane).should(([root]) => {
 				expect(root.ownerDocument.fullscreenElement).to.eq(root);
 				expect(root.querySelectorAll(".dinext-scope-chart canvas")).to.have.length(4);
@@ -189,6 +267,9 @@ describe("Project scope reports", () => {
 			cy.intercept("POST", url).as(tableName);
 			cy.get(pane + ` select[data-fieldname="${filter}"]`).select(pick);
 			const exportButton = pane + ' button[title="Excel"]:visible';
+			if (tableName === "requirements" || tableName === "change_requests") {
+				scopeToolbarEnd(pane, "Fullscreen");
+			}
 			cy.get(exportButton).find('svg path[stroke="currentColor"]').should("exist");
 			cy.get(exportButton).click();
 			cy.wait("@" + tableName).then(({ response, request }) => {

@@ -103,6 +103,33 @@
 	flex-wrap: wrap;
 }
 
+.dinext-project-scope .scope-embedded-grid .ag-header-cell-label {
+	justify-content: center;
+	text-align: center;
+}
+
+.scope-native-grid .grid-heading-row :is(.row-index, .grid-static-col > .static-area),
+.scope-native-grid[data-scope-table="constraints"]
+	.grid-body
+	.grid-static-col:is([data-fieldname="category"], [data-fieldname="record_type"], [data-fieldname="status"])
+	> .static-area {
+	text-align: center;
+}
+
+.dinext-project-scope .scope-embedded-grid .ag-cell:is([col-id="priority"], [col-id="status"]),
+.scope-native-grid[data-scope-table="constraints"]
+	.grid-body
+	.grid-static-col[data-fieldname="status"]
+	> .static-area,
+.scope-native-grid .grid-static-col[data-fieldname="status"] .indicator-pill {
+	padding-inline: var(--padding-xs);
+}
+
+.dinext-project-scope .scope-embedded-grid .indicator-pill,
+.scope-native-grid .indicator-pill {
+	max-width: 100%;
+}
+
 .dinext-project-scope .scope-person-cell,
 .scope-native-person-cell {
 	display: flex;
