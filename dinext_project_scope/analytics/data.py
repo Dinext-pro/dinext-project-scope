@@ -755,13 +755,7 @@ def work_assignees(tasks, other_work):
 		):
 			if todo.allocated_to:
 				assignees[doctype, todo.reference_name].add(todo.allocated_to)
-	profiles = _participant_rows(
-		{
-			key: [{"responsible_type": "User", "responsible": user} for user in users]
-			for key, users in assignees.items()
-		},
-		include_images=True,
-	)
+	profiles = member_profiles(("User", user) for users in assignees.values() for user in users)
 	return {
 		key: [participant_avatar("User", user, profiles) for user in sorted(users)]
 		for key, users in assignees.items()

@@ -27,10 +27,14 @@ class TestScopeAnalytics(TestCase):
 		}
 		other = {"document_type": "Note", "document": "other", "is_other": True}
 		result = dict(task, document_type=data.DELIVERABLE, document="result", children=[task, other])
-		with patch.object(data, "result_progress_history", return_value={
-			(data.DELIVERABLE, "result"): [(baseline, 25), (reporting, 48), (reporting, 52.5)],
-			("Task", "task"): [(reporting, 46)],
-		}) as history:
+		with patch.object(
+			data,
+			"result_progress_history",
+			return_value={
+				(data.DELIVERABLE, "result"): [(baseline, 25), (reporting, 48), (reporting, 52.5)],
+				("Task", "task"): [(reporting, 46)],
+			},
+		) as history:
 			data.add_result_progress([result], reporting, baseline, True, today)
 		history.assert_called_once_with({data.DELIVERABLE: {"result"}, "Task": {"task"}}, reporting)
 		self.assertEqual(result["progress"], 52.5)
@@ -83,13 +87,26 @@ class TestScopeAnalytics(TestCase):
 	def test_results_workbook_exports_visible_progress_columns_and_hierarchy(self):
 		with (
 			patch.object(export.frappe, "has_permission") as permission,
-			patch.object(data, "project_results", return_value={
-				"comparison": {"show_plan": True, "baseline_date": "2026-11-12"},
-				"rows": [{"label": "Parent", "progress": 54, "baseline_progress": 25,
-					"baseline_delta": 29, "baseline_delta_direction": "up", "planned_progress": 50,
-					"plan_delta": 4, "plan_delta_direction": "up",
-					"children": [{"label": "=Child", "progress": 20}]}],
-			}) as payload,
+			patch.object(
+				data,
+				"project_results",
+				return_value={
+					"comparison": {"show_plan": True, "baseline_date": "2026-11-12"},
+					"rows": [
+						{
+							"label": "Parent",
+							"progress": 54,
+							"baseline_progress": 25,
+							"baseline_delta": 29,
+							"baseline_delta_direction": "up",
+							"planned_progress": 50,
+							"plan_delta": 4,
+							"plan_delta_direction": "up",
+							"children": [{"label": "=Child", "progress": 20}],
+						}
+					],
+				},
+			) as payload,
 			patch.object(export, "provide_binary_file") as delivery,
 		):
 			filters = '{"responsible":"User:member"}'
@@ -470,13 +487,20 @@ class TestScopeAnalytics(TestCase):
 
 	def test_work_assignees_are_scoped_to_visible_documents_and_open_todos(self):
 		todos = [frappe._dict(reference_name="W", allocated_to="user")]
+		user = {"full_name": "Person", "user_image": "/files/portrait.png"}
 		with (
 			patch.object(data.frappe, "get_all", return_value=todos) as query,
-			patch.object(data, "_participant_rows", return_value={("User", "user"): {"full_name": "Person"}}),
+			patch.object(data, "select_rows", return_value={"user": user}) as select,
 		):
 			assigned = data.work_assignees({"W": {}}, {("Contact", "W"): {}})
-		self.assertEqual(assigned[("Task", "W")][0]["label"], "Person")
-		self.assertEqual(assigned[("Contact", "W")][0]["name"], "user")
+		select.assert_called_once_with(
+			"User", {"name": ["in", ["user"]]}, ["name", "full_name", "user_image"]
+		)
+		for key in (("Task", "W"), ("Contact", "W")):
+			avatar = assigned[key][0]
+			self.assertEqual(
+				(avatar["name"], avatar["label"], avatar["image"]), ("user", "Person", "/files/portrait.png")
+			)
 		for kind in ("Task", "Contact"):
 			query.assert_any_call(
 				"ToDo",
@@ -776,9 +800,13 @@ class TestScopeAnalytics(TestCase):
 			{"r1": {"name": "r1"}},
 			assignments,
 			definitions,
-			{("Contact", "x"): {"full_name": "Same"}, ("User", "x"): {
-				"full_name": "Same", "user_image": "/files/member.png",
-			}},
+			{
+				("Contact", "x"): {"full_name": "Same"},
+				("User", "x"): {
+					"full_name": "Same",
+					"user_image": "/files/member.png",
+				},
+			},
 			{},
 			{"responsibility": ["Own", "Do"], "responsible_type": "User"},
 		)

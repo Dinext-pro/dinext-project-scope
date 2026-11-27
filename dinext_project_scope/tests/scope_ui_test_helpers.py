@@ -75,7 +75,7 @@ def create_report_fixture(run_id):
 	type_icon = "/assets/frappe/images/frappe-favicon.svg"
 	type_color = "#2668bf"
 	avatar_image = "/assets/frappe/images/frappe-framework-logo.svg"
-	frappe.db.set_value("Contact", person, "image", avatar_image)
+	sponsor = frappe.get_doc(doctype="Contact", first_name=f"{prefix} sponsor", image=avatar_image).insert()
 	password = f"Qa9!{token_urlsafe(18)}"
 	actors = {language: _fixture_user(run_id, language) for language in ("en", "ru")}
 	for language, email in actors.items():
@@ -116,7 +116,7 @@ def create_report_fixture(run_id):
 		doctype=REQUIREMENT,
 		project=project.name,
 		requirement_title=f"{prefix} working",
-		author=person,
+		author=sponsor.name,
 		responsible=actor,
 		kind=prefix,
 		requirement_importance="Must Have",
@@ -507,7 +507,11 @@ def remove_report_fixture(run_id):
 		frappe.delete_doc("User Permission", permission, delete_permanently=True)
 	for name in projects:
 		frappe.delete_doc("Project", name, force=True, delete_permanently=True)
-	for doctype, name in (("Contact", {"first_name": prefix}), ("Project Type", prefix)):
+	for doctype, name in (
+		("Contact", {"first_name": prefix}),
+		("Contact", {"first_name": f"{prefix} sponsor"}),
+		("Project Type", prefix),
+	):
 		if existing := frappe.db.exists(doctype, name):
 			frappe.delete_doc(doctype, existing, force=True, delete_permanently=True)
 	for doctype in (

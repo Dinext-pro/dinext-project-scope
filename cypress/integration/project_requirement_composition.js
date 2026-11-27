@@ -66,9 +66,9 @@ function showProjectSpecifications() {
 }
 
 function moreScopeAction(label) {
-	cy.contains(`${projectTree} summary`, "More Actions").click();
+	cy.contains(`${projectTree} summary`, "More Actions").click({ scrollBehavior: "center" });
 	cy.contains(`${projectTree} .scope-actions-menu button:visible`, label).click({
-		scrollBehavior: "nearest",
+		scrollBehavior: "center",
 	});
 }
 

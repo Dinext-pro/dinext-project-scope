@@ -86,6 +86,14 @@
 	overflow: visible;
 }
 
+.dinext-scope-requirements-pane
+	.scope-grid-frame:has(.scope-more-actions[open], .scope-compact-filter
+		.awesomplete
+		> ul:not([hidden])) {
+	position: relative;
+	z-index: 6;
+}
+
 .dinext-scope-requirements-pane .dinext-table-toolbar {
 	position: relative;
 	z-index: 4;

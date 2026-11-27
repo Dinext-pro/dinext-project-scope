@@ -56,7 +56,7 @@ function withChartPoint(title, locate, interact) {
 
 function clickChartPoint(title, locate) {
 	withChartPoint(title, locate, (canvas, x, y) => {
-		canvas.click(x, y, { scrollBehavior: false });
+		canvas.click(x, y, { scrollBehavior: "center" });
 	});
 }
 
@@ -72,6 +72,13 @@ function pieSegmentPoint(instance, label) {
 
 function clickPieSegment(title, label) {
 	clickChartPoint(title, (instance) => pieSegmentPoint(instance, label));
+}
+
+function verifyPhoto(subject, image) {
+	subject.should(([photo]) => {
+		expect(new URL(photo.src).pathname).to.eq(image);
+		expect(photo.naturalWidth).to.be.greaterThan(0);
+	});
 }
 
 function showResults(project) {
@@ -1061,14 +1068,20 @@ describe("Project scope charts", () => {
 		cy.contains(items + " .grid-body", "warehouse operations").should("be.visible");
 		clickPieSegment(type, fixture.title);
 		cy.get(items + " .grid-body .grid-row").should("have.length", 2);
-		clickPieSegment(responsible, "User:" + fixture.actor);
+		chartOption(chart(responsible), (option) => {
+			expect(option.series[0].data).to.deep.include({ name: fixture.title, value: 1 });
+		});
+		clickPieSegment(responsible, fixture.title);
+		cy.get(constraints + ' select[data-fieldname="responsible"]').should(
+			"have.value",
+			"User:" + fixture.actor
+		);
 		cy.get(constraints + " .grid-body .grid-row").should("have.length", 1);
-		cy.get(constraints + ' .grid-body [data-fieldname="responsible"] .avatar img').should(
-			"have.attr",
-			"src",
+		verifyPhoto(
+			cy.get(constraints + ' .grid-body [data-fieldname="responsible"] .avatar img'),
 			fixture.avatar_image
 		);
-		clickPieSegment(responsible, "User:" + fixture.actor);
+		clickPieSegment(responsible, fixture.title);
 		cy.get(constraints + " .grid-body .grid-row").should("have.length", 2);
 		cy.window().should(({ cur_frm }) => {
 			expect(cur_frm.doc.project_scopes).to.have.length(2);
@@ -1087,20 +1100,33 @@ describe("Project scope charts", () => {
 		cy.contains(requirementsPane + " .scope-cell-link", "unlinked").should("not.exist");
 		clickPieSegment(priority, "High");
 		cy.get(requirementsPane + ' select[data-fieldname="priority"]').should("have.value", "");
-		cy.get(requirementsPane + " .ag-root-wrapper[grid-id]").then(([grid]) => {
-			const api = grid.ownerDocument.defaultView.agGrid.getGridApi(
-				grid.getAttribute("grid-id")
+		for (const field of ["author", "responsible"]) {
+			cy.get(requirementsPane + " .ag-root-wrapper[grid-id]").then(([grid]) => {
+				const api = grid.ownerDocument.defaultView.agGrid.getGridApi(
+					grid.getAttribute("grid-id")
+				);
+				api.ensureColumnVisible(field);
+			});
+			const row = `.ag-center-cols-container [row-id$="${fixture.working}"]`;
+			verifyPhoto(
+				cy.get(`${requirementsPane} ${row} [col-id="${field}"] .avatar img`),
+				fixture.avatar_image
 			);
-			api.ensureColumnVisible("author");
-		});
-		cy.get(requirementsPane + ' [col-id="author"] .avatar img')
-			.first()
-			.should("have.attr", "src", fixture.avatar_image);
-		clickPieSegment("Change requests by initiator", "Contact:" + fixture.contact);
-		clickPieSegment("Change requests by responsible", "User:" + fixture.actor);
-		cy.get(changesPane + ' [col-id="implementation_responsible"] .avatar img')
-			.first()
-			.should("have.attr", "src", fixture.avatar_image);
+		}
+		clickPieSegment("Change requests by initiator", fixture.title);
+		cy.get(changesPane + ' select[data-fieldname="initiator"]').should(
+			"have.value",
+			"Contact:" + fixture.contact
+		);
+		clickPieSegment("Change requests by responsible", fixture.title);
+		cy.get(changesPane + ' select[data-fieldname="implementation_responsible"]').should(
+			"have.value",
+			"User:" + fixture.actor
+		);
+		verifyPhoto(
+			cy.get(changesPane + ' [col-id="implementation_responsible"] .avatar img').first(),
+			fixture.avatar_image
+		);
 		cy.contains(changesPane + " .scope-cell-link", fixture.title + " change").should(
 			"be.visible"
 		);
@@ -1125,14 +1151,23 @@ describe("Project scope charts", () => {
 			.should("eq", 403);
 	});
 
-	it("localizes the four embedded charts for a Russian project reader", () => {
+	it("localizes all Scope charts for a Russian project reader", () => {
 		cy.login(fixture.russian_actor, fixture.password);
 		openScope(fixture.project);
 		for (const label of [
 			"Требования по статусам",
-			"Требования по категориям",
+			"Требования по видам",
+			"Требования по приоритетам",
+			"Требования по важности",
+			"Элементы объёма по типам",
+			"Ограничения и допущения по категориям",
+			"Ограничения и допущения по видам",
+			"Ограничения и допущения по статусам",
+			"Ограничения и допущения по ответственным",
 			"Запросы на изменение по стадиям",
 			"Запросы на изменение по датам создания",
+			"Запросы на изменение по инициаторам",
+			"Запросы на изменение по ответственным",
 		]) {
 			cy.contains(chartCard, label).should("be.visible");
 		}
