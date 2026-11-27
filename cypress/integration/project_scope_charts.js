@@ -34,51 +34,31 @@ function chartOption(subject, assertion) {
 	});
 }
 
-function withChartPoint(title, locate, events) {
+function withChartPoint(title, locate, interact) {
+	const canvas = () => chart(title).find("canvas").first();
 	let point;
-	chart(title)
-		.find("canvas")
-		.first()
-		.should(([canvas]) => {
-			canvas.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
-			const page = canvas.ownerDocument;
-			const view = page.defaultView;
-			const target = canvas.closest(".dinext-scope-chart");
-			const instance = view.echarts?.getInstanceByDom(target);
+	canvas()
+		.should(([element]) => {
+			element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+			const page = element.ownerDocument;
+			const target = element.closest(".dinext-scope-chart");
+			const instance = page.defaultView.echarts?.getInstanceByDom(target);
 			expect(instance, "current chart instance").to.exist;
-			const [chartX, chartY] = locate(instance);
-			const rect = canvas.getBoundingClientRect();
-			const x = rect.left + chartX;
-			const y = rect.top + chartY;
-			expect(page.elementFromPoint(x, y), "chart at the pointer").to.eq(canvas);
-			const frame =
-				view.frameElement || view.parent.document.querySelector("iframe.aut-iframe");
-			const bounds = frame?.getBoundingClientRect();
-			point = bounds
-				? {
-						x: bounds.left + (x * bounds.width) / frame.offsetWidth,
-						y: bounds.top + (y * bounds.height) / frame.offsetHeight,
-				  }
-				: { x, y };
+			const [x, y] = locate(instance).map(Math.round);
+			const rect = element.getBoundingClientRect();
+			expect(
+				page.elementFromPoint(rect.left + x, rect.top + y),
+				"chart at the pointer"
+			).to.eq(element);
+			point = [x, y];
 		})
-		.then(async () => {
-			for (const type of events) {
-				const moving = type === "mouseMoved";
-				await Cypress.automation("remote:debugger:protocol", {
-					command: "Input.dispatchMouseEvent",
-					params: {
-						...point,
-						type,
-						button: moving ? "none" : "left",
-						clickCount: moving ? 0 : 1,
-					},
-				});
-			}
-		});
+		.then(() => interact(canvas(), ...point));
 }
 
 function clickChartPoint(title, locate) {
-	withChartPoint(title, locate, ["mouseMoved", "mousePressed", "mouseReleased"]);
+	withChartPoint(title, locate, (canvas, x, y) => {
+		canvas.click(x, y, { scrollBehavior: "center" });
+	});
 }
 
 function pieSegmentPoint(instance, label) {
@@ -662,7 +642,12 @@ describe("Project scope charts", () => {
 			withChartPoint(
 				title,
 				(instance) => (label ? pieSegmentPoint(instance, label) : [1, 1]),
-				["mouseMoved"]
+				(canvas, x, y) => {
+					canvas.trigger("mousemove", x, y, {
+						eventConstructor: "MouseEvent",
+						scrollBehavior: false,
+					});
+				}
 			);
 		};
 		chartOption(chart(title), (option) => expect(option.series[0].data).to.have.length(2));
@@ -1083,10 +1068,17 @@ describe("Project scope charts", () => {
 		const constraints = '[data-fieldname="project_constraints"]';
 		const type = "Scope Items by Type";
 		const responsible = "Constraints by responsible";
+		cy.window().then(({ frappe }) => frappe.after_ajax());
+		chartOption(chart(type), (option) => {
+			expect(option.series[0].data).to.have.length(2);
+		});
 		clickPieSegment(type, fixture.title);
 		cy.get(items + ' select[data-fieldname="scope_type"]').should("have.value", fixture.title);
 		cy.get(items + " .grid-body .grid-row").should("have.length", 1);
 		cy.contains(items + " .grid-body", "warehouse operations").should("be.visible");
+		chartOption(chart(type), (option) => {
+			expect(option.series[0].data).to.deep.eq([{ name: fixture.title, value: 1 }]);
+		});
 		clickPieSegment(type, fixture.title);
 		cy.get(items + " .grid-body .grid-row").should("have.length", 2);
 		chartOption(chart(responsible), (option) => {

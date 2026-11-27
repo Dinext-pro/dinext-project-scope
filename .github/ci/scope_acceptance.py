@@ -65,8 +65,8 @@ REVISIONS = {
 }
 
 
-def run(*args, cwd=BENCH):
-	subprocess.run([str(argument) for argument in args], cwd=cwd, check=True, timeout=1800)
+def run(*args, cwd=BENCH, timeout=1800):
+	subprocess.run([str(argument) for argument in args], cwd=cwd, check=True, timeout=timeout)
 
 
 def checkout(app):
@@ -418,6 +418,7 @@ def run_cypress():
 				"junit",
 				"--reporter-options",
 				f"mochaFile={RESULTS}/ui-[hash].xml",
+				timeout=2400,
 			)
 		finally:
 			server.terminate()
