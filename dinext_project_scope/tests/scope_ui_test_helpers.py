@@ -245,6 +245,7 @@ def create_report_fixture(run_id):
 			{"pt_role": project_role, "pt_participant_type": "User", "pt_participant": actor},
 		)
 	project.append("custom_contact_list", {"contact": person, "project_role": role})
+	project.save()
 	scope = project.append(
 		"project_scopes",
 		{

@@ -346,8 +346,13 @@ def set_requirement_participant_types(doc: Document) -> None:
 def check_requirement_participant(field: str, doctype: str, name: str) -> None:
 	if doctype not in PARTICIPANT_TYPES:
 		frappe.throw(_("Choose User or Contact for the author and responsible."))
-	person = access.check_document(doctype, name, "select" if doctype == "User" else "read")
-	if doctype == "User" and not person.enabled:
+	if doctype == "Contact":
+		access.check_document(doctype, name)
+		return
+	if field == "author":
+		access.check_document("User", name, "select")
+	# Responsible User has historically been assignable by authorized project editors and Data Import.
+	if not frappe.db.get_value("User", name, "enabled"):
 		frappe.throw(
 			_("The author user must be active.")
 			if field == "author"
@@ -449,12 +454,12 @@ def _validate_completion(doc: Document, before: Document | None) -> None:
 			frappe.PermissionError,
 		)
 	if assignment != participant_link(doc, "responsible") or not _current_user_can_complete(doc, account):
-		frappe.throw(
-			_("Only the assigned responsible participant {0} can mark this requirement Done.").format(
-				assignment[1]
-			),
-			frappe.PermissionError,
+		message = (
+			_("Only the assigned responsible user {0} can mark this requirement Done.")
+			if assignment[0] == "User"
+			else _("Only the assigned responsible participant {0} can mark this requirement Done.")
 		)
+		frappe.throw(message.format(assignment[1]), frappe.PermissionError)
 
 
 @frappe.whitelist(methods=["GET", "POST"])
