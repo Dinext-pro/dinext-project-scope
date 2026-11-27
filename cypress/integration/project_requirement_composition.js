@@ -301,7 +301,14 @@ describe("Requirement specification composition", () => {
 		cy.get(".modal:visible .scope-source-path").should("have.length", 3);
 		cy.contains(".modal:visible .scope-source-path", "Included directly").should("be.visible");
 		cy.contains(".modal:visible .scope-row-details", "Must Have").should("be.visible");
-		cy.get(".modal:visible .btn-modal-close").click();
+		cy.get(modal)
+			.should(([dialog]) => {
+				const current = dialog.ownerDocument.defaultView.cur_dialog;
+				expect(current?.$wrapper?.get(0)).to.eq(dialog);
+			})
+			.find(".btn-modal-close")
+			.click();
+		cy.get(modal).should("not.exist");
 		cy.get(`${titleRow} .dinext-table-tree-toggle`).click();
 		cy.get(child).should("not.exist");
 		cy.get(`${titleRow} .dinext-table-tree-toggle`).click();
@@ -310,9 +317,14 @@ describe("Requirement specification composition", () => {
 		cy.intercept("POST", "**/api/method/dinext_project_scope.requirements.project_rows").as(
 			"filteredRequirements"
 		);
-		cy.get(projectTree + ' input[data-fieldname="scope_specification_filter"]')
-			.clear({ scrollBehavior: "center" })
-			.type(fixture.nested, { delay: 0, scrollBehavior: "center" });
+		const specificationInput =
+			projectTree + ' input[data-fieldname="scope_specification_filter"]';
+		cy.get(specificationInput).then(([field]) => {
+			field.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+		});
+		cy.get(specificationInput)
+			.clear({ scrollBehavior: false })
+			.type(fixture.nested, { delay: 0, scrollBehavior: false });
 		linkOption('[data-fieldname="scope_specification_filter"]', fixture.nested)
 			.should(([option]) => {
 				const rect = option.getBoundingClientRect();
