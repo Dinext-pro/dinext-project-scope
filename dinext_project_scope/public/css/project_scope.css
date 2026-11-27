@@ -32,6 +32,10 @@
 	flex-shrink: 0;
 }
 
+.dinext-project-scope .scope-grid-frame {
+	isolation: isolate;
+}
+
 .dinext-project-scope:has(.dinext-table--fullscreen) .scope-grid-frame {
 	flex: 1;
 	min-height: 0;

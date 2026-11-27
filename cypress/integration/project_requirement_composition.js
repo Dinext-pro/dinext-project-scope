@@ -310,7 +310,19 @@ describe("Requirement specification composition", () => {
 		cy.intercept("POST", "**/api/method/dinext_project_scope.requirements.project_rows").as(
 			"filteredRequirements"
 		);
-		chooseLink("scope_specification_filter", fixture.nested);
+		linkSearch("scope_specification_filter", fixture.nested);
+		linkOption('[data-fieldname="scope_specification_filter"]', fixture.nested)
+			.should(([option]) => {
+				const rect = option.getBoundingClientRect();
+				const hit = option.ownerDocument.elementFromPoint(
+					rect.left + rect.width / 2,
+					rect.top + rect.height / 2
+				);
+				expect(option.contains(hit), "specification option above the table toolbar").to.eq(
+					true
+				);
+			})
+			.click();
 		cy.wait("@filteredRequirements").then(({ request, response }) => {
 			const params =
 				typeof request.body === "string"
