@@ -1,6 +1,7 @@
 export function linkOptions(field) {
+	const option = '[role="option"]:visible';
 	return cy.get(
-		`${field} :is(.awesomplete, .dinext-scope-link-options) [role="option"]:visible`
+		`${field} .awesomplete ${option}, ${field} .dinext-scope-link-options ${option}`
 	);
 }
 
