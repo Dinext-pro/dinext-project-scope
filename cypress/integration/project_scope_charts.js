@@ -1077,7 +1077,7 @@ describe("Project scope charts", () => {
 				2
 			);
 		});
-		chartOption(chart(type), (option) => {
+		chartOption(chart(type), (option, instance) => {
 			expect(option.xAxis[0].type).to.eq("value");
 			expect(option.yAxis[0]).to.include({ type: "category", inverse: true });
 			expect(option.yAxis[0].data).to.deep.eq([`${fixture.title} secondary`, fixture.title]);
@@ -1085,6 +1085,16 @@ describe("Project scope charts", () => {
 			expect(series.type).to.eq("bar");
 			expect(series.data.map(({ value }) => value)).to.deep.eq(expectedCounts);
 			expect(series.label).to.include({ show: true, position: "right" });
+			const typeLabels = instance
+				.getZr()
+				.storage.getDisplayList()
+				.filter(({ style }) => String(style?.text || "").startsWith("Cypress"));
+			expect(typeLabels).to.have.length(2);
+			for (const label of typeLabels) {
+				const bounds = label.getBoundingRect().clone();
+				if (label.transform) bounds.applyTransform(label.transform);
+				expect(bounds.x, "visible type label starts inside the chart").to.be.at.least(0);
+			}
 		});
 		const clickType = () =>
 			clickChartPoint(type, (instance) =>

@@ -134,6 +134,20 @@
 	max-width: 100%;
 }
 
+.scope-native-grid[data-scope-table="constraints"]
+	.grid-static-col.col-xs-1[data-fieldname="responsible"] {
+	/* Use spare space at the end of the row for the header. */
+	--scope-responsible-width: calc(100% / 12 + clamp(0px, 6.5% - 34px, 28px));
+	flex-basis: var(--scope-responsible-width);
+	max-width: var(--scope-responsible-width);
+}
+
+.scope-native-grid[data-scope-table="constraints"]
+	.grid-heading-row
+	.grid-static-col.col-xs-1[data-fieldname="responsible"]:not(.search) {
+	padding-inline: var(--padding-xs) !important;
+}
+
 .dinext-project-scope .scope-person-cell,
 .scope-native-person-cell {
 	display: flex;

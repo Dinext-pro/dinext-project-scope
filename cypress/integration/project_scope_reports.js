@@ -163,6 +163,9 @@ describe("Project scope reports", () => {
 		cy.visit(`/app/project/${fixture.project}`);
 		cy.get('button[data-fieldname="custom_объем"]').click();
 		const native = '[data-fieldname="project_constraints"] .grid-body';
+		cy.get(
+			'[data-fieldname="project_constraints"] .grid-heading-row [data-fieldname="responsible"] .static-area'
+		).should(([label]) => expect(label.scrollWidth).to.be.at.most(label.clientWidth + 1));
 		cy.get(`${native} .data-row`)
 			.first()
 			.should(([row]) => {

@@ -1074,7 +1074,7 @@
 					color: [palette[0]],
 					animation: false,
 					aria: { enabled: true },
-					grid: { left: 0, right: 38, top: 4, bottom: 4, containLabel: true },
+					grid: { left: 156, right: 38, top: 4, bottom: 4 },
 					tooltip: { trigger: "item", renderMode: "richText" },
 					xAxis: { type: "value", min: 0, max: "dataMax", show: false },
 					yAxis: {
@@ -1088,7 +1088,7 @@
 							formatter: formatLabel,
 							interval: 0,
 							margin: 12,
-							width: 176,
+							width: 136,
 							overflow: "truncate",
 						},
 					},

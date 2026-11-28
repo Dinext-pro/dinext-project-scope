@@ -1097,8 +1097,13 @@
 			const filtered =
 				Object.keys(filters.selection()).length || Object.keys(grid.filter).length;
 			grid.grid_sortable?.option("disabled", Boolean(filtered));
-			if (isConstraints)
+			if (isConstraints) {
+				grid.header_search?.search_columns?.responsible?.attr(
+					"data-fieldname",
+					"responsible"
+				);
 				Object.values(grid.grid_rows_by_docname || {}).forEach(paintConstraintRow);
+			}
 		}
 
 		grid.wrapper.off("change.dinextScopeCharts").on("change.dinextScopeCharts", () => {
