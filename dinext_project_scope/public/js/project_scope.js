@@ -202,14 +202,13 @@
 			selection() {
 				return Object.fromEntries(
 					panels
-						.map(({ panel }) => [panel.key, panel.control.get_value()])
+						.map(({ panel }) => [panel.key, panel.getValue()])
 						.filter(([, value]) => value)
 				);
 			},
 			clear(rows) {
 				for (const { panel, value } of panels) {
-					if (!rows?.some((row) => panel.matches(value(row))))
-						panel.control.set_input("");
+					if (!rows?.some((row) => panel.matches(value(row)))) panel.setValue("");
 				}
 			},
 			draw(available, matched) {
@@ -620,6 +619,20 @@
 			},
 		});
 		field.$input.attr({ placeholder: __("Specification"), "aria-label": __("Specification") });
+		const menu = window.DinextScopeAnalytics.anchorLinkOptions(field);
+		if (menu) {
+			field.$input.on("awesomplete-open", () => {
+				const { top, bottom } = field.input.getBoundingClientRect();
+				const below = Math.max(0, window.innerHeight - bottom - 8);
+				const above = Math.max(0, top - 8);
+				const openAbove = below < 160 && above > below;
+				menu.classList.toggle("dinext-scope-link-options--above", openAbove);
+				menu.style.setProperty(
+					"--scope-link-options-room",
+					`${openAbove ? above : below}px`
+				);
+			});
+		}
 		items.push({ id: "scope-specification-filter", type: "custom", element: filterHost });
 		return items;
 	}

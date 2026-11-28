@@ -75,10 +75,6 @@
 	height: calc(8px + var(--scope-bar-rows) * 26px);
 }
 
-.dinext-project-scope .dinext-scope-chart-card--horizontal .dinext-scope-result-filter {
-	max-width: 15rem;
-}
-
 .dinext-project-scope .scope-embedded-charts .dinext-scope-heading {
 	margin-bottom: 0;
 }
@@ -92,8 +88,7 @@
 
 .dinext-scope-requirements-pane
 	.scope-grid-frame:has(.scope-more-actions[open], .scope-compact-filter
-		.awesomplete
-		> ul:not([hidden])) {
+		.dinext-scope-link-options:not([hidden])) {
 	position: relative;
 	z-index: 6;
 }
@@ -220,6 +215,7 @@
 }
 
 .dinext-project-scope .scope-compact-filter {
+	--scope-link-options-width: 340px;
 	width: min(100%, 156px);
 }
 

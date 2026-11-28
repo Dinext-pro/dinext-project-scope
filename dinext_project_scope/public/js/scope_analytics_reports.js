@@ -49,14 +49,7 @@
 		const matrix = report.report_name === responsibilityMatrix;
 		report.page.page_form.toggleClass("dinext-scope-raci-filters", matrix);
 		if (!matrix) return;
-		for (const field of report.filters) {
-			const list = field.awesomplete?.ul;
-			const host = field.input?.closest(".link-field");
-			if (!list || !host || list.parentElement === host) continue;
-			// Keep the Frappe menu in its filter when DinextTable adopts fullscreen overlays.
-			list.classList.add("dropdown-menu", "dinext-scope-raci-link-menu");
-			host.append(list);
-		}
+		for (const field of report.filters) window.DinextScopeAnalytics.anchorLinkOptions(field);
 	}
 
 	async function download(report) {

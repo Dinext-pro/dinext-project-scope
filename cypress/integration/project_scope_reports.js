@@ -1,4 +1,6 @@
+import { linkOption } from "../support/link_options";
 import {
+	clickChartPoint,
 	downloadExcel,
 	exact,
 	exportMethod,
@@ -254,6 +256,50 @@ describe("Project scope reports", () => {
 		});
 	}
 
+	it("anchors the specification menu to the Requirements filter in both modes", () => {
+		const pane = '[data-fieldname="custom_scope_requirements_html"] .dinext-project-scope';
+		const field = `${pane} [data-fieldname="scope_specification_filter"]`;
+		const projectRows = "**/api/method/dinext_project_scope.requirements.project_rows";
+		cy.intercept("POST", projectRows, (request) => {
+			if (new URLSearchParams(request.body).get("specification") === fixture.ordinary)
+				request.alias = "specificationRows";
+		});
+		for (const fullscreen of [false, true]) {
+			cy.login(fixture.actor, fixture.password);
+			cy.visit(`/app/project/${fixture.project}`);
+			cy.get('button[data-fieldname="custom_объем"]').click();
+			if (fullscreen) pressFullscreenControl(pane, "Fullscreen");
+			cy.get(`${field} input`).then(([input]) =>
+				input.scrollIntoView({ block: "center", behavior: "instant" })
+			);
+			cy.get(`${field} input`).type(fixture.ordinary, { delay: 0, scrollBehavior: false });
+			linkOption(field, fixture.ordinary)
+				.should(([option]) => {
+					const menu = option.closest("ul");
+					const input = option.closest(".link-field")?.querySelector("input");
+					expect(input, "options share the input's link field").to.exist;
+					const { defaultView, fullscreenElement } = option.ownerDocument;
+					if (fullscreen) expect(fullscreenElement?.contains(menu)).to.eq(true);
+					const bounds = menu.getBoundingClientRect();
+					expect(bounds.top).to.be.closeTo(input.getBoundingClientRect().bottom, 3);
+					expect(bounds.width).to.be.at.most(340);
+					expect(bounds.bottom).to.be.at.most(defaultView.innerHeight + 1);
+					const rect = option.getBoundingClientRect();
+					const hit = option.ownerDocument.elementFromPoint(
+						rect.left + rect.width / 2,
+						rect.top + rect.height / 2
+					);
+					expect(option.contains(hit), "option above the table").to.eq(true);
+				})
+				.click({ scrollBehavior: false });
+			cy.wait("@specificationRows").its("response.statusCode").should("eq", 200);
+			cy.document().should(({ fullscreenElement }) =>
+				expect(Boolean(fullscreenElement)).to.eq(fullscreen)
+			);
+			if (fullscreen) pressFullscreenControl(pane, "Exit fullscreen");
+		}
+	});
+
 	it("downloads each Scope table with the active filter as an Excel workbook", () => {
 		cy.visit(`/app/project/${fixture.project}`);
 		cy.get('button[data-fieldname="custom_объем"]').click();
@@ -285,7 +331,13 @@ describe("Project scope reports", () => {
 			const url =
 				"**/api/method/dinext_project_scope.analytics.export.download_project_scope_table";
 			cy.intercept("POST", url).as(tableName);
-			cy.get(pane + ` select[data-fieldname="${filter}"]`).select(pick);
+			if (tableName === "scope_items") {
+				clickChartPoint("Scope Items by Type", (instance) =>
+					instance.convertToPixel({ seriesIndex: 0 }, [0.5, pick])
+				);
+			} else {
+				cy.get(pane + ` select[data-fieldname="${filter}"]`).select(pick);
+			}
 			const exportButton = pane + ' button[title="Excel"]:visible';
 			if (tableName === "requirements" || tableName === "change_requests") {
 				scopeToolbarEnd(pane, "Fullscreen");

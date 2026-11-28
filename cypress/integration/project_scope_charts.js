@@ -1,5 +1,7 @@
 import { linkOption } from "../support/link_options";
 import {
+	chart,
+	clickChartPoint,
 	downloadExcel,
 	exact,
 	openReport,
@@ -7,6 +9,7 @@ import {
 	rowLink,
 	table,
 	useReportFixture,
+	withChartPoint,
 } from "../support/scope_reports";
 
 const resultHost = '[data-fieldname="custom_scope_results_html"]';
@@ -21,43 +24,12 @@ function openScope(project) {
 	cy.get('button[data-fieldname="custom_объем"]').click();
 }
 
-function chart(title) {
-	return cy.contains(chartCard, title).find(".dinext-scope-chart");
-}
-
 function chartOption(subject, assertion) {
 	return subject.should(($host) => {
 		const target = $host[0];
 		const instance = target.ownerDocument.defaultView.echarts?.getInstanceByDom(target);
 		expect(instance, "mounted chart").to.exist;
 		assertion(instance.getOption(), instance);
-	});
-}
-
-function withChartPoint(title, locate, interact) {
-	const canvas = () => chart(title).find("canvas").first();
-	let point;
-	canvas()
-		.should(([element]) => {
-			element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
-			const page = element.ownerDocument;
-			const target = element.closest(".dinext-scope-chart");
-			const instance = page.defaultView.echarts?.getInstanceByDom(target);
-			expect(instance, "current chart instance").to.exist;
-			const [x, y] = locate(instance).map(Math.round);
-			const rect = element.getBoundingClientRect();
-			expect(
-				page.elementFromPoint(rect.left + x, rect.top + y),
-				"chart at the pointer"
-			).to.eq(element);
-			point = [x, y];
-		})
-		.then(() => interact(canvas(), ...point));
-}
-
-function clickChartPoint(title, locate) {
-	withChartPoint(title, locate, (canvas, x, y) => {
-		canvas.click(x, y, { scrollBehavior: "center" });
 	});
 }
 
@@ -1070,6 +1042,7 @@ describe("Project scope charts", () => {
 		const responsible = "Constraints by responsible";
 		cy.window().then(({ frappe }) => frappe.after_ajax());
 		const expectedCounts = [2, 1];
+		cy.get(items + ' select[data-fieldname="scope_type"]').should("not.exist");
 		cy.contains(items + " " + chartCard, type).should(([card]) => {
 			const grid = card.closest(items).querySelector(".form-grid");
 			expect(card.getBoundingClientRect().width).to.be.closeTo(
@@ -1101,7 +1074,6 @@ describe("Project scope charts", () => {
 				instance.convertToPixel({ seriesIndex: 0 }, [0.5, fixture.title])
 			);
 		clickType();
-		cy.get(items + ' select[data-fieldname="scope_type"]').should("have.value", fixture.title);
 		cy.get(items + " .grid-body .grid-row").should("have.length", 1);
 		cy.contains(items + " .grid-body", "warehouse operations").should("be.visible");
 		chartOption(chart(type), (option) => {
@@ -1110,7 +1082,10 @@ describe("Project scope charts", () => {
 			expect(bars[0].itemStyle.opacity).to.be.lessThan(bars[1].itemStyle.opacity);
 		});
 		clickType();
-		cy.get(items + ' select[data-fieldname="scope_type"]').should("have.value", "");
+		cy.get(items + " .grid-body .grid-row").should("have.length", 3);
+		clickType();
+		cy.get(items + " .grid-body .grid-row").should("have.length", 1);
+		cy.get(items + ' button[title="Clear filters"]').click();
 		cy.get(items + " .grid-body .grid-row").should("have.length", 3);
 		chartOption(chart(responsible), (option) => {
 			expect(option.series[0].data).to.deep.include({ name: fixture.title, value: 1 });

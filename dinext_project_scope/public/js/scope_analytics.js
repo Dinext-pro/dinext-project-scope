@@ -884,61 +884,91 @@
 		};
 	}
 
+	function anchorLinkOptions(field) {
+		const list = field.awesomplete?.ul;
+		const host = field.input?.closest(".link-field");
+		if (!list || !host) return null;
+		if (list.parentElement !== host) {
+			// Keep the native options with their input when DinextTable moves fullscreen overlays.
+			list.classList.add("dropdown-menu", "dinext-scope-link-options");
+			host.append(list);
+		}
+		return list;
+	}
+
 	function chartFilter(
 		surface,
 		container,
 		{ key, label, title, formatLabel, chartType },
 		onChange
 	) {
+		const horizontal = chartType === "horizontal-bar";
 		const card = node("section", "dinext-scope-chart-card");
-		if (chartType === "horizontal-bar")
-			card.classList.add("dinext-scope-chart-card--horizontal");
 		const chart = node("div");
-		const filter = node("div", "dinext-scope-result-filter");
-		card.append(node("h4", "dinext-scope-heading", title), chart, filter);
+		card.append(node("h4", "dinext-scope-heading", title), chart);
 		container.append(card);
 		const all = {
 			value: "",
 			label: frappe.utils.escape_html(__("All", null, "Dinext.ProjectScope.Filters")),
 		};
-		const control = frappe.ui.form.make_control({
-			parent: filter,
-			only_input: true,
-			render_input: true,
-			df: { fieldtype: "Select", fieldname: key, label, options: [all], onchange: onChange },
-		});
-		control.$input.attr("aria-label", label);
+		let control;
+		let selection = "";
+		if (!horizontal) {
+			const filter = node("div", "dinext-scope-result-filter");
+			card.append(filter);
+			control = frappe.ui.form.make_control({
+				parent: filter,
+				only_input: true,
+				render_input: true,
+				df: {
+					fieldtype: "Select",
+					fieldname: key,
+					label,
+					options: [all],
+					onchange: onChange,
+				},
+			});
+			control.$input.attr("aria-label", label);
+		}
 		const optionValue = (name) => name || EMPTY;
 		const display = (name) => formatLabel(name) || __("Not specified");
 		const panel = {
 			key,
-			control,
+			getValue() {
+				return control ? control.get_value() : selection;
+			},
+			setValue(value) {
+				if (control) control.set_input(value);
+				else selection = value;
+			},
 			clear() {
 				const element = chart.querySelector(".dinext-scope-chart");
 				if (element) surface.unregisterChart(element);
 				chart.replaceChildren();
 			},
 			matches(value) {
-				const selected = control.get_value();
+				const selected = panel.getValue();
 				return !selected || selected === optionValue(value);
 			},
 			toggle(name) {
 				const option = optionValue(name);
-				control.set_input(control.get_value() === option ? "" : option);
+				panel.setValue(panel.getValue() === option ? "" : option);
 				return onChange();
 			},
-			draw(options, counts, selected = control.get_value() || "") {
-				control.df.options = [
-					all,
-					...options.map(({ name }) => ({
-						value: optionValue(name),
-						label: frappe.utils.escape_html(display(name)),
-					})),
-				];
-				control.set_input(selected);
+			draw(options, counts, selected = panel.getValue() || "") {
+				if (control) {
+					control.df.options = [
+						all,
+						...options.map(({ name }) => ({
+							value: optionValue(name),
+							label: frappe.utils.escape_html(display(name)),
+						})),
+					];
+				}
+				panel.setValue(selected);
 				panel.clear();
 				const onSelect = ({ name }) => panel.toggle(name);
-				if (chartType === "horizontal-bar") {
+				if (horizontal) {
 					drawHorizontalBars(surface, chart, options, {
 						formatLabel: display,
 						onSelect,
@@ -1890,13 +1920,13 @@
 		function clearFilters() {
 			responsible = "";
 			overdue = false;
-			for (const { control } of panels) control.set_input("");
+			for (const panel of panels) panel.setValue("");
 			return refresh();
 		}
 
 		function dynamicsQuery() {
 			const filters = Object.fromEntries(
-				panels.map(({ key, control }) => [key, control.get_value() || ""])
+				panels.map((panel) => [panel.key, panel.getValue() || ""])
 			);
 			if (responsible) filters.responsible = responsible;
 			if (overdue) filters.overdue = 1;
@@ -2091,6 +2121,7 @@
 		drawGrid,
 		setMessage,
 		chartFilter,
+		anchorLinkOptions,
 		participantAvatar,
 		downloadWorkbook,
 		xlsxIcon,

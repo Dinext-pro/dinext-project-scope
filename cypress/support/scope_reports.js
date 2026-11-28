@@ -67,3 +67,34 @@ export function downloadExcel(name, expectedFilters) {
 		timeout: 30000,
 	}).should((workbook) => expect(workbook.slice(0, 2).toString()).to.eq("PK"));
 }
+
+export function chart(title) {
+	return cy.contains(".dinext-scope-chart-card", title).find(".dinext-scope-chart");
+}
+
+export function withChartPoint(title, locate, interact) {
+	const canvas = () => chart(title).find("canvas").first();
+	let point;
+	canvas()
+		.should(([element]) => {
+			element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+			const page = element.ownerDocument;
+			const target = element.closest(".dinext-scope-chart");
+			const instance = page.defaultView.echarts?.getInstanceByDom(target);
+			expect(instance, "current chart instance").to.exist;
+			const [x, y] = locate(instance).map(Math.round);
+			const rect = element.getBoundingClientRect();
+			expect(
+				page.elementFromPoint(rect.left + x, rect.top + y),
+				"chart at the pointer"
+			).to.eq(element);
+			point = [x, y];
+		})
+		.then(() => interact(canvas(), ...point));
+}
+
+export function clickChartPoint(title, locate) {
+	withChartPoint(title, locate, (canvas, x, y) => {
+		canvas.click(x, y, { scrollBehavior: "center" });
+	});
+}
