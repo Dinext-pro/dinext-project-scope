@@ -145,7 +145,7 @@
 .scope-native-grid[data-scope-table="constraints"]
 	.grid-heading-row
 	.grid-static-col.col-xs-1[data-fieldname="responsible"]:not(.search) {
-	padding-inline: var(--padding-xs) !important;
+	padding-inline: 3px !important;
 }
 
 .dinext-project-scope .scope-person-cell,
