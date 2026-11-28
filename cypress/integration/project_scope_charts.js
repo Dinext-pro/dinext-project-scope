@@ -1069,18 +1069,39 @@ describe("Project scope charts", () => {
 		const type = "Scope Items by Type";
 		const responsible = "Constraints by responsible";
 		cy.window().then(({ frappe }) => frappe.after_ajax());
-		chartOption(chart(type), (option) => {
-			expect(option.series[0].data).to.have.length(2);
+		const expectedCounts = [2, 1];
+		cy.contains(items + " " + chartCard, type).should(([card]) => {
+			const grid = card.closest(items).querySelector(".form-grid");
+			expect(card.getBoundingClientRect().width).to.be.closeTo(
+				grid.getBoundingClientRect().width,
+				2
+			);
 		});
-		clickPieSegment(type, fixture.title);
+		chartOption(chart(type), (option) => {
+			expect(option.xAxis[0].type).to.eq("value");
+			expect(option.yAxis[0]).to.include({ type: "category", inverse: true });
+			expect(option.yAxis[0].data).to.deep.eq([`${fixture.title} secondary`, fixture.title]);
+			const [series] = option.series;
+			expect(series.type).to.eq("bar");
+			expect(series.data.map(({ value }) => value)).to.deep.eq(expectedCounts);
+			expect(series.label).to.include({ show: true, position: "right" });
+		});
+		const clickType = () =>
+			clickChartPoint(type, (instance) =>
+				instance.convertToPixel({ seriesIndex: 0 }, [0.5, fixture.title])
+			);
+		clickType();
 		cy.get(items + ' select[data-fieldname="scope_type"]').should("have.value", fixture.title);
 		cy.get(items + " .grid-body .grid-row").should("have.length", 1);
 		cy.contains(items + " .grid-body", "warehouse operations").should("be.visible");
 		chartOption(chart(type), (option) => {
-			expect(option.series[0].data).to.deep.eq([{ name: fixture.title, value: 1 }]);
+			const bars = option.series[0].data;
+			expect(bars.map(({ value }) => value)).to.deep.eq(expectedCounts);
+			expect(bars[0].itemStyle.opacity).to.be.lessThan(bars[1].itemStyle.opacity);
 		});
-		clickPieSegment(type, fixture.title);
-		cy.get(items + " .grid-body .grid-row").should("have.length", 2);
+		clickType();
+		cy.get(items + ' select[data-fieldname="scope_type"]').should("have.value", "");
+		cy.get(items + " .grid-body .grid-row").should("have.length", 3);
 		chartOption(chart(responsible), (option) => {
 			expect(option.series[0].data).to.deep.include({ name: fixture.title, value: 1 });
 		});
@@ -1097,7 +1118,7 @@ describe("Project scope charts", () => {
 		clickPieSegment(responsible, fixture.title);
 		cy.get(constraints + " .grid-body .grid-row").should("have.length", 2);
 		cy.window().should(({ cur_frm }) => {
-			expect(cur_frm.doc.project_scopes).to.have.length(2);
+			expect(cur_frm.doc.project_scopes).to.have.length(3);
 			expect(cur_frm.doc.project_constraints).to.have.length(2);
 			expect(Boolean(cur_frm.is_dirty())).to.eq(false);
 		});

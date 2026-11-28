@@ -59,10 +59,6 @@
 	margin: 0 0 var(--margin-xs);
 }
 
-.dinext-project-scope .scope-single-chart {
-	grid-template-columns: minmax(0, min(100%, 272px));
-}
-
 .dinext-project-scope.dinext-scope-native {
 	margin: 0;
 }
@@ -73,6 +69,14 @@
 
 .dinext-project-scope .scope-embedded-charts .dinext-scope-chart {
 	height: 126px;
+}
+
+.dinext-project-scope .scope-embedded-charts .dinext-scope-chart--horizontal {
+	height: calc(8px + var(--scope-bar-rows) * 26px);
+}
+
+.dinext-project-scope .dinext-scope-chart-card--horizontal .dinext-scope-result-filter {
+	max-width: 15rem;
 }
 
 .dinext-project-scope .scope-embedded-charts .dinext-scope-heading {

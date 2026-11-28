@@ -28,7 +28,7 @@
  ],
  "fields": [
   {
-   "columns": 1,
+   "columns": 2,
    "default": "New",
    "fieldname": "status",
    "fieldtype": "Select",
@@ -83,7 +83,7 @@
    "options": "\nUser\nContact"
   },
   {
-   "columns": 2,
+   "columns": 1,
    "fieldname": "responsible",
    "fieldtype": "Dynamic Link",
    "in_list_view": 1,

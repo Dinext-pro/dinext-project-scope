@@ -253,13 +253,12 @@ def create_report_fixture(run_id):
 			"scope_type": _named("Project Scope Type", prefix).name,
 		},
 	)
-	project.append(
-		"project_scopes",
-		{
-			"scope_title": f"{prefix} rollout locations",
-			"scope_type": _named("Project Scope Type", other_category).name,
-		},
-	)
+	secondary_scope_type = _named("Project Scope Type", other_category).name
+	for label in ("rollout locations", "training locations"):
+		project.append(
+			"project_scopes",
+			{"scope_title": f"{prefix} {label}", "scope_type": secondary_scope_type},
+		)
 	assumption = project.append(
 		"project_constraints",
 		{

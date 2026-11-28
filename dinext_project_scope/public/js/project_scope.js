@@ -991,7 +991,7 @@
 							title: __("Change requests by date"),
 							value: (row) => row.creation?.slice(0, 10),
 							formatLabel: (name) => (name ? frappe.datetime.str_to_user(name) : ""),
-							timeline: true,
+							chartType: "timeline",
 						},
 						participantChart(
 							"initiator",
@@ -1043,7 +1043,6 @@
 		const surface = ui.createSurface(host, () => ui.routeMatches("Form", "Project", project));
 		surface.root.classList.add("dinext-project-scope", "dinext-scope-native");
 		const charts = node("div", null, "dinext-scope-charts scope-embedded-charts");
-		if (tableName === "scope_items") charts.classList.add("scope-single-chart");
 		surface.root.append(charts);
 		let people = {};
 		let ready = false;
@@ -1146,12 +1145,15 @@
 
 	function showScopeItems(frm) {
 		showNativeScope(frm, "project_scopes", "scope_items", () => [
-			chartProfile(
-				"scope_type",
-				__("Type"),
-				__("Scope Items by Type"),
-				"Project Scope Type"
-			),
+			{
+				...chartProfile(
+					"scope_type",
+					__("Type"),
+					__("Scope Items by Type"),
+					"Project Scope Type"
+				),
+				chartType: "horizontal-bar",
+			},
 		]);
 	}
 

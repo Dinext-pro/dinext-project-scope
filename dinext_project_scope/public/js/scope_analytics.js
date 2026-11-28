@@ -887,10 +887,12 @@
 	function chartFilter(
 		surface,
 		container,
-		{ key, label, title, formatLabel, timeline },
+		{ key, label, title, formatLabel, chartType },
 		onChange
 	) {
 		const card = node("section", "dinext-scope-chart-card");
+		if (chartType === "horizontal-bar")
+			card.classList.add("dinext-scope-chart-card--horizontal");
 		const chart = node("div");
 		const filter = node("div", "dinext-scope-result-filter");
 		card.append(node("h4", "dinext-scope-heading", title), chart, filter);
@@ -936,7 +938,13 @@
 				control.set_input(selected);
 				panel.clear();
 				const onSelect = ({ name }) => panel.toggle(name);
-				if (timeline) {
+				if (chartType === "horizontal-bar") {
+					drawHorizontalBars(surface, chart, options, {
+						formatLabel: display,
+						onSelect,
+						isHighlighted: (name) => !selected || selected === optionValue(name),
+					});
+				} else if (chartType === "timeline") {
 					drawTimeline(surface, chart, counts, onSelect);
 				} else {
 					drawDonut(surface, chart, counts, onSelect, {
@@ -1034,6 +1042,78 @@
 					);
 				}
 			}
+		);
+	}
+
+	function drawHorizontalBars(
+		surface,
+		container,
+		items,
+		{ formatLabel, onSelect, isHighlighted }
+	) {
+		if (!items.length) {
+			container.append(node("div", "dinext-scope-empty", __("No data")));
+			return;
+		}
+		const ordered = [...items].sort(
+			(a, b) => b.count - a.count || formatLabel(a.name).localeCompare(formatLabel(b.name))
+		);
+		const chart = node("div", "dinext-scope-chart dinext-scope-chart--horizontal");
+		chart.style.setProperty("--scope-bar-rows", ordered.length);
+		container.append(chart);
+		surface.registerChart(
+			chart,
+			() => {
+				const { text } = chartColors();
+				const palette =
+					document.documentElement.dataset.theme === "dark"
+						? chartPalette
+						: resultLightPalette;
+				return {
+					backgroundColor: "transparent",
+					color: [palette[0]],
+					animation: false,
+					aria: { enabled: true },
+					grid: { left: 0, right: 38, top: 4, bottom: 4, containLabel: true },
+					tooltip: { trigger: "item", renderMode: "richText" },
+					xAxis: { type: "value", min: 0, max: "dataMax", show: false },
+					yAxis: {
+						type: "category",
+						inverse: true,
+						data: ordered.map(({ name }) => name),
+						axisLine: { show: false },
+						axisTick: { show: false },
+						axisLabel: {
+							color: text,
+							formatter: formatLabel,
+							interval: 0,
+							margin: 12,
+							width: 176,
+							overflow: "truncate",
+						},
+					},
+					series: [
+						{
+							type: "bar",
+							barMaxWidth: 16,
+							itemStyle: { borderRadius: [0, 3, 3, 0] },
+							label: {
+								show: true,
+								position: "right",
+								formatter: "{c}",
+								color: text,
+							},
+							data: ordered.map(({ name, count }) => ({
+								name: formatLabel(name),
+								value: count,
+								itemStyle: { opacity: isHighlighted(name) ? 1 : 0.32 },
+							})),
+						},
+					],
+				};
+			},
+			(instance) =>
+				instance.on("click", "series.bar", ({ dataIndex }) => onSelect(ordered[dataIndex]))
 		);
 	}
 

@@ -163,6 +163,18 @@ describe("Project scope reports", () => {
 		cy.visit(`/app/project/${fixture.project}`);
 		cy.get('button[data-fieldname="custom_объем"]').click();
 		const native = '[data-fieldname="project_constraints"] .grid-body';
+		cy.get(`${native} .data-row`)
+			.first()
+			.should(([row]) => {
+				const width = (field) =>
+					row.querySelector(`[data-fieldname="${field}"]`).getBoundingClientRect().width;
+				expect(width("status")).to.be.closeTo(width("record_type"), 1);
+				expect(width("status")).to.be.greaterThan(width("responsible"));
+				const label = row.querySelector(
+					'[data-fieldname="status"] .indicator-pill .ellipsis'
+				);
+				expect(label.scrollWidth).to.be.at.most(label.clientWidth + 1);
+			});
 		for (const field of ["category", "record_type", "status"]) {
 			expectCentered(`${native} [data-fieldname="${field}"] .static-area`);
 		}
