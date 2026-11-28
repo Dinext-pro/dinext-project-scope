@@ -4,3 +4,5 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+execute:from dinext_project_scope.install import seed_default_result_tree_responsibility; seed_default_result_tree_responsibility()
+execute:from dinext_project_scope.deliverable_structure import backfill_element_doctypes; backfill_element_doctypes()

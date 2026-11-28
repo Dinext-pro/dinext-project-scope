@@ -1,7 +1,6 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:project_scope",
  "creation": "2026-03-19 02:45:27.210706",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -18,8 +17,7 @@
    "in_list_view": 1,
    "label": "Project Scope",
    "options": "Project Scope",
-   "reqd": 1,
-   "unique": 1
+   "reqd": 1
   },
   {
    "fieldname": "section_break_ds",
@@ -35,12 +33,11 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-19 03:06:40.680787",
+ "modified": "2026-11-18 01:08:47.535349",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Deliverable Scope",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
+ "owner": "ikhmel@dinord.ru",
  "permissions": [],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,

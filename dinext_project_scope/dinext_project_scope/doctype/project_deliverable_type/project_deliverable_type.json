@@ -25,7 +25,8 @@
   {
    "fieldname": "description",
    "fieldtype": "Small Text",
-   "label": "Description"
+   "label": "Description",
+   "translatable": 1
   },
   {
    "fieldname": "elements_section",
@@ -56,12 +57,12 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-23 02:16:34.846336",
+ "modified": "2026-11-26 02:04:28.652442",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Deliverable Type",
  "naming_rule": "Set by user",
- "owner": "Administrator",
+ "owner": "ikhmel@dinord.ru",
  "permissions": [
   {
    "create": 1,
@@ -90,6 +91,7 @@
   },
   {
    "create": 1,
+   "delete": 1,
    "email": 1,
    "export": 1,
    "print": 1,
@@ -99,11 +101,39 @@
    "select": 1,
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User",
+   "select": 1,
+   "share": 1,
+   "write": 1
   }
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1,
+ "translated_doctype": 1
 }

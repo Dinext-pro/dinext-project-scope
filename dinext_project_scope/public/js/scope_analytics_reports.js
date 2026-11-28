@@ -1,0 +1,256 @@
+(() => {
+	"use strict";
+
+	const responsibilityMatrix = "Project Responsibility Matrix";
+	const scopeReports = new Set([
+		"Requirement Traceability Matrix",
+		responsibilityMatrix,
+		"Project Change Impact Matrix",
+		"Project Deliverable Register",
+		"Project Constraint Register",
+		"Project Change Request Register",
+	]);
+	const grids = new WeakMap();
+	const controllers = new WeakSet();
+	const linkFilters = new WeakSet();
+	const downloadMethod = "dinext_project_scope.analytics.export.download";
+
+	function isActive(report) {
+		const route = frappe.get_route();
+		return (
+			route[0] === "query-report" &&
+			route[1] === report.report_name &&
+			scopeReports.has(route[1])
+		);
+	}
+
+	function canExport(report) {
+		return Boolean(
+			report.report_doc?.ref_doctype &&
+				frappe.model.can_export(report.report_doc.ref_doctype)
+		);
+	}
+
+	function keepLinkValuesDuringTitleLookup(report) {
+		for (const field of report.filters) {
+			if (!["Link", "Dynamic Link"].includes(field.df.fieldtype) || linkFilters.has(field))
+				continue;
+			linkFilters.add(field);
+			const format = field.set_formatted_input;
+			field.set_formatted_input = function (value) {
+				format.call(this, value);
+				if (value && !this.get_input_value()) this.set_input_value(value);
+			};
+			if (field.value && !field.get_input_value()) field.set_input_value(field.value);
+		}
+	}
+
+	function configureMatrixFilters(report) {
+		const matrix = report.report_name === responsibilityMatrix;
+		report.page.page_form.toggleClass("dinext-scope-raci-filters", matrix);
+		if (!matrix) return;
+		for (const field of report.filters) window.DinextScopeAnalytics.anchorLinkOptions(field);
+	}
+
+	async function download(report) {
+		if (!isActive(report) || !canExport(report)) return;
+		const name = report.report_name;
+		let filters;
+		try {
+			filters = report.get_filter_values(true);
+		} catch {
+			return;
+		}
+		const parameters = new URLSearchParams({
+			report_name: name,
+			filters: JSON.stringify(filters),
+		});
+		try {
+			const response = await fetch(`/api/method/${downloadMethod}?${parameters}`, {
+				credentials: "same-origin",
+				cache: "no-store",
+			});
+			if (!response.ok) {
+				frappe.msgprint(
+					response.status === 403
+						? __("You do not have access to this export.")
+						: __("Could not download the report.")
+				);
+				return;
+			}
+			const url = URL.createObjectURL(await response.blob());
+			const anchor = document.createElement("a");
+			anchor.href = url;
+			anchor.download = `${frappe.scrub(name)}.xlsx`;
+			anchor.click();
+			setTimeout(() => URL.revokeObjectURL(url), 2000);
+		} catch {
+			frappe.msgprint(__("Could not download the report."));
+		}
+	}
+
+	function nestRows(rows) {
+		const roots = [];
+		const levels = [];
+		for (const item of rows) {
+			const depth = item.depth || 0;
+			const row = { ...item, children: [] };
+			if (depth && levels[depth - 1]) levels[depth - 1].children.push(row);
+			else roots.push(row);
+			levels[depth] = row;
+			levels.length = depth + 1;
+		}
+		return roots;
+	}
+
+	async function showReport(report, result) {
+		const ui = window.DinextScopeAnalytics;
+		const name = report.report_name;
+		const container = report.$report.get(0);
+		const matrix = name === responsibilityMatrix;
+		const previous = grids.get(report);
+		const surface =
+			matrix && previous?.active()
+				? previous
+				: ui.createSurface(container, () => ui.routeMatches("query-report", name));
+		grids.set(report, surface);
+		const page = report.page.main.get(0);
+		page.classList.add("dinext-scope-report-page");
+		if (!surface.reportTable) {
+			surface.reportTable = ui.node("div", "dinext-scope-table");
+			surface.reportTable.classList.toggle("dinext-scope-raci-table", matrix);
+			surface.root.append(surface.reportTable);
+		}
+
+		if (matrix)
+			surface.matrixBaseColumns = result.columns.filter((column) => !column.assignee);
+		await ui.drawGrid(surface, surface.reportTable, result.columns, nestRows(result.result), {
+			responsibilityMatrix: matrix,
+			expand: name === "Requirement Traceability Matrix" ? "roots" : matrix ? "all" : null,
+			export: canExport(report) ? () => download(report) : null,
+			fullscreenShell: page,
+		});
+	}
+
+	function currentMatrix(report) {
+		if (report.report_name !== responsibilityMatrix || !isActive(report)) return;
+		const surface = grids.get(report);
+		if (surface?.active() && surface.table) return surface;
+	}
+
+	function clearMatrix(report, surface, message) {
+		report.toggle_message(false);
+		return window.DinextScopeAnalytics.drawGrid(
+			surface,
+			surface.reportTable,
+			surface.matrixBaseColumns,
+			[],
+			{ responsibilityMatrix: true, emptyMessage: message }
+		);
+	}
+
+	function install(report) {
+		if (controllers.has(report)) return;
+		controllers.add(report);
+		const render = report.render_datatable;
+		const refresh = report.refresh;
+		const toggle = report.toggle_report;
+		const toggleEmpty = report.toggle_nothing_to_show;
+		const setupFilters = report.setup_filters;
+		const showLoading = report.show_loading_screen;
+		const menu = report.get_menu_items;
+		const footer = report.show_footer_message;
+		const addChartButtons = report.add_chart_buttons_to_toolbar;
+		const addCardButton = report.add_card_button_to_toolbar;
+
+		report.setup_filters = function (...args) {
+			const result = setupFilters.apply(this, args);
+			configureMatrixFilters(this);
+			return result;
+		};
+		report.refresh = function (...args) {
+			if (
+				isActive(this) &&
+				this.filters.some(
+					(field) => (field.df.reqd || field.df.mandatory) && !field.get_value()
+				)
+			) {
+				this.hide_loading_screen();
+				const matrix = currentMatrix(this);
+				if (matrix) return clearMatrix(this, matrix, __("Please set filters"));
+				this.toggle_report(false);
+				this.toggle_message(true, __("Please set filters"));
+				return;
+			}
+			return refresh.apply(this, args);
+		};
+		report.render_datatable = function (...args) {
+			const source = this.raw_data?.columns?.[0]?.scope_report;
+			if (!isActive(this) && !source) return render.apply(this, args);
+			if (!isActive(this) || source !== this.report_name) return;
+			showReport(this, this.raw_data).catch(() => {
+				const surface = grids.get(this);
+				if (surface?.active())
+					window.DinextScopeAnalytics.setMessage(
+						surface,
+						__("Could not display the report.")
+					);
+			});
+		};
+		report.show_loading_screen = function (...args) {
+			if (!currentMatrix(this)) return showLoading.apply(this, args);
+		};
+		report.toggle_report = function (visible, ...args) {
+			if (isActive(this) && !visible) {
+				const matrix = currentMatrix(this);
+				if (matrix) return clearMatrix(this, matrix, __("Loading"));
+				grids.get(this)?.dispose();
+				grids.delete(this);
+			}
+			return toggle.call(this, visible, ...args);
+		};
+		report.toggle_nothing_to_show = function (visible, ...args) {
+			const matrix = currentMatrix(this);
+			if (visible && matrix) return clearMatrix(this, matrix);
+			return toggleEmpty.call(this, visible, ...args);
+		};
+		report.get_menu_items = function (...args) {
+			const items = menu.apply(this, args);
+			if (!isActive(this)) return items;
+			const standard = new Set([__("Refresh"), __("Edit"), __("User Permissions")]);
+			return [
+				...items.filter((item) => standard.has(item.label)),
+				{
+					label: __("Download Excel"),
+					action: () => download(this),
+					condition: () => canExport(this),
+					standard: true,
+				},
+			];
+		};
+		report.show_footer_message = function (...args) {
+			if (!isActive(this)) return footer.apply(this, args);
+			this.$report_footer?.remove();
+		};
+		report.add_chart_buttons_to_toolbar = function (...args) {
+			if (!isActive(this)) return addChartButtons.apply(this, args);
+		};
+		report.add_card_button_to_toolbar = function (...args) {
+			if (!isActive(this)) return addCardButton.apply(this, args);
+		};
+	}
+
+	window.DinextScopeReports = {
+		async bind(report) {
+			const expectedReport = report.report_name;
+			await window.DinextScopeAnalytics.libraries();
+			if (expectedReport !== report.report_name || !isActive(report)) return;
+			keepLinkValuesDuringTitleLookup(report);
+			install(report);
+			configureMatrixFilters(report);
+			report.page.clear_menu();
+			report.menu_items = report.get_menu_items();
+			report.set_menu_items();
+		},
+	};
+})();

@@ -1,3 +1,5 @@
+from dinext_project_scope.catalogs import SHIPPED_CATALOG_NAMES as _SHIPPED_CATALOG_NAMES
+
 app_name = "dinext_project_scope"
 app_title = "Dinext Project Scope"
 app_publisher = "Dinext"
@@ -8,34 +10,15 @@ app_license = "GNU General Public License (v3)"
 # Apps
 # ------------------
 
-required_apps = ["erpnext"]
-'''
+required_apps = ["erpnext", "dinext_common", "dinext_projects", "dinext_goals"]
+
 fixtures = [
-    "Project Scope Type",
-    "Requirement Kind",
-    "Project Deliverable Responsibility",
-    "Project Deliverable Category",
-    "Project Change Relation Type",
-    "Project Deliverable Type",
-    {
-        "doctype": "Custom Field",
-        "filters": [
-            ["module", "in", ["Dinext Project Scope"]]
-        ]
-    },
-    {
-        "doctype": "Client Script",
-        "filters": [
-            ["module", "in", ["Dinext Project Scope"]],
-        ]
-    },
-    {
-        "doctype": "Server Script",
-        "filters": [
-            ["module", "in", ["Dinext Project Scope"]],
-        ]
-    }
-]'''
+	{"doctype": "Custom Field", "filters": [["module", "=", "Dinext Project Scope"], ["dt", "=", "Project"]]},
+	*[
+		{"doctype": doctype, "filters": [["name", "in", list(names)]]}
+		for doctype, names in _SHIPPED_CATALOG_NAMES.items()
+	],
+]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -109,8 +92,12 @@ fixtures = [
 # Installation
 # ------------
 
-# before_install = "dinext_project_scope.install.before_install"
+before_install = "dinext_project_scope.install.before_install"
 after_install = "dinext_project_scope.install.after_install"
+after_sync = [
+	"dinext_project_scope.install.ensure_scope_field_order",
+	"dinext_project_scope.install.seed_default_result_tree_responsibility",
+]
 after_migrate = "dinext_project_scope.install.after_migrate"
 
 # Uninstallation
@@ -275,3 +262,111 @@ after_migrate = "dinext_project_scope.install.after_migrate"
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+
+doctype_js = {
+	"Project": "public/js/project_scope.js",
+	**{doctype: "public/js/scope_catalogs.js" for doctype in _SHIPPED_CATALOG_NAMES},
+}
+doctype_list_js = {doctype: "public/js/scope_catalogs.js" for doctype in _SHIPPED_CATALOG_NAMES}
+
+doc_events = {
+	"Project": {
+		"validate": [
+			"dinext_project_scope.project_scope.validate_project",
+			"dinext_project_scope.requirements.validate_project",
+		],
+		"on_update": "dinext_project_scope.deliverable_workflow.on_project_team_change",
+	},
+	"Task": {
+		"validate": "dinext_project_scope.deliverables.before_task_change",
+		"on_change": "dinext_project_scope.deliverables.on_task_change",
+		"before_change": "dinext_project_scope.deliverables.before_task_change",
+		"after_delete": "dinext_project_scope.deliverables.on_task_change",
+	},
+}
+
+override_doctype_class = {"Task": "dinext_project_scope.deliverables.DeliverableTask"}
+
+has_permission = {
+	name: "dinext_project_scope.access.project_document_permission"
+	for name in (
+		"Project Requirement",
+		"Project Requirement Specification",
+		"Project Deliverable",
+		"Project Change Request",
+	)
+}
+has_permission.update(
+	{
+		name: "dinext_project_scope.access.journal_permission"
+		for name in (
+			"Project Scope Approval",
+			"Project Scope Template Application",
+			"Project Deliverable Log",
+		)
+	}
+)
+
+permission_query_conditions = {
+	"Project Requirement": "dinext_project_scope.access.requirement_queries",
+	"Project Requirement Specification": "dinext_project_scope.access.specification_queries",
+	"Project Deliverable": "dinext_project_scope.access.deliverable_queries",
+	"Project Change Request": "dinext_project_scope.access.change_request_queries",
+	"Project Scope Approval": "dinext_project_scope.access.journal_queries",
+	"Project Scope Template Application": "dinext_project_scope.access.journal_queries",
+	"Project Deliverable Log": "dinext_project_scope.access.journal_queries",
+}
+
+final_has_permission = {"Project Deliverable": has_permission["Project Deliverable"]}
+final_permission_query_conditions = {
+	"Project Deliverable": permission_query_conditions["Project Deliverable"],
+}
+standard_queries = {"Project Deliverable": "dinext_project_scope.access.deliverable_link_query"}
+
+workflow_approval_lock_dependencies = [
+	"dinext_project_scope.requirement_approval.lock_dependencies",
+	"dinext_project_scope.deliverable_workflow.workflow_lock_dependencies",
+	"dinext_project_scope.changes.lock_dependencies",
+]
+workflow_approval_round_opened = [
+	"dinext_project_scope.requirement_approval.round_opened",
+	"dinext_project_scope.changes.round_opened",
+]
+workflow_approval_vote_completed = ["dinext_project_scope.deliverable_workflow.capture_workflow_vote"]
+workflow_approval_domain_handlers = {
+	name: {"validate_vote": "dinext_project_scope.requirement_approval.validate_vote"}
+	for name in (
+		"Project Requirement",
+		"Project Requirement Specification",
+		"Project Requirement Specification Template",
+	)
+}
+workflow_approval_domain_handlers.update(
+	{
+		"Project Deliverable": {
+			"vote_context": "dinext_project_scope.deliverable_workflow.workflow_vote_context",
+			"validate_vote": "dinext_project_scope.deliverable_workflow.validate_workflow_vote",
+		},
+		"Project Change Request": {
+			"vote_context": "dinext_project_scope.changes.workflow_vote_context",
+			"validate_vote": "dinext_project_scope.changes.validate_workflow_vote",
+		},
+	}
+)
+workflow_approval_fingerprint_excluded_fields = [
+	{
+		"Project Requirement": ["status", "responsible", "responsible_type", "lft", "rgt", "old_parent"],
+		"Project Requirement Specification": ["responsible"],
+		"Project Requirement Specification Template": ["responsible"],
+		"Project Deliverable": ["last_acceptance_log", "progress", "plan_incomplete", "forecast_incomplete"],
+		"Project Change Request": [
+			"approval_approver",
+			"implementation_responsible",
+			"implementation_date",
+			"implementation_note",
+			"implementation_items",
+			"implemented_at",
+			"implemented_by",
+		],
+	}
+]

@@ -1,9 +1,9 @@
 # Copyright (c) 2026, Dinext and contributors
 # For license information, please see license.txt
 
-# import frappe
 from frappe.model.document import Document
 
+from dinext_project_scope.catalogs import preserve_fixture_settings
 
 class RequirementKind(Document):
-	pass
+	before_import = preserve_fixture_settings

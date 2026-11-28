@@ -1,0 +1,152 @@
+ExampleCustomer08 загрузки и миграции данных в тест и продуктив.,Preparation and execution of data loading and migration into test and production environments.,
+ExampleCustomer08 загрузки и миграции данных в тест и продуктив.,Preparation and execution of data loading and migration into test and production environments.,Project Deliverable Type
+Включает в себя настройку и модульное тестирование для удовлетворения требований заказчика.,Covers configuration and unit testing to meet customer requirements.,
+Включает в себя настройку и модульное тестирование для удовлетворения требований заказчика.,Covers configuration and unit testing to meet customer requirements.,Project Deliverable Category
+"Включает в себя обнаружение, планирование и выполнение переноса начальных данных в новую систему и архивирование устаревших данных.","Covers assessing, planning and performing initial data migration to the new system and archiving obsolete data.",
+"Включает в себя обнаружение, планирование и выполнение переноса начальных данных в новую систему и архивирование устаревших данных.","Covers assessing, planning and performing initial data migration to the new system and archiving obsolete data.",Project Deliverable Category
+"Включает в себя определение требований к интеграции, точек интеграции, подхода к интеграции и проектирование интеграционного решения. Этот рабочий процесс также включает настройку интеграционной среды и промежуточного программного обеспечения между решением и любыми внешними системами.","Covers integration requirements, interfaces, approach and design. It also covers configuring the integration environment and middleware between the solution and external systems.",
+"Включает в себя определение требований к интеграции, точек интеграции, подхода к интеграции и проектирование интеграционного решения. Этот рабочий процесс также включает настройку интеграционной среды и промежуточного программного обеспечения между решением и любыми внешними системами.","Covers integration requirements, interfaces, approach and design. It also covers configuring the integration environment and middleware between the solution and external systems.",Project Deliverable Category
+"Включает в себя проектирование, разработку и развертывание функциональности системы, которая не может быть обеспечена стандартным продуктом и требует индивидуальной разработки.","Covers the design, development and deployment of functionality that the standard product cannot provide and that requires custom development.",
+"Включает в себя проектирование, разработку и развертывание функциональности системы, которая не может быть обеспечена стандартным продуктом и требует индивидуальной разработки.","Covers the design, development and deployment of functionality that the standard product cannot provide and that requires custom development.",Project Deliverable Category
+Включает в себя управление ценностью и управление организационными изменениями (OCM).,Covers value management and organizational change management.,
+Включает в себя управление ценностью и управление организационными изменениями (OCM).,Covers value management and organizational change management.,Project Deliverable Category
+"Включает ландшафт решения, концепцию развертывания, архитектуру системы, техническое проектирование системы, настройку среды (разработка, тестирование, производство, отказоустойчивость), стандарты и процессы эксплуатации технологий.","Covers solution landscape, deployment design, system architecture, technical design, setup of development, test, production and high-availability environments, and technology operations standards and processes.",
+"Включает ландшафт решения, концепцию развертывания, архитектуру системы, техническое проектирование системы, настройку среды (разработка, тестирование, производство, отказоустойчивость), стандарты и процессы эксплуатации технологий.","Covers solution landscape, deployment design, system architecture, technical design, setup of development, test, production and high-availability environments, and technology operations standards and processes.",Project Deliverable Category
+"Включает планирование, составление графика, управление, контроль и мониторинг выполнения проекта. Целевая группа этой категории результатов — менеджеры проектов.","Covers project planning, scheduling, management, control and monitoring. These deliverables are intended for project managers.",
+"Включает планирование, составление графика, управление, контроль и мониторинг выполнения проекта. Целевая группа этой категории результатов — менеджеры проектов.","Covers project planning, scheduling, management, control and monitoring. These deliverables are intended for project managers.",Project Deliverable Category
+"Выполнение работ: задачи выполнения, согласования и отработки замечаний.","Execution, review and follow-up tasks required to complete the work.",
+"Выполнение работ: задачи выполнения, согласования и отработки замечаний.","Execution, review and follow-up tasks required to complete the work.",Project Deliverable Type
+Географический,Geographic,
+Географический,Geographic,Project Scope Type
+Доводится до сведения,Informed,
+Доводится до сведения,Informed,Project Deliverable Responsibility
+Документ,Document,
+Документ,Document,Project Deliverable Type
+Интеграционный,Integration,
+Интеграционный,Integration,Project Scope Type
+Интеграция,Integration,
+Интеграция,Integration,Project Deliverable Category
+Исполнитель,Responsible,
+Исполнитель,Responsible,Project Deliverable Responsibility
+Качество,Quality,
+Качество,Quality,Project Change Relation Type
+Консультирует до исполнения,Consulted,
+Консультирует до исполнения,Consulted,Project Deliverable Responsibility
+Конфигурирование,Configuration,
+Конфигурирование,Configuration,Project Deliverable Category
+"Лицо, которое несёт полную ответственность за успешное получение результата.",The person accountable for delivering the result successfully.,
+"Лицо, которое несёт полную ответственность за успешное получение результата.",The person accountable for delivering the result successfully.,Project Deliverable Responsibility
+"Лицо, которое несёт полную ответственность за финальное утверждение полученного результата.",The person responsible for the final approval of the result.,
+"Лицо, которое несёт полную ответственность за финальное утверждение полученного результата.",The person responsible for the final approval of the result.,Project Deliverable Responsibility
+"Лицо, участвующее в согласовании результата.",The person who takes part in reviewing the result.,
+"Лицо, участвующее в согласовании результата.",The person who takes part in reviewing the result.,Project Deliverable Responsibility
+Миграция данных,Data Migration,
+Миграция данных,Data Migration,Project Deliverable Type
+Начальная миграция,Initial Migration,
+Начальная миграция,Initial Migration,Project Deliverable Category
+Обучение,Training,
+Обучение,Training,Project Deliverable Category
+Обучение ключевых и конечных пользователей и администраторов для подготовки заказчика к выполнению тестовых сценариев и продуктивной работе.,"Training for key users, end users and administrators to prepare the customer for testing and production operations.",
+Обучение ключевых и конечных пользователей и администраторов для подготовки заказчика к выполнению тестовых сценариев и продуктивной работе.,"Training for key users, end users and administrators to prepare the customer for testing and production operations.",Project Deliverable Category
+Объем,Scope,
+Объем,Scope,Project Change Relation Type
+Орг. изменения,Organizational Change,
+Орг. изменения,Organizational Change,Project Deliverable Category
+Организационные,Organizational,
+Организационные,Organizational,Requirement Kind
+Организационный,Organizational,
+Организационный,Organizational,Project Scope Type
+Ответственный,Accountable,
+Ответственный,Accountable,Project Deliverable Responsibility
+Отчетность,Reporting,
+Отчетность,Reporting,Project Deliverable Category
+"Охватывает подтверждение объема работ, анализ соответствия стандартам, выявление изменений в требованиях к бизнес-процессам и функциональное проектирование решения.","Covers scope confirmation, fit-to-standard analysis, identification of changes in business process requirements and functional solution design.",
+"Охватывает подтверждение объема работ, анализ соответствия стандартам, выявление изменений в требованиях к бизнес-процессам и функциональное проектирование решения.","Covers scope confirmation, fit-to-standard analysis, identification of changes in business process requirements and functional solution design.",Project Deliverable Category
+"Охватывает создание и настройку процесса службы поддержки, процесса управления обращениями, процесса управления изменениями после запуска системы, а также стандарты и процессы эксплуатации, связанные с пользователями.","Covers setup of service desk, incident and change management processes after go-live, and standards and procedures for user-facing technology operations.",
+"Охватывает создание и настройку процесса службы поддержки, процесса управления обращениями, процесса управления изменениями после запуска системы, а также стандарты и процессы эксплуатации, связанные с пользователями.","Covers setup of service desk, incident and change management processes after go-live, and standards and procedures for user-facing technology operations.",Project Deliverable Category
+"Охватывает стратегию тестирования, планирование тестирования, разработку тестовых сценариев и выполнение интеграционного тестирования, тестирования производительности, системного тестирования, регрессионного тестирования и приемочного тестирования пользователями.","Covers test strategy, planning, scenario development, integration testing, performance testing, system testing, regression testing and user acceptance testing.",
+"Охватывает стратегию тестирования, планирование тестирования, разработку тестовых сценариев и выполнение интеграционного тестирования, тестирования производительности, системного тестирования, регрессионного тестирования и приемочного тестирования пользователями.","Covers test strategy, planning, scenario development, integration testing, performance testing, system testing, regression testing and user acceptance testing.",Project Deliverable Category
+Подготовка сценариев и проведение тестов.,Preparation of test scenarios and execution of tests.,
+Подготовка сценариев и проведение тестов.,Preparation of test scenarios and execution of tests.,Project Deliverable Type
+Поддержка,Support,
+Поддержка,Support,Project Deliverable Category
+Проектирование,Solution Design,
+Проектирование,Solution Design,Project Deliverable Category
+"Проектирование, создание и тестирование отчетности и аналитики в рамках внедренного решения.","Covers the design, creation and testing of reports and analytics in the delivered solution.",
+"Проектирование, создание и тестирование отчетности и аналитики в рамках внедренного решения.","Covers the design, creation and testing of reports and analytics in the delivered solution.",Project Deliverable Category
+Процессный,Process,
+Процессный,Process,Project Scope Type
+Работа,Work,
+Работа,Work,Project Deliverable Type
+Разработка,Development,
+Разработка,Development,Project Deliverable Category
+Разработка,Development,Project Deliverable Type
+Регуляторные,Regulatory,
+Регуляторные,Regulatory,Requirement Kind
+"Результаты в виде документов: спецификации, сценарии, программы.","Deliverables in document form, such as specifications, scenarios or programs.",
+"Результаты в виде документов: спецификации, сценарии, программы.","Deliverables in document form, such as specifications, scenarios or programs.",Project Deliverable Type
+Согласующий,Reviewer,
+Согласующий,Reviewer,Project Deliverable Responsibility
+Спецификация и реализация функциональности проекта.,Specification and implementation of project functionality.,
+Спецификация и реализация функциональности проекта.,Specification and implementation of project functionality.,Project Deliverable Type
+Сроки,Dates,
+Сроки,Dates,Project Change Relation Type
+Стратегические,Strategic,
+Стратегические,Strategic,Requirement Kind
+"Те, кого необходимо держать в курсе хода и результатов.",People who need updates on progress and results.,
+"Те, кого необходимо держать в курсе хода и результатов.",People who need updates on progress and results.,Project Deliverable Responsibility
+Тестирование,Testing,
+Тестирование,Testing,Project Deliverable Category
+Тестирование,Testing,Project Deliverable Type
+Техническая архитектура и инфраструктура,Technical Architecture and Infrastructure,
+Техническая архитектура и инфраструктура,Technical Architecture and Infrastructure,Project Deliverable Category
+Технические,Technical,
+Технические,Technical,Requirement Kind
+"Тот, кто непосредственно выполняет работу.",The person who carries out the work.,
+"Тот, кто непосредственно выполняет работу.",The person who carries out the work.,Project Deliverable Responsibility
+"Требования законодательства, нормативных актов или политики.","Requirements arising from legislation, regulations or policy.",
+"Требования законодательства, нормативных актов или политики.","Requirements arising from legislation, regulations or policy.",Requirement Kind
+"Требования и ограничения по бюджету, затратам, окупаемости, учёту и финансовой отчётности.","Requirements and constraints for budgets, costs, return on investment, accounting and financial reporting.",
+"Требования и ограничения по бюджету, затратам, окупаемости, учёту и финансовой отчётности.","Requirements and constraints for budgets, costs, return on investment, accounting and financial reporting.",Requirement Kind
+"Требования к ролям, ответственности, процессам взаимодействия, управлению изменениями и организационной модели проекта.","Requirements for roles, responsibilities, collaboration processes, change management and the project's organizational model.",
+"Требования к ролям, ответственности, процессам взаимодействия, управлению изменениями и организационной модели проекта.","Requirements for roles, responsibilities, collaboration processes, change management and the project's organizational model.",Requirement Kind
+"Требования к технологиям, архитектуре, платформам, производительности, безопасности и совместимости решений.","Requirements for technologies, architecture, platforms, performance, security and solution compatibility.",
+"Требования к технологиям, архитектуре, платформам, производительности, безопасности и совместимости решений.","Requirements for technologies, architecture, platforms, performance, security and solution compatibility.",Requirement Kind
+"Требования к функциям системы, сценариям использования, поведению и результатам для пользователей и процессов.","Requirements for system functions, use cases, behavior and outcomes for users and processes.",
+"Требования к функциям системы, сценариям использования, поведению и результатам для пользователей и процессов.","Requirements for system functions, use cases, behavior and outcomes for users and processes.",Requirement Kind
+"Требования согласования с корпоративной стратегией, целями бизнеса и долгосрочным развитием.","Requirements for alignment with corporate strategy, business goals and long-term development.",
+"Требования согласования с корпоративной стратегией, целями бизнеса и долгосрочным развитием.","Requirements for alignment with corporate strategy, business goals and long-term development.",Requirement Kind
+Трудозатраты,Work Efforts,
+Трудозатраты,Work Efforts,Project Change Relation Type
+Управление проектом,Project Management,
+Управление проектом,Project Management,Project Deliverable Category
+Утверждающий,Approver,
+Утверждающий,Approver,Project Deliverable Responsibility
+Фин. результат,Financial Result,
+Фин. результат,Financial Result,Project Change Relation Type
+Финансовые,Financial,
+Финансовые,Financial,Requirement Kind
+Функциональные,Functional,
+Функциональные,Functional,Requirement Kind
+Функциональный,Functional,
+Функциональный,Functional,Project Scope Type
+"Эксперты или заинтересованные стороны, чьё мнение и информация важны перед принятием решения.",Experts or stakeholders whose input is needed before a decision is made.,
+"Эксперты или заинтересованные стороны, чьё мнение и информация важны перед принятием решения.",Experts or stakeholders whose input is needed before a decision is made.,Project Deliverable Responsibility
+Выполнение,Execution,Project Deliverable Type Element
+Отработка замечаний,Addressing feedback,Project Deliverable Type Element
+Отработка замечаний (опционально),Addressing feedback (optional),Project Deliverable Type Element
+Проведение,Test execution,Project Deliverable Type Element
+Продуктивная миграция,Production migration,Project Deliverable Type Element
+Разработка,Drafting,Project Deliverable Type Element
+Реализация,Implementation,Project Deliverable Type Element
+Согласование / Приемка,Review / acceptance,Project Deliverable Type Element
+Спецификация,Specification,Project Deliverable Type Element
+Сценарий / программа,Test script / plan,Project Deliverable Type Element
+Тестовый прогон,Trial run,Project Deliverable Type Element
+Шаблон загрузки,Data import template,Project Deliverable Type Element
+Д,I,Project Deliverable Responsibility Abbreviation
+И,R,Project Deliverable Responsibility Abbreviation
+К,C,Project Deliverable Responsibility Abbreviation
+О,A,Project Deliverable Responsibility Abbreviation
+С,V,Project Deliverable Responsibility Abbreviation
+У,S,Project Deliverable Responsibility Abbreviation

@@ -1,7 +1,8 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
- "autoname": "field:requirement_title",
+ "autoname": "REQ-.#####",
  "creation": "2026-03-19 02:45:02.346204",
  "description": "Project Requirement",
  "doctype": "DocType",
@@ -16,7 +17,9 @@
   "priority",
   "requirement_importance",
   "column_break_frmh",
+  "author_type",
   "author",
+  "responsible_type",
   "responsible",
   "parent_project_requirement",
   "section_break_sart",
@@ -26,7 +29,13 @@
   "is_group",
   "old_parent",
   "column_break_yjpa",
-  "reason"
+  "reason",
+  "content_revision",
+  "workflow_state",
+  "section_break_zrds",
+  "goals",
+  "template_source",
+  "linked_documents_html"
  ],
  "fields": [
   {
@@ -34,16 +43,16 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Requirement Title",
-   "reqd": 1,
-   "unique": 1
+   "reqd": 1
   },
   {
    "fieldname": "project",
    "fieldtype": "Link",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Project",
-   "options": "Project",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.status != \"Template\"",
+   "options": "Project"
   },
   {
    "fieldname": "parent_project_requirement",
@@ -52,18 +61,33 @@
    "options": "Project Requirement"
   },
   {
+   "default": "Contact",
+   "fieldname": "author_type",
+   "fieldtype": "Select",
+   "label": "Author Type",
+   "options": "Contact\nUser",
+   "reqd": 1
+  },
+  {
    "fieldname": "author",
-   "fieldtype": "Link",
+   "fieldtype": "Dynamic Link",
    "label": "Author",
-   "options": "Contact",
+   "options": "author_type",
+   "reqd": 1
+  },
+  {
+   "default": "User",
+   "fieldname": "responsible_type",
+   "fieldtype": "Select",
+   "label": "Responsible Type",
+   "options": "User\nContact",
    "reqd": 1
   },
   {
    "fieldname": "responsible",
-   "fieldtype": "Link",
+   "fieldtype": "Dynamic Link",
    "label": "Responsible",
-   "link_filters": "[[\"User\",\"enabled\",\"=\",1]]",
-   "options": "User"
+   "options": "responsible_type"
   },
   {
    "default": "Medium",
@@ -150,25 +174,68 @@
    "label": "Importance",
    "options": "Must Have\nShould Have\nNice to Have",
    "reqd": 1
+  },
+  {
+   "fieldname": "goals",
+   "fieldtype": "Table",
+   "label": "Goals",
+   "options": "Project Requirement Goal"
+  },
+  {
+   "default": "1",
+   "fieldname": "content_revision",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Content Revision",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "template_source",
+   "fieldtype": "Link",
+   "label": "Template Source",
+   "no_copy": 1,
+   "options": "Project Requirement",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "workflow_state",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Workflow State",
+   "no_copy": 1,
+   "options": "Workflow State",
+   "read_only": 1
+  },
+  {
+   "fieldname": "linked_documents_html",
+   "fieldtype": "HTML",
+   "label": "Related Documents"
+  },
+  {
+   "fieldname": "section_break_zrds",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2026-03-23 01:54:52.945102",
+ "modified": "2026-11-18 00:56:11.367574",
  "modified_by": "Administrator",
  "module": "Dinext Project Scope",
  "name": "Project Requirement",
- "naming_rule": "By fieldname",
+ "naming_rule": "Expression",
  "nsm_parent_field": "parent_project_requirement",
- "owner": "Administrator",
+ "owner": "ikhmel@dinord.ru",
  "permissions": [
   {
    "create": 1,
    "delete": 1,
    "email": 1,
    "export": 1,
+   "import": 1,
    "print": 1,
    "read": 1,
    "report": 1,
@@ -188,11 +255,74 @@
    "select": 1,
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dinext_Projects_Director",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dinext_Project_Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
   }
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [
+  {
+   "color": "Gray",
+   "title": "New"
+  },
+  {
+   "color": "Cyan",
+   "title": "Approved"
+  },
+  {
+   "color": "Blue",
+   "title": "In Progress"
+  },
+  {
+   "color": "Green",
+   "title": "Done"
+  },
+  {
+   "color": "Gray",
+   "title": "Cancelled"
+  }
+ ],
+ "title_field": "requirement_title",
+ "track_changes": 1
 }
